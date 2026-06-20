@@ -24,15 +24,17 @@ export interface RepairOutcome {
   repaired: boolean;
 }
 
+type ValidateResult =
+  | { ok: true; output: AgentOutput }
+  | { ok: false; output: AgentOutput | null; feedback: string };
+
 /** Validate one raw tool input: Zod shape then hunk coverage. */
-function validate(
-  raw: unknown,
-  files: PullRequestFile[],
-): { ok: true; output: AgentOutput } | { ok: false; feedback: string } {
+function validate(raw: unknown, files: PullRequestFile[]): ValidateResult {
   const parsed = AgentOutputSchema.safeParse(raw);
   if (!parsed.success) {
     return {
       ok: false,
+      output: null,
       feedback: `Your emit_chapters output did not match the required schema. Fix these issues and resubmit the corrected JSON:\n${parsed.error.issues
         .map((i) => `  - ${i.path.join(".")}: ${i.message}`)
         .join("\n")}`,
@@ -42,13 +44,15 @@ function validate(
   if (isFullyCovered(report)) {
     return { ok: true, output: parsed.data };
   }
-  return { ok: false, feedback: formatCoverageFeedback(report) };
+  // Schema-valid but coverage-incomplete: keep the output for best-effort return.
+  return { ok: false, output: parsed.data, feedback: formatCoverageFeedback(report) };
 }
 
 /**
  * Take the FIRST raw tool input and drive the repair loop. Returns the validated
- * output (with `repaired` provenance) or throws the last failure feedback as an
- * Error so the orchestrator can fall back.
+ * output (with `repaired` provenance). On exhaustion with a schema-valid attempt,
+ * returns the best attempt so the caller's coverage sanitizer can fill the gaps.
+ * Only throws if no attempt was ever schema-valid (deterministic fallback path).
  */
 export async function runRepairLoop(firstRaw: unknown, ctx: RepairContext): Promise<RepairOutcome> {
   let result = validate(firstRaw, ctx.files);
@@ -57,6 +61,7 @@ export async function runRepairLoop(firstRaw: unknown, ctx: RepairContext): Prom
   }
 
   let lastRaw = firstRaw;
+  let bestValid: AgentOutput | null = result.output;
   for (let attempt = 1; attempt <= ctx.maxRepairAttempts; attempt += 1) {
     const req: ChapterClientRequest = {
       system: ctx.system,
@@ -72,9 +77,19 @@ export async function runRepairLoop(firstRaw: unknown, ctx: RepairContext): Prom
     if (result.ok) {
       return { output: result.output, repaired: true };
     }
+    if (result.output) {
+      bestValid = result.output;
+    }
   }
 
-  throw new Error(`Repair exhausted after ${ctx.maxRepairAttempts} attempts: ${result.feedback}`);
+  // Exhausted. Keep the best schema-valid attempt so the caller's coverage
+  // sanitizer preserves the LLM's chapters instead of discarding to deterministic.
+  if (bestValid) {
+    return { output: bestValid, repaired: true };
+  }
+  throw new Error(
+    `Repair exhausted with no schema-valid output after ${ctx.maxRepairAttempts} attempts: ${result.feedback}`,
+  );
 }
 
 /** Echo the model's prior output back as assistant text for context. */
