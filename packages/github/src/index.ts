@@ -23,6 +23,12 @@ export {
   type InstallationToken,
   resetInstallationAuth,
 } from "./auth/installation-token.js";
+export {
+  buildAuthorizeUrl,
+  exchangeOAuthCode,
+  getAuthenticatedUser,
+  type OAuthUser,
+} from "./auth/user-oauth.js";
 
 // ─── Client ──────────────────────────────────────────────────────────────────
 export {
