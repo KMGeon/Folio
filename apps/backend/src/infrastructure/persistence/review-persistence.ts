@@ -103,7 +103,7 @@ export async function persistReview(input: PersistReviewInput): Promise<Persiste
     prId: pr.id,
     index: existing.length,
     headSha: input.summary.headSha,
-    baseSha: input.summary.baseRef,
+    baseSha: input.summary.baseSha,
     mergeBaseSha: input.mergeBaseSha,
     prologue: input.prologue,
     rawDiff: input.rawDiff,

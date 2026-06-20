@@ -44,9 +44,6 @@ export function sliceChapterCode(rawDiff: string, hunkRefs: HunkReference[]): Ch
 
     const entry = touched.get(file.path) ?? { path: file.path, additions: 0, deletions: 0 };
     for (const line of hunk.lines) {
-      if (line.type === "header") {
-        continue;
-      }
       if (line.type === "addition") {
         entry.additions += 1;
       }

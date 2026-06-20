@@ -81,6 +81,7 @@ const REQUIRED_IN_PRD = [
   "GITHUB_APP_ID",
   "GITHUB_APP_PRIVATE_KEY",
   "GITHUB_APP_WEBHOOK_SECRET",
+  "GITHUB_PAT",
 ] as const satisfies readonly (keyof Config)[];
 
 function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {

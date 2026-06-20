@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("./api-client.js", () => ({
+vi.mock("./api-client", () => ({
   apiRequest: vi.fn(async () => ({
     pr: {
       org: "acme",
@@ -16,7 +16,7 @@ vi.mock("./api-client.js", () => ({
 }));
 
 const { fetchReview } = await import("./review-api.js");
-const { apiRequest } = await import("./api-client.js");
+const { apiRequest } = await import("./api-client");
 
 describe("fetchReview", () => {
   it("requests the review endpoint by org/repo/number", async () => {

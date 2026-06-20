@@ -48,8 +48,8 @@ export class ReviewPullFacade {
       owner: input.owner,
       repo: input.repo,
       summary,
-      // PAT path has no merge-base lookup; use baseRef as a stable stand-in.
-      mergeBaseSha: summary.baseRef,
+      // PAT path has no cheap merge-base lookup; the PR base commit SHA is a stable stand-in.
+      mergeBaseSha: summary.baseSha,
       rawDiff,
       chapters,
       prologue,

@@ -28,6 +28,7 @@ const summary = {
   headRef: "feature",
   headSha: "head123",
   baseRef: "main",
+  baseSha: "base123",
   createdAt: "2026-06-20T00:00:00Z",
   updatedAt: "2026-06-20T00:00:00Z",
 };
@@ -61,9 +62,13 @@ describe("persistReview", () => {
 
     expect(result).toEqual({ prId: "pr1", revisionId: "rev1", revisionIndex: 0 });
 
-    // rawDiff is passed through to the revision insert.
+    // rawDiff is passed through to the revision insert, and baseSha is the real commit sha.
     expect(db.revisionsRepo.create).toHaveBeenCalledWith(
-      expect.objectContaining({ prId: "pr1", rawDiff: "diff --git a/a.ts b/a.ts\n" }),
+      expect.objectContaining({
+        prId: "pr1",
+        rawDiff: "diff --git a/a.ts b/a.ts\n",
+        baseSha: "base123",
+      }),
     );
     // chapters are written for the new revision.
     const [revisionId, rows] = (db.chaptersRepo.replaceForRevision as ReturnType<typeof vi.fn>).mock

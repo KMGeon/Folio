@@ -25,7 +25,7 @@ function fakeOctokit() {
                   html_url: "https://github.com/acme/widget/pull/7",
                   user: { login: "octocat" },
                   head: { ref: "feat", sha: "h1" },
-                  base: { ref: "main" },
+                  base: { ref: "main", sha: "b1" },
                   created_at: "x",
                   updated_at: "y",
                 },

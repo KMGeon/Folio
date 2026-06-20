@@ -41,7 +41,7 @@ describe("getPullRequest", () => {
         html_url: "https://github.com/acme/widgets/pull/5",
         user: { login: "alice" },
         head: { ref: "feat", sha: "abc123" },
-        base: { ref: "main" },
+        base: { ref: "main", sha: "base456" },
         created_at: "2026-06-01T00:00:00Z",
         updated_at: "2026-06-02T00:00:00Z",
       },
@@ -54,6 +54,7 @@ describe("getPullRequest", () => {
       authorLogin: "alice",
       headSha: "abc123",
       baseRef: "main",
+      baseSha: "base456",
     });
   });
 });
