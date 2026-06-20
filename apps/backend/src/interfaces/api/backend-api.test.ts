@@ -1,4 +1,5 @@
 import { Test } from "@nestjs/testing";
+import cookieParser from "cookie-parser";
 import request from "supertest";
 import { describe, expect, it } from "vitest";
 import { AppModule } from "../../app.module.js";
@@ -8,6 +9,8 @@ async function createTestServer() {
     imports: [AppModule],
   }).compile();
   const app = moduleRef.createNestApplication({ rawBody: true });
+  // Mirror the real index.ts bootstrap: guards read req.cookies, which requires cookie-parser.
+  app.use(cookieParser());
   await app.init();
   return app;
 }

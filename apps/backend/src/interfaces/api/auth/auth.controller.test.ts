@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const upsertByGithubId = vi.fn();
 const getById = vi.fn();
+const getByFullName = vi.fn();
 const sessionStore = new Map<string, { userId: string; expiresAt: Date }>();
 
 vi.mock("@folio/db", () => ({
@@ -24,7 +25,7 @@ vi.mock("@folio/db", () => ({
       sessionStore.delete(hash);
     }),
   },
-  repositoriesRepo: { getByFullName: vi.fn() },
+  repositoriesRepo: { getByFullName: (...args: unknown[]) => getByFullName(...args) },
   installationsRepo: { getById: vi.fn() },
 }));
 
@@ -142,6 +143,44 @@ describe("auth routes", () => {
       .set("Cookie", "folio_session=j:%7B%22bad%22%3A1%7D");
     expect(res.status).toBe(401);
     expect(res.body.error.code).toBe("unauthorized");
+    await app.close();
+  });
+
+  // Fix 1: RepoAccessGuard 403 deny path — proves guard ordering (SessionAuthGuard runs first
+  // and attaches req.user, then RepoAccessGuard reads user.login) and that an unknown repo
+  // (getByFullName → null) results in repo_access_denied without any GitHub network call.
+  it("GET chapters returns 403 repo_access_denied when repo is not found in db", async () => {
+    getById.mockResolvedValue({ id: "u1", login: "octocat", avatarUrl: "https://a" });
+    upsertByGithubId.mockResolvedValue({ id: "u1", login: "octocat", avatarUrl: "https://a" });
+    // repo unknown → userCanAccessRepo returns false → RepoAccessGuard denies
+    getByFullName.mockResolvedValue(null);
+
+    const app = await createServer();
+
+    // Mint a valid session via the real login flow.
+    const login = await request(app.getHttpServer())
+      .get("/api/v1/auth/github/callback?code=good&state=s1")
+      .set("Cookie", "folio_oauth_state=s1|/");
+    const sessionCookie = (login.headers["set-cookie"] as unknown as string[]).find((c) =>
+      c.startsWith("folio_session="),
+    );
+
+    const res = await request(app.getHttpServer())
+      .get("/api/v1/pulls/acme/widget/1/chapters")
+      .set("Cookie", sessionCookie ?? "");
+
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe("repo_access_denied");
+    await app.close();
+  });
+
+  // Fix 3: logout envelope — catches drift if the hand-mirrored JSON body changes,
+  // since @Res() bypasses the global ApiResponseInterceptor.
+  it("POST logout returns 200 with the success envelope", async () => {
+    const app = await createServer();
+    const res = await request(app.getHttpServer()).post("/api/v1/auth/logout");
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ success: true, data: { ok: true } });
     await app.close();
   });
 });

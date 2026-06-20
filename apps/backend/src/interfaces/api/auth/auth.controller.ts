@@ -82,6 +82,7 @@ export class AuthController {
   async logout(@Req() req: AuthedRequest, @Res() res: Response): Promise<void> {
     await this.sessions.destroy(req.cookies?.[SESSION_COOKIE]);
     res.clearCookie(SESSION_COOKIE, { path: "/" });
+    // Hand-mirrored envelope: @Res() bypasses the global ApiResponseInterceptor.
     res.status(200).json({ success: true, data: { ok: true } });
   }
 }
