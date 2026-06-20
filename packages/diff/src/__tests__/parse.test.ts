@@ -176,7 +176,20 @@ describe("parseUnifiedDiff", () => {
   });
 
   it("handles CRLF and 'No newline at end of file' markers", () => {
-    const [file] = parseUnifiedDiff(fixture("crlf-nonewline.diff"));
+    const diff = [
+      "diff --git a/src/crlf.ts b/src/crlf.ts",
+      "index 1111111..2222222 100644",
+      "--- a/src/crlf.ts",
+      "+++ b/src/crlf.ts",
+      "@@ -1,2 +1,2 @@",
+      " alpha",
+      "-beta",
+      "+beta-new\r",
+      "\\ No newline at end of file",
+      "",
+    ].join("\n");
+
+    const [file] = parseUnifiedDiff(diff);
     if (!file) {
       throw new Error("no file");
     }
