@@ -66,6 +66,33 @@ describe("backend config", () => {
     }
   });
 
+  it("loads successfully when all required prd keys are present", async () => {
+    const root = mkdtempSync(join(tmpdir(), "folio-config-prd-ok-"));
+    const backendDir = join(root, "apps", "backend");
+    mkdirSync(backendDir, { recursive: true });
+
+    process.env.APP_PROFILE = "prd";
+    process.env.DATABASE_URL = "postgres://localhost/folio";
+    process.env.GITHUB_APP_ID = "123456";
+    process.env.GITHUB_APP_PRIVATE_KEY =
+      "-----BEGIN RSA PRIVATE KEY-----\nfake\n-----END RSA PRIVATE KEY-----";
+    process.env.GITHUB_APP_WEBHOOK_SECRET = "webhook-secret";
+    process.env.GITHUB_APP_CLIENT_ID = "Iv1.abc123";
+    process.env.GITHUB_APP_CLIENT_SECRET = "client-secret-value";
+    process.env.ANTHROPIC_API_KEY = "sk-ant-fake";
+    process.chdir(backendDir);
+
+    try {
+      const { config } = await import("./config.js");
+
+      expect(config.APP_PROFILE).toBe("prd");
+      expect(config.GITHUB_APP_CLIENT_ID).toBe("Iv1.abc123");
+      expect(config.GITHUB_APP_CLIENT_SECRET).toBe("client-secret-value");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("requires production secrets when the prd profile is active", async () => {
     const root = mkdtempSync(join(tmpdir(), "folio-config-prd-"));
     const backendDir = join(root, "apps", "backend");
