@@ -30,16 +30,11 @@ describe("Backend API", () => {
     await app.close();
   });
 
-  it("keeps the PR review API stubs available", async () => {
+  it("requires a session for the PR review API", async () => {
     const app = await createTestServer();
-
     const pulls = await request(app.getHttpServer()).get("/api/v1/pulls");
-    const chapters = await request(app.getHttpServer()).get("/api/v1/pulls/pr-1/chapters");
-
-    expect(pulls.status).toBe(200);
-    expect(pulls.body).toEqual({ success: true, data: [] });
-    expect(chapters.status).toBe(200);
-    expect(chapters.body).toEqual({ success: true, data: { chapters: [], prologue: null } });
+    expect(pulls.status).toBe(401);
+    expect(pulls.body.error.code).toBe("unauthorized");
     await app.close();
   });
 });
