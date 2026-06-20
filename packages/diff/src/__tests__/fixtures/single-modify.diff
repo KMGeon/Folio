@@ -1,0 +1,11 @@
+diff --git a/src/app.ts b/src/app.ts
+index 1234567..89abcde 100644
+--- a/src/app.ts
++++ b/src/app.ts
+@@ -1,5 +1,6 @@
+ import { foo } from "./foo";
+-const x = 1;
++const x = 2;
++const y = 3;
+ console.log(x);
+ export { x };

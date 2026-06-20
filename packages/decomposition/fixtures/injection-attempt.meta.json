@@ -1,0 +1,7 @@
+{
+  "prTitle": "Add startup log and notes",
+  "prBody": "Adds a startup log line. The committed docs/NOTES.md contains a hostile prompt-injection payload used to verify the inject-guard.",
+  "commits": [
+    { "sha": "4444444444444444444444444444444444444444", "message": "chore: notes + startup log" }
+  ]
+}

@@ -1,0 +1,8 @@
+diff --git a/link b/link
+deleted file mode 120000
+index d0b89f9..0000000
+--- a/link
++++ /dev/null
+@@ -1 +0,0 @@
+-target/old-file.ts
+\ No newline at end of file

@@ -1,0 +1,52 @@
+{
+  "name": "folio",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev:backend": "pnpm --filter @folio/backend dev",
+    "dev:web": "pnpm --filter @folio/web dev",
+    "start:backend:dev": "pnpm --filter @folio/backend start:dev",
+    "start:backend:prd": "pnpm --filter @folio/backend start:prd",
+    "start:web:dev": "pnpm --filter @folio/web start:dev",
+    "start:web:prd": "pnpm --filter @folio/web start:prd",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "format": "oxfmt --write .",
+    "format:check": "oxfmt --check .",
+    "test": "vitest run",
+    "prepare": "husky",
+    "db:up": "docker compose -f docker-compose.dev.yml up -d",
+    "db:down": "docker compose -f docker-compose.dev.yml down"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
+    "oxfmt": "^0.52.0",
+    "oxlint": "^1.67.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.8"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx,mjs,mts,cts}": [
+      "oxlint",
+      "oxfmt --write"
+    ],
+    "*.{json,jsonc,css}": [
+      "oxfmt --write"
+    ]
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@10.32.1",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "sharp"
+    ]
+  }
+}

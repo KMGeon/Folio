@@ -1,0 +1,11 @@
+{
+  "prTitle": "Move add() into its own module and cover it",
+  "prBody": "Extracts add() from util.ts into math/add.ts, rewires the barrel, and adds a test.",
+  "commits": [
+    {
+      "sha": "1111111111111111111111111111111111111111",
+      "message": "refactor: extract add() into math/add.ts"
+    },
+    { "sha": "2222222222222222222222222222222222222222", "message": "test: cover add()" }
+  ]
+}

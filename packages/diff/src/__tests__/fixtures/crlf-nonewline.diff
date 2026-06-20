@@ -1,0 +1,9 @@
+diff --git a/src/crlf.ts b/src/crlf.ts
+index 1111111..2222222 100644
+--- a/src/crlf.ts
++++ b/src/crlf.ts
+@@ -1,2 +1,2 @@
+ alpha
+-beta
++beta-new
+\ No newline at end of file

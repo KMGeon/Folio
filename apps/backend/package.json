@@ -1,0 +1,36 @@
+{
+  "name": "@folio/backend",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "APP_PROFILE=dev NODE_ENV=development tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "APP_PROFILE=prd NODE_ENV=production node dist/index.js",
+    "start:dev": "APP_PROFILE=dev NODE_ENV=development node dist/index.js",
+    "start:prd": "APP_PROFILE=prd NODE_ENV=production node dist/index.js",
+    "worker": "APP_PROFILE=dev NODE_ENV=development tsx src/worker.ts",
+    "worker:prd": "APP_PROFILE=prd NODE_ENV=production node dist/worker.js",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@folio/github": "workspace:*",
+    "@nestjs/common": "^11.1.27",
+    "@nestjs/core": "^11.1.27",
+    "@nestjs/platform-express": "^11.1.27",
+    "dotenv": "^16.4.5",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@nestjs/testing": "^11.1.27",
+    "@types/express": "^5.0.6",
+    "@types/node": "^20.17.0",
+    "@types/supertest": "^7.2.0",
+    "supertest": "^7.2.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}
