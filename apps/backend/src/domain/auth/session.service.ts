@@ -35,7 +35,8 @@ export class SessionService {
   }
 
   async destroy(token: string | undefined): Promise<void> {
-    if (!token) {
+    // cookie-parser can revive a "j:{...}" cookie into an object; must not pass a non-string to hashToken.
+    if (typeof token !== "string" || !token) {
       return;
     }
     await sessionsRepo.deleteByTokenHash(this.hashToken(token));

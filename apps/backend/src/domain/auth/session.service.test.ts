@@ -57,4 +57,13 @@ describe("SessionService", () => {
     await svc.destroy(token);
     expect(await svc.resolve(token)).toBeNull();
   });
+
+  it("destroy does not throw and skips delete when given a non-string cookie value", async () => {
+    const { sessionsRepo } = await import("@folio/db");
+    const svc = new SessionService();
+    const deleteSpy = vi.mocked(sessionsRepo.deleteByTokenHash);
+    deleteSpy.mockClear();
+    await expect(svc.destroy({} as unknown as string)).resolves.toBeUndefined();
+    expect(deleteSpy).not.toHaveBeenCalled();
+  });
 });
