@@ -10,7 +10,6 @@ const activeProfile = resolveProfile(process.env);
 if (!originalEnvKeys.has("APP_PROFILE")) {
   process.env.APP_PROFILE = activeProfile;
 }
-loadEnvFiles([`.env.${activeProfile}`]);
 
 function loadEnvFiles(fileNames: string[]) {
   const envFiles = fileNames.flatMap((fileName) => [
@@ -61,6 +60,12 @@ const baseSchema = z.object({
   FOLIO_DECOMP_MODEL: z.string().default("gpt-5.5"),
   // Set to "0" to force the deterministic fallback and never spawn Codex.
   FOLIO_DECOMP_LLM: z.enum(["0", "1"]).optional(),
+  // Ollama fallback for decomposition: tried when Codex fails. "0" disables the slot.
+  FOLIO_DECOMP_OLLAMA: z.enum(["0", "1"]).optional(),
+  FOLIO_DECOMP_OLLAMA_URL: z.string().optional(),
+  FOLIO_DECOMP_OLLAMA_MODEL: z.string().optional(),
+  // Circuit-breaker open duration (ms) after a Codex failure before it is re-probed.
+  FOLIO_DECOMP_CODEX_COOLDOWN_MS: z.coerce.number().int().positive().optional(),
   GITHUB_APP_ID: z.string().optional(),
   GITHUB_APP_PRIVATE_KEY: z.string().optional(),
   GITHUB_APP_WEBHOOK_SECRET: z.string().optional(),
@@ -69,8 +74,6 @@ const baseSchema = z.object({
   GITHUB_APP_CLIENT_SECRET: z.string().optional(),
   // Public base URL of this backend; used to build the OAuth callback redirect.
   PUBLIC_API_BASE_URL: z.string().default("http://localhost:8080"),
-  // Personal access token for the manual review trigger (read diff + write comment).
-  GITHUB_PAT: z.string().optional(),
   // Base URL used to build "Open in Stage" deep links in the PR comment.
   FOLIO_WEB_BASE_URL: z.string().default("http://localhost:5173"),
 });
@@ -86,9 +89,11 @@ const REQUIRED_IN_PRD = [
   "GITHUB_APP_ID",
   "GITHUB_APP_PRIVATE_KEY",
   "GITHUB_APP_WEBHOOK_SECRET",
+  "GITHUB_APP_SLUG",
   "GITHUB_APP_CLIENT_ID",
   "GITHUB_APP_CLIENT_SECRET",
-  "GITHUB_PAT",
+  "PUBLIC_API_BASE_URL",
+  "FOLIO_WEB_BASE_URL",
 ] as const satisfies readonly (keyof Config)[];
 
 function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -102,7 +107,9 @@ function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const cfg = parsed.data;
 
   if (cfg.APP_PROFILE === "prd") {
-    const missing = REQUIRED_IN_PRD.filter((key) => !cfg[key]);
+    // In production, require explicit deployment values instead of accepting
+    // localhost defaults that are only safe for local development.
+    const missing = REQUIRED_IN_PRD.filter((key) => !env[key]);
     if (missing.length > 0) {
       throw new Error(
         `Missing required prd environment variables:\n${missing.map((k) => `  - ${k}`).join("\n")}`,
