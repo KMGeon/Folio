@@ -56,12 +56,18 @@ const baseSchema = z.object({
   // Next.js web dev origin allowed for CORS (credentialed).
   WEB_ORIGIN: z.string().default("http://localhost:5173"),
   DATABASE_URL: z.string().optional(),
-  ANTHROPIC_API_KEY: z.string().optional(),
-  // Model used for PR decomposition into chapters.
-  FOLIO_DECOMP_MODEL: z.string().default("claude-sonnet-4-6"),
+  // Codex model used for PR decomposition into chapters. Codex auth comes from the
+  // local CLI session (~/.codex, ChatGPT subscription), so there is no API key here.
+  FOLIO_DECOMP_MODEL: z.string().default("gpt-5.5"),
+  // Set to "0" to force the deterministic fallback and never spawn Codex.
+  FOLIO_DECOMP_LLM: z.enum(["0", "1"]).optional(),
   GITHUB_APP_ID: z.string().optional(),
   GITHUB_APP_PRIVATE_KEY: z.string().optional(),
   GITHUB_APP_WEBHOOK_SECRET: z.string().optional(),
+  // Personal access token for the manual review trigger (read diff + write comment).
+  GITHUB_PAT: z.string().optional(),
+  // Base URL used to build "Open in Stage" deep links in the PR comment.
+  FOLIO_WEB_BASE_URL: z.string().default("http://localhost:5173"),
 });
 
 export type Config = z.infer<typeof baseSchema>;
@@ -75,7 +81,6 @@ const REQUIRED_IN_PRD = [
   "GITHUB_APP_ID",
   "GITHUB_APP_PRIVATE_KEY",
   "GITHUB_APP_WEBHOOK_SECRET",
-  "ANTHROPIC_API_KEY",
 ] as const satisfies readonly (keyof Config)[];
 
 function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
