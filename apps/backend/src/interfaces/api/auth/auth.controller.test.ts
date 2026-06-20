@@ -98,6 +98,22 @@ describe("auth routes", () => {
     await app.close();
   });
 
+  it("completes login for a GitHub App installation callback without oauth state", async () => {
+    upsertByGithubId.mockResolvedValue({
+      id: "u1",
+      login: "octocat",
+      avatarUrl: "https://avatars/octocat",
+    });
+    const app = await createServer();
+    const res = await request(app.getHttpServer()).get(
+      "/api/v1/auth/github/callback?code=good&installation_id=123&setup_action=install",
+    );
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toBe("http://localhost:5173/");
+    expect((res.headers["set-cookie"] as unknown as string[]).join()).toContain("folio_session");
+    await app.close();
+  });
+
   it("me returns 401 without a session", async () => {
     const app = await createServer();
     const res = await request(app.getHttpServer()).get("/api/v1/auth/me");

@@ -32,6 +32,10 @@ export const installationsRepo = {
     return row ?? null;
   },
 
+  async listByAccountLogin(accountLogin: string, db: Db = getDb()): Promise<InstallationRow[]> {
+    return db.select().from(installations).where(eq(installations.accountLogin, accountLogin));
+  },
+
   async upsertByGithubId(input: InstallationInsert, db: Db = getDb()): Promise<InstallationRow> {
     const [row] = await db
       .insert(installations)

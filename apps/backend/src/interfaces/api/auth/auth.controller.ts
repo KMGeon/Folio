@@ -52,14 +52,30 @@ export class AuthController {
   async callback(
     @Query("code") code: string | undefined,
     @Query("state") state: string | undefined,
+    @Query("installation_id") installationId: string | undefined,
+    @Query("setup_action") setupAction: string | undefined,
     @Req() req: AuthedRequest,
     @Res() res: Response,
   ): Promise<void> {
+    if (code && installationId && setupAction) {
+      // GitHub App installation completion does not echo our OAuth state cookie.
+      await this.completeLoginAndRedirect(code, "/", res);
+      return;
+    }
+
     const cookie = req.cookies?.[STATE_COOKIE];
     const [expectedState, redirectPath = "/"] = (cookie ?? "").split("|");
     if (!code || !state || !expectedState || state !== expectedState) {
       throw new CoreException(ErrorType.OAuthStateMismatch);
     }
+    await this.completeLoginAndRedirect(code, redirectPath, res);
+  }
+
+  private async completeLoginAndRedirect(
+    code: string,
+    redirectPath: string,
+    res: Response,
+  ): Promise<void> {
     const { token, expiresAt } = await this.auth.completeLogin(code);
     res.clearCookie(STATE_COOKIE, { path: "/" });
     res.cookie(SESSION_COOKIE, token, {

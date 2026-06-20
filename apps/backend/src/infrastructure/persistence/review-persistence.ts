@@ -26,8 +26,8 @@ export interface PersistedReview {
 }
 
 /**
- * Deterministic placeholder installation id for the PAT path (no real GitHub
- * App install). Negative so it can never collide with a real installation id.
+ * Deterministic placeholder installation id for manual review persistence when
+ * no webhook installation payload is present. Negative so it cannot collide.
  */
 export function syntheticInstallationId(owner: string): number {
   let hash = 0;
@@ -38,7 +38,8 @@ export function syntheticInstallationId(owner: string): number {
 }
 
 /**
- * Deterministic placeholder repo id for the PAT path (no real GitHub repo id).
+ * Deterministic placeholder repo id for manual review persistence when no real
+ * GitHub repo id is available.
  * Derived from the full "owner/repo" name so different repos under the same owner
  * never collide on the UNIQUE githubRepoId column.
  */
@@ -72,7 +73,7 @@ export async function persistReview(input: PersistReviewInput): Promise<Persiste
     accountType: ACCOUNT_TYPE.ORGANIZATION,
   });
 
-  // No real GitHub repo id on the PAT path → derive a stable per-repo synthetic one
+  // Manual review has no real GitHub repo id here, so derive a stable synthetic one.
   // so different repos under the same owner don't collide on the UNIQUE githubRepoId column.
   const fullName = `${input.owner}/${input.repo}`;
   const repository = await repositoriesRepo.upsertByGithubId({

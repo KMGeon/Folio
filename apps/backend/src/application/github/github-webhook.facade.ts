@@ -17,7 +17,7 @@ export class GitHubWebhookFacade {
     @Inject(GitHubWebhookService) private readonly gitHubWebhookService: GitHubWebhookService,
   ) {}
 
-  handle(command: HandleGitHubWebhookCommand): GitHubWebhookResult {
+  handle(command: HandleGitHubWebhookCommand): Promise<GitHubWebhookResult> {
     return this.gitHubWebhookService.accept(command);
   }
 }

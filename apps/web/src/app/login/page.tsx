@@ -26,11 +26,18 @@ const SAMPLE_CHAPTERS: { title: string; scope: string; add: number; del: number;
   },
 ];
 
-export default function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ redirect?: string | string[] }>;
+}) {
+  const { redirect } = await searchParams;
+  // Only honor a single in-app path; backend safeRedirectPath rejects anything else.
+  const redirectPath = typeof redirect === "string" && redirect.startsWith("/") ? redirect : "/";
   return (
     <main className="grid min-h-svh lg:grid-cols-[1.05fr_minmax(0,460px)]">
       <ChapterSpine />
-      <AuthPanel />
+      <AuthPanel redirectPath={redirectPath} />
     </main>
   );
 }
@@ -50,25 +57,19 @@ function ChapterSpine() {
         className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-background via-background/55 to-transparent"
       />
 
-      <div className="relative flex h-full flex-col justify-between p-12 xl:p-16">
-        <div className="flex items-center gap-3">
-          <div className="flex size-8 items-center justify-center rounded-md border bg-primary/10 text-primary">
-            <BookOpen className="size-4" />
-          </div>
-          <span className="font-semibold text-sm">Folio</span>
-        </div>
-
+      <div className="relative flex h-full flex-col justify-center p-12 xl:p-16">
         <div className="max-w-md">
           <p className="font-mono text-muted-foreground text-xs tracking-widest">
             PULL REQUEST&nbsp;&nbsp;#1284
           </p>
           <h1 className="mt-4 font-semibold text-3xl leading-tight tracking-tight xl:text-[2.5rem]">
-            하나의 PR을,
+            이제 중요한 건
             <br />
-            순서가 있는 <span className="text-primary">리뷰 챕터</span>로.
+            코드가 아니라 <span className="text-primary">리뷰</span>입니다.
           </h1>
           <p className="mt-3 text-muted-foreground text-sm">
-            거대한 diff를 위에서 아래로 훑는 대신, 논리 단위로 나뉜 챕터를 순서대로 읽습니다.
+            AI가 코드를 쏟아내는 시대, 병목은 검토입니다. Folio는 PR을 순서가 있는 리뷰 챕터로 나눠
+            빠르게 이해하게 합니다.
           </p>
 
           <ol className="mt-8 space-y-px">
@@ -118,7 +119,7 @@ function ChapterRow({
         aria-hidden
         className={cn(
           "h-1.5 w-1.5 shrink-0 rounded-full",
-          risk === "low" ? "bg-primary" : "bg-syntax-code",
+          risk === "low" ? "bg-primary" : "bg-warning",
         )}
       />
       <div className="min-w-0 flex-1">
@@ -133,7 +134,7 @@ function ChapterRow({
   );
 }
 
-function AuthPanel() {
+function AuthPanel({ redirectPath }: { redirectPath: string }) {
   return (
     <section className="flex items-center justify-center p-6 sm:p-10">
       <div className="w-full max-w-sm">
@@ -147,14 +148,14 @@ function AuthPanel() {
 
         <div className="mt-8 lg:mt-0">
           <p className="font-mono text-muted-foreground text-xs tracking-widest">로그인</p>
-          <h2 className="mt-2 font-semibold text-2xl tracking-tight">다시 오신 걸 환영합니다</h2>
+          <h2 className="mt-2 font-semibold text-2xl tracking-tight">Folio 시작하기</h2>
           <p className="mt-2 text-muted-foreground text-sm">
-            GitHub 계정으로 계속하면 viewed/progress가 기기 간에 이어집니다.
+            GitHub로 로그인하면 리뷰 진행 상황이 모든 기기에서 이어집니다.
           </p>
         </div>
 
         <Button asChild size="lg" className="mt-8 w-full">
-          <a href={loginUrl("/")}>
+          <a href={loginUrl(redirectPath)}>
             <Github className="size-4" />
             GitHub로 계속하기
           </a>
@@ -163,13 +164,20 @@ function AuthPanel() {
         <div className="mt-3 flex items-start gap-2 text-muted-foreground text-xs">
           <ShieldCheck className="mt-px size-3.5 shrink-0 text-primary" />
           <span>
-            OAuth는 사용자 식별과 진행 상태 저장에만 쓰입니다. Repository 접근은 GitHub App
-            installation 권한으로 분리됩니다.
+            Folio는 코드를 저장하지 않습니다. 저장소 접근 권한은 별도로 안전하게 관리됩니다.
           </span>
         </div>
 
-        <p className="mt-10 text-center font-mono text-muted-foreground/60 text-xs">
-          계속하면 Folio 약관 및 개인정보 처리방침에 동의하게 됩니다.
+        <p className="mt-10 text-center text-muted-foreground/60 text-xs leading-relaxed">
+          계속하면 Folio{" "}
+          <a href="/terms" className="underline underline-offset-2 hover:text-foreground">
+            이용약관
+          </a>{" "}
+          및{" "}
+          <a href="/privacy" className="underline underline-offset-2 hover:text-foreground">
+            개인정보 처리방침
+          </a>
+          에 동의하게 됩니다.
         </p>
       </div>
     </section>

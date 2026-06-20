@@ -1,13 +1,23 @@
 import { Github, KeyRound, Link2, Server } from "lucide-react";
+import { cookies } from "next/headers";
 
-import { AppShell } from "@/components/app-shell";
+import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
+import { getMe } from "@/lib/auth";
 import { webEnv } from "@/lib/env";
 
-export default function SettingsPage() {
+export const dynamic = "force-dynamic";
+
+export default async function SettingsPage() {
+  const cookieHeader = (await cookies())
+    .getAll()
+    .map((c) => `${c.name}=${c.value}`)
+    .join("; ");
+  const user = await getMe(cookieHeader);
+
   return (
-    <AppShell active="설정">
-      <div className="min-h-svh">
+    <AppLayout user={user}>
+      <div className="flex-1 overflow-y-auto">
         <header className="border-b px-6 py-5">
           <h1 className="text-base font-semibold">설정</h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -42,7 +52,7 @@ export default function SettingsPage() {
           </SettingsSection>
         </div>
       </div>
-    </AppShell>
+    </AppLayout>
   );
 }
 

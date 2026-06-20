@@ -17,11 +17,16 @@ export interface ChapterCode {
   diffLines: WebDiffLine[];
 }
 
+export type PullRequestStatus = "open" | "merged" | "closed" | "draft";
+
 export interface ReviewPrMeta {
   org: string;
   repo: string;
   number: number;
   title: string;
+  status: PullRequestStatus;
+  author: string;
+  htmlUrl: string;
   headSha: string;
   baseBranch: string;
   headBranch: string;
@@ -33,9 +38,22 @@ export interface ReviewChapter {
   summary: string;
   files: WebChapterFile[];
   diffLines: WebDiffLine[];
+  /** Whether the current user has marked this chapter viewed. */
+  viewed: boolean;
+}
+
+/** A PR commit, used to render the construction-flow graph beside the chapters. */
+export interface ReviewCommit {
+  sha: string;
+  message: string;
+  author: string;
+  authoredAt: string;
+  parents: string[];
 }
 
 export interface ReviewPayload {
   pr: ReviewPrMeta;
   chapters: ReviewChapter[];
+  /** Oldest→newest PR commits; empty when GitHub is unreachable at read time. */
+  commits: ReviewCommit[];
 }

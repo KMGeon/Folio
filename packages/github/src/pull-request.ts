@@ -36,6 +36,12 @@ export interface PullRequestCommit {
   sha: string;
   /** Full commit message (first line is used as a grouping hint downstream). */
   message: string;
+  /** Author login (falls back to the git author name when no GitHub user). */
+  author: string;
+  /** ISO-8601 authored timestamp, or "" when GitHub omits it. */
+  authoredAt: string;
+  /** Parent commit SHAs — drives branch/merge lanes in the commit graph. */
+  parents: string[];
 }
 
 export interface ReviewSummary {
@@ -134,7 +140,14 @@ export async function getPullRequestCommits(
     pull_number: ref.number,
     per_page: PER_PAGE,
   });
-  return commits.map((c) => ({ sha: c.sha, message: c.commit.message }));
+  // author/date/parents all ship in the same listCommits payload — no extra calls.
+  return commits.map((c) => ({
+    sha: c.sha,
+    message: c.commit.message,
+    author: c.author?.login ?? c.commit.author?.name ?? "unknown",
+    authoredAt: c.commit.author?.date ?? c.commit.committer?.date ?? "",
+    parents: c.parents?.map((p) => p.sha) ?? [],
+  }));
 }
 
 /**

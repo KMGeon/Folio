@@ -10,9 +10,16 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  // Dev tooling (IDE click-to-source locator / browser extensions) injects
+  // attributes like data-locator-target onto <html>; suppress the resulting
+  // server/client hydration-attribute mismatch warning.
   return (
-    <html lang="ko" className={`dark ${GeistSans.variable} ${GeistMono.variable}`}>
-      <body>{children}</body>
+    <html
+      lang="ko"
+      suppressHydrationWarning
+      className={`dark ${GeistSans.variable} ${GeistMono.variable}`}
+    >
+      <body suppressHydrationWarning>{children}</body>
     </html>
   );
 }

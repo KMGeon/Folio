@@ -9,13 +9,30 @@ function sign(rawBody: string, secret = SECRET): string {
   return `sha256=${createHmac("sha256", secret).update(rawBody).digest("hex")}`;
 }
 
+// Stub the DB-backed side effects so the controller test stays hermetic.
+const enqueueReviewPull = vi.fn(async () => ({ id: "job-1" }));
+const syncInstallation = vi.fn(async () => undefined);
+
 async function createTestServer() {
   vi.resetModules();
+  enqueueReviewPull.mockClear();
+  syncInstallation.mockClear();
   process.env.GITHUB_APP_WEBHOOK_SECRET = SECRET;
+  // Import tokens from the freshly reset module graph so overrideProvider matches
+  // the same class identity the AppModule wires up.
   const { AppModule } = await import("../../../app.module.js");
+  const { ReviewJobQueue } =
+    await import("../../../infrastructure/persistence/review-job-queue.js");
+  const { InstallationSyncFacade } =
+    await import("../../../application/github/installation-sync.facade.js");
   const moduleRef = await Test.createTestingModule({
     imports: [AppModule],
-  }).compile();
+  })
+    .overrideProvider(ReviewJobQueue)
+    .useValue({ enqueueReviewPull })
+    .overrideProvider(InstallationSyncFacade)
+    .useValue({ sync: syncInstallation })
+    .compile();
   const app = moduleRef.createNestApplication({ rawBody: true });
   await app.init();
   return app;
@@ -61,6 +78,37 @@ describe("POST /webhooks/github", () => {
         pullNumber: 12,
       },
     });
+    // The opened PR is enqueued for decomposition keyed by its head SHA.
+    expect(enqueueReviewPull).toHaveBeenCalledWith({
+      owner: "KMGeon",
+      repo: "Folio",
+      number: 12,
+      headSha: "abc123",
+    });
+    await app.close();
+  });
+
+  it("syncs the installation and its repositories on an installation event", async () => {
+    const app = await createTestServer();
+    const body = JSON.stringify({
+      action: "created",
+      installation: { id: 123456, account: { login: "KMGeon", type: "User" } },
+    });
+
+    const res = await request(app.getHttpServer())
+      .post("/webhooks/github")
+      .set("content-type", "application/json")
+      .set("x-github-delivery", "delivery-install")
+      .set("x-github-event", "installation")
+      .set("x-hub-signature-256", sign(body))
+      .send(body);
+
+    expect(res.status).toBe(202);
+    expect(syncInstallation).toHaveBeenCalledWith({
+      githubInstallationId: 123456,
+      account: { login: "KMGeon", type: "User" },
+    });
+    expect(enqueueReviewPull).not.toHaveBeenCalled();
     await app.close();
   });
 

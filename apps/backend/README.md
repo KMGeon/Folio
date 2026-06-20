@@ -40,8 +40,10 @@ curl http://localhost:8080/health
 
 Environment is parsed and validated in `src/config.ts` (see `.env.example` at
 the repo root). Runtime profile is selected with `APP_PROFILE=dev|prd`.
-Common values are loaded from `.env`, then profile-specific values from
-`.env.dev` or `.env.prd`. Key vars: `APP_PROFILE`, `PORT`, `WEB_ORIGIN`,
-`DATABASE_URL`, `FOLIO_DECOMP_MODEL`, `FOLIO_DECOMP_LLM`, `GITHUB_APP_ID`,
-`GITHUB_APP_WEBHOOK_SECRET`. Decomposition runs through the Codex SDK, which
-authenticates via the local Codex CLI session (`~/.codex`) — no API key env var.
+Values are loaded from the repo root `.env`. Key vars: `APP_PROFILE`, `PORT`,
+`WEB_ORIGIN`, `PUBLIC_API_BASE_URL`, `FOLIO_WEB_BASE_URL`, `DATABASE_URL`,
+`FOLIO_DECOMP_MODEL`, `FOLIO_DECOMP_LLM`, `GITHUB_APP_ID`,
+`GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_WEBHOOK_SECRET`, `GITHUB_APP_SLUG`,
+`GITHUB_APP_CLIENT_ID`, `GITHUB_APP_CLIENT_SECRET`, and `OPENAI_API_KEY`.
+Decomposition runs through the Codex SDK, which authenticates via the local Codex
+CLI session (`~/.codex`) unless `OPENAI_API_KEY` is provided.

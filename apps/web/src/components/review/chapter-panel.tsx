@@ -1,25 +1,29 @@
-import {
-  ChevronDown,
-  ChevronRight,
-  Circle,
-  FileText,
-  Folder,
-  MoreHorizontal,
-  Search,
-} from "lucide-react";
+import { CheckCircle2, ChevronRight, FileText, Folder, Search } from "lucide-react";
+import Link from "next/link";
 
+import { ChapterSwitcher } from "@/components/review/chapter-switcher";
+import { ChapterViewedToggle } from "@/components/review/chapter-viewed-toggle";
 import { Button } from "@/components/ui/button";
 import type { ReviewChapter } from "@/lib/review-api";
 import { cn } from "@/lib/utils";
 
-// risk/viewed/reviewHints are not in ReviewPayload; those sub-sections are omitted.
+// risk/reviewHints are not in ReviewPayload; those sub-sections are omitted.
 
 export function ChapterPanel({
   chapters,
   activeIndex,
+  prPath,
+  org,
+  repo,
+  number,
 }: {
   chapters: ReviewChapter[];
   activeIndex: number;
+  /** e.g. "/KMGeon/Folio/pull/38" — chapter links append "/chapters/{index}". */
+  prPath: string;
+  org: string;
+  repo: string;
+  number: number;
 }) {
   const chapter = chapters.find((c) => c.index === activeIndex) ?? chapters[0];
   if (!chapter) {
@@ -27,40 +31,41 @@ export function ChapterPanel({
   }
 
   const additions = chapter.files.reduce((sum, file) => sum + file.additions, 0);
+  const nextChapter = chapters.find((c) => c.index > chapter.index);
 
   return (
     <aside className="flex w-full shrink-0 flex-col border-b lg:h-auto lg:w-[380px] lg:overflow-y-auto lg:border-r lg:border-b-0">
       <div className="flex items-center gap-1 px-4 pt-4">
-        <Circle className="size-4 text-muted-foreground" />
-        <button
-          type="button"
-          className="ml-1 flex items-center gap-1 rounded px-1.5 py-1 text-sm font-medium hover:bg-accent"
-        >
-          제 {chapter.index} 장
-          <ChevronDown className="size-3.5 text-muted-foreground" />
-        </button>
+        <ChapterViewedToggle
+          org={org}
+          repo={repo}
+          number={number}
+          index={chapter.index}
+          initialViewed={chapter.viewed}
+        />
+        <ChapterSwitcher chapters={chapters} activeIndex={chapter.index} prPath={prPath} />
         <Button
+          asChild={Boolean(nextChapter)}
           size="icon"
           variant="ghost"
           className="ml-auto size-7 text-muted-foreground"
           aria-label="다음 장"
+          disabled={!nextChapter}
         >
-          <ChevronRight className="size-4" />
-        </Button>
-        <Button
-          size="icon"
-          variant="ghost"
-          className="size-7 text-muted-foreground"
-          aria-label="장 메뉴"
-        >
-          <MoreHorizontal className="size-4" />
+          {nextChapter ? (
+            <Link href={`${prPath}/chapters/${nextChapter.index}`}>
+              <ChevronRight className="size-4" />
+            </Link>
+          ) : (
+            <ChevronRight className="size-4" />
+          )}
         </Button>
       </div>
 
       <div className="px-4 pt-3">
         <h2 className="text-lg font-semibold tracking-tight">{chapter.title}</h2>
         <div className="mt-2 flex items-center gap-2">
-          <span className="font-mono text-xs text-primary">+ {additions}</span>
+          <span className="font-mono text-xs text-diff-add-fg">+ {additions}</span>
         </div>
 
         <p className="mt-4 text-sm leading-relaxed text-muted-foreground">{chapter.summary}</p>
@@ -93,7 +98,7 @@ export function ChapterPanel({
             >
               <FileText className="size-3.5 shrink-0 text-muted-foreground" />
               <span className="min-w-0 flex-1 truncate">{file.path}</span>
-              <span className="shrink-0 font-mono text-xs text-primary">+{file.additions}</span>
+              <span className="shrink-0 font-mono text-xs text-diff-add-fg">+{file.additions}</span>
             </button>
           ))}
         </div>
@@ -103,17 +108,19 @@ export function ChapterPanel({
         <h3 className="text-xs font-medium text-muted-foreground">전체 챕터</h3>
         <div className="mt-3 space-y-1">
           {chapters.map((item) => (
-            <button
-              type="button"
+            <Link
               key={item.index}
+              href={`${prPath}/chapters/${item.index}`}
               className={cn(
                 "flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-accent",
                 item.index === chapter.index && "bg-accent text-foreground",
               )}
             >
-              <span className="w-5 shrink-0 text-xs text-muted-foreground">{item.index}</span>
+              <span className="flex w-5 shrink-0 justify-center text-xs text-muted-foreground">
+                {item.viewed ? <CheckCircle2 className="size-3.5 text-primary" /> : item.index}
+              </span>
               <span className="min-w-0 flex-1 truncate">{item.title}</span>
-            </button>
+            </Link>
           ))}
         </div>
       </div>

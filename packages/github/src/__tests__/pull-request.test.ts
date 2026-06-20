@@ -109,14 +109,34 @@ describe("listPullRequestFiles", () => {
 describe("getPullRequestCommits", () => {
   it("paginates and maps commits onto {sha, message}", async () => {
     const paginate = vi.fn().mockResolvedValue([
-      { sha: "aaa111", commit: { message: "feat: first\n\nbody" } },
-      { sha: "bbb222", commit: { message: "fix: second" } },
+      {
+        sha: "aaa111",
+        commit: { message: "feat: first\n\nbody", author: { date: "2026-06-01T00:00:00Z" } },
+        author: { login: "alice" },
+        parents: [{ sha: "parent1" }],
+      },
+      {
+        sha: "bbb222",
+        commit: { message: "fix: second", author: { name: "Bob", date: "2026-06-02T00:00:00Z" } },
+      },
     ]);
     const client = fakeOctokit({ paginate });
     const commits = await getPullRequestCommits(client, REF);
     expect(commits).toEqual([
-      { sha: "aaa111", message: "feat: first\n\nbody" },
-      { sha: "bbb222", message: "fix: second" },
+      {
+        sha: "aaa111",
+        message: "feat: first\n\nbody",
+        author: "alice",
+        authoredAt: "2026-06-01T00:00:00Z",
+        parents: ["parent1"],
+      },
+      {
+        sha: "bbb222",
+        message: "fix: second",
+        author: "Bob",
+        authoredAt: "2026-06-02T00:00:00Z",
+        parents: [],
+      },
     ]);
     expect(paginate).toHaveBeenCalledWith(
       "listCommits-endpoint",
