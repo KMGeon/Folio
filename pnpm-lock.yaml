@@ -32,9 +32,21 @@ importers:
 
   apps/backend:
     dependencies:
+      '@folio/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@folio/decomposition':
+        specifier: workspace:*
+        version: link:../../packages/decomposition
+      '@folio/diff':
+        specifier: workspace:*
+        version: link:../../packages/diff
       '@folio/github':
         specifier: workspace:*
         version: link:../../packages/github
+      '@folio/types':
+        specifier: workspace:*
+        version: link:../../packages/types
       '@nestjs/common':
         specifier: ^11.1.27
         version: 11.1.27(reflect-metadata@0.2.2)(rxjs@7.8.2)
