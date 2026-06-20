@@ -41,8 +41,16 @@ export class ReviewPullFacade {
 
     const summary = await getPullRequest(octokit, ref);
     const rawDiff = await getPullRequestDiff(octokit, ref);
-    // Author commit messages are a strong grouping signal for the LLM.
-    const commits = await getPullRequestCommits(octokit, ref);
+    // Commit messages are a soft grouping hint; a fetch failure must not abort the review.
+    const commits = await getPullRequestCommits(octokit, ref).catch(
+      (): {
+        sha: string;
+        message: string;
+        author: string;
+        authoredAt: string;
+        parents: string[];
+      }[] => [],
+    );
 
     const { chapters, prologue } = await decompose(
       { diff: rawDiff, prTitle: summary.title, prBody: summary.body, commits },
@@ -96,7 +104,7 @@ export class ReviewPullFacade {
   }
 }
 
-async function createRepoInstallationOctokit(input: {
+export async function createRepoInstallationOctokit(input: {
   owner: string;
   repo: string;
 }): Promise<Octokit> {
