@@ -52,6 +52,7 @@ export function createDefaultClient(
 ): ChapterClient {
   const codex = (deps.codexFactory ?? createCodexClient)(config);
   const ollama = config.ollamaEnabled ? (deps.ollamaFactory ?? createOllamaClient)(config) : null;
+  // Breaker created once with FIRST call's codexCooldownMs; not reconfigured after—benign since cooldown is process-level.
   if (!sharedBreaker) {
     sharedBreaker = createCodexBreaker(config.codexCooldownMs);
   }
@@ -73,6 +74,7 @@ export function createFallbackClient(
   let lastModel = primary.model;
 
   return {
+    // lastModel is last-call-wins: on chunked paths, not a per-chunk majority.
     get model() {
       return lastModel;
     },
