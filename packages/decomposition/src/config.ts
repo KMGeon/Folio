@@ -12,8 +12,9 @@ export const DEFAULT_TEMPERATURE = 0.2;
 export const DEFAULT_MAX_REPAIR_ATTEMPTS = 2;
 
 /**
- * PRs with at most this many reviewable hunks collapse into a single chapter
- * (LLM path skipped on the deterministic route; tiny-PR rule).
+ * PRs with at most this many reviewable hunks hint the model toward a SINGLE
+ * chapter (soft preference, not a cap). The LLM is still called. Also drives the
+ * tiny→one-chapter rule inside the deterministic fallback.
  */
 export const DEFAULT_SINGLE_CHAPTER_HUNK_THRESHOLD = 3;
 

@@ -111,15 +111,26 @@ export async function decompose(
   const catchAll = excludedBucket(allFiles, excludedByPath);
   const reviewableHunks = countHunks(reviewable);
 
-  // No reviewable hunks, or tiny PR, or LLM disabled → deterministic path.
+  // No reviewable hunks, or LLM disabled → deterministic path.
+  // (Tiny PRs now take the LLM path too, for real narration + prologue.)
   const llmOff = !config.llmEnabled && !deps.clientFactory;
-  if (reviewableHunks === 0 || reviewableHunks <= config.singleChapterHunkThreshold || llmOff) {
+  if (reviewableHunks === 0 || llmOff) {
     return decomposeDeterministic(input, opts);
   }
 
   try {
     const client = (deps.clientFactory ?? createDefaultClient)(config);
-    const { output, repaired } = await runLlm(input, reviewable, client, config, opts.signal);
+    // ≤ threshold → hint the model toward a single chapter (soft, not a cap).
+    const smallPrHunkCount =
+      reviewableHunks <= config.singleChapterHunkThreshold ? reviewableHunks : undefined;
+    const { output, repaired } = await runLlm(
+      input,
+      reviewable,
+      client,
+      config,
+      opts.signal,
+      smallPrHunkCount,
+    );
 
     const merged = ensureFullCoverage(output.chapters, reviewable);
     const chapters = assembleChapters(merged, catchAll);
@@ -148,9 +159,15 @@ async function runLlm(
   client: ChapterClient,
   config: ResolvedConfig,
   signal: AbortSignal | undefined,
+  smallPrHunkCount: number | undefined,
 ): Promise<{ output: AgentOutput; repaired: boolean }> {
   if (fitsInOneChunk(reviewable, config.maxDiffChars)) {
-    const userPrompt = buildPromptFor(input, reviewable);
+    const userPrompt = buildPromptFor(
+      input,
+      reviewable,
+      Number.POSITIVE_INFINITY,
+      smallPrHunkCount,
+    );
     const raw = await client.emitChapters({
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: userPrompt }],
@@ -201,9 +218,10 @@ function buildPromptFor(
   input: DecompositionInput,
   files: PullRequestFile[],
   maxChars: number = Number.POSITIVE_INFINITY,
+  smallPrHunkCount?: number,
 ): string {
   const formatted = formatDiffForLlm(files, { maxChars }).text;
-  return buildUserPrompt(input, formatted);
+  return buildUserPrompt(input, formatted, smallPrHunkCount);
 }
 
 /**
