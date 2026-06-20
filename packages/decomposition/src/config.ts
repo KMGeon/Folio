@@ -31,6 +31,15 @@ export const DEFAULT_REQUEST_TIMEOUT_MS = 120_000;
  */
 export const DEFAULT_MAX_DIFF_CHARS = 80_000;
 
+/** Default Ollama OpenAI-compatible base URL (local install). */
+export const DEFAULT_OLLAMA_URL = "http://localhost:11434/v1";
+
+/** Default local model for the fallback path; a coder model handles decomposition better. */
+export const DEFAULT_OLLAMA_MODEL = "qwen2.5-coder:14b";
+
+/** How long the Codex circuit breaker stays open after a failure (ms). */
+export const DEFAULT_CODEX_COOLDOWN_MS = 60_000;
+
 /** Resolved, immutable config the engine actually runs with. */
 export interface ResolvedConfig {
   model: string;
@@ -44,6 +53,14 @@ export interface ResolvedConfig {
   llmEnabled: boolean;
   /** Optional OpenAI API key; when unset the Codex SDK uses the local subscription auth. */
   apiKey: string | undefined;
+  /** Whether the Ollama fallback slot is enabled; false skips it (Codex → deterministic). */
+  ollamaEnabled: boolean;
+  /** Ollama OpenAI-compatible base URL (the path before /chat/completions). */
+  ollamaUrl: string;
+  /** Local model id for the Ollama fallback. */
+  ollamaModel: string;
+  /** Circuit-breaker open duration (ms) after a Codex failure. */
+  codexCooldownMs: number;
 }
 
 import type { DecompositionOptions } from "./types.js";
@@ -62,6 +79,11 @@ export function isLlmEnabled(): boolean {
   return process.env.FOLIO_DECOMP_LLM?.trim() !== "0";
 }
 
+/** True unless explicitly disabled with `FOLIO_DECOMP_OLLAMA=0` (mirrors the LLM switch). */
+export function isOllamaEnabled(): boolean {
+  return process.env.FOLIO_DECOMP_OLLAMA?.trim() !== "0";
+}
+
 /** Merge caller options with env + defaults into a fully resolved config. */
 export function resolveConfig(opts: DecompositionOptions = {}): ResolvedConfig {
   return {
@@ -75,5 +97,10 @@ export function resolveConfig(opts: DecompositionOptions = {}): ResolvedConfig {
     maxDiffChars: opts.maxDiffChars ?? DEFAULT_MAX_DIFF_CHARS,
     llmEnabled: isLlmEnabled(),
     apiKey: process.env.OPENAI_API_KEY?.trim() || undefined,
+    ollamaEnabled: isOllamaEnabled(),
+    ollamaUrl: process.env.FOLIO_DECOMP_OLLAMA_URL?.trim() || DEFAULT_OLLAMA_URL,
+    ollamaModel: process.env.FOLIO_DECOMP_OLLAMA_MODEL?.trim() || DEFAULT_OLLAMA_MODEL,
+    codexCooldownMs:
+      Number(process.env.FOLIO_DECOMP_CODEX_COOLDOWN_MS) || DEFAULT_CODEX_COOLDOWN_MS,
   };
 }
