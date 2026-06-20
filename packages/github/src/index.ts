@@ -70,6 +70,9 @@ export {
   type ReviewSummary,
 } from "./pull-request.js";
 
+// ─── Repo permission ─────────────────────────────────────────────────────────────
+export { checkUserRepoPermission } from "./repo-permission.js";
+
 // ─── Comments ────────────────────────────────────────────────────────────────
 export {
   commentMarker,
