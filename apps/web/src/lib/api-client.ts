@@ -34,11 +34,17 @@ export async function apiRequest<T>(
   const { baseUrl = webEnv.apiBaseUrl, ...requestInit } = init ?? {};
   const response = await fetch(new URL(path, baseUrl), {
     ...requestInit,
+    credentials: "include",
     headers: {
       accept: "application/json",
       ...requestInit.headers,
     },
   });
+
+  if (response.status === 401 && typeof window !== "undefined") {
+    window.location.href = "/login";
+  }
+
   const payload = (await response.json()) as ApiResponse<T>;
 
   if (!payload.success) {

@@ -2,6 +2,7 @@ import { LayoutDashboard, MessageSquarePlus, Moon } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
+import { logoutUrl } from "@/lib/auth";
 import { PR } from "@/lib/sample-review";
 
 function BrandMark() {
@@ -65,9 +66,16 @@ export function TopBar() {
         >
           <Moon className="size-4" />
         </Button>
-        <Button asChild size="xs" variant="outline" className="hidden sm:inline-flex">
-          <Link href="/login">로그인</Link>
-        </Button>
+        <button
+          type="button"
+          onClick={async () => {
+            await fetch(logoutUrl(), { method: "POST", credentials: "include" });
+            window.location.href = "/login";
+          }}
+          className="text-sm text-muted-foreground hover:text-foreground"
+        >
+          로그아웃
+        </button>
       </div>
     </header>
   );
