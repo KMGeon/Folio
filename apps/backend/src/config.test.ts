@@ -77,6 +77,8 @@ describe("backend config", () => {
     delete process.env.GITHUB_APP_ID;
     delete process.env.GITHUB_APP_PRIVATE_KEY;
     delete process.env.GITHUB_APP_WEBHOOK_SECRET;
+    delete process.env.GITHUB_APP_CLIENT_ID;
+    delete process.env.GITHUB_APP_CLIENT_SECRET;
     delete process.env.ANTHROPIC_API_KEY;
     process.env.APP_PROFILE = "prd";
     process.chdir(backendDir);

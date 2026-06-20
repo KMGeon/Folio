@@ -15,10 +15,12 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@folio/db": "workspace:*",
     "@folio/github": "workspace:*",
     "@nestjs/common": "^11.1.27",
     "@nestjs/core": "^11.1.27",
     "@nestjs/platform-express": "^11.1.27",
+    "cookie-parser": "^1.4.7",
     "dotenv": "^16.4.5",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
@@ -26,6 +28,7 @@
   },
   "devDependencies": {
     "@nestjs/testing": "^11.1.27",
+    "@types/cookie-parser": "^1.4.8",
     "@types/express": "^5.0.6",
     "@types/node": "^20.17.0",
     "@types/supertest": "^7.2.0",
