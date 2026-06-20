@@ -1,4 +1,4 @@
-import { webEnv } from "./env.js";
+import { webEnv } from "./env";
 
 export interface ApiSuccessResponse<T> {
   success: true;
@@ -43,6 +43,7 @@ export async function apiRequest<T>(
 
   if (response.status === 401 && typeof window !== "undefined") {
     window.location.href = "/login";
+    return new Promise<T>(() => {});
   }
 
   const payload = (await response.json()) as ApiResponse<T>;

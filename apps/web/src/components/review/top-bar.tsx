@@ -72,7 +72,7 @@ export function TopBar() {
             await fetch(logoutUrl(), { method: "POST", credentials: "include" });
             window.location.href = "/login";
           }}
-          className="text-sm text-muted-foreground hover:text-foreground"
+          className="text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           로그아웃
         </button>
