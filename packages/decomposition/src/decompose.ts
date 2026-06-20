@@ -1,8 +1,8 @@
 // Orchestrator. The public entry the I2 worker calls.
 //
 // Pipeline:
-//   parse diff (E1) → filter excluded files → tiny-PR / llm-off short-circuit to
-//   deterministic fallback → format + inject-guard → LLM emit_chapters (chunked
+//   parse diff (E1) → filter excluded files → (no-reviewable-hunk / llm-off short-circuit
+//   to deterministic fallback) → format + inject-guard → LLM emit_chapters (chunked
 //   if large) → Zod + coverage validation → bounded repair loop → assemble wire
 //   chapters (+ excluded "Other changes" bucket) → final coverage guarantee.
 //

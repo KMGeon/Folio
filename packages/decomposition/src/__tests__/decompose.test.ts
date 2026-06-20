@@ -114,6 +114,13 @@ describe("decompose — tiny PR now takes the LLM path", () => {
     );
   });
 
+  it("routes a 0-reviewable-hunk diff to deterministic without calling the LLM", async () => {
+    const spy = vi.fn(() => new StubClient([]));
+    const result = await decompose({ diff: "" }, {}, { clientFactory: spy });
+    expect(spy).not.toHaveBeenCalled();
+    expect(result.source).toBe("fallback");
+  });
+
   it("uses fallback when FOLIO_DECOMP_LLM=0 and no client factory given", async () => {
     const original = process.env.FOLIO_DECOMP_LLM;
     process.env.FOLIO_DECOMP_LLM = "0";
