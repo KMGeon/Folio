@@ -1,6 +1,6 @@
 {
-  "id": "ccc7d0cd-363f-4b64-a62f-b71a4abed72e",
-  "prevId": "00000000-0000-0000-0000-000000000001",
+  "id": "92a6ed1e-24c9-447d-8aaf-b7890500c68c",
+  "prevId": "ccc7d0cd-363f-4b64-a62f-b71a4abed72e",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -739,6 +739,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "token_hash": {
+          "name": "token_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
         "expires_at": {
           "name": "expires_at",
           "type": "timestamp with time zone",
@@ -759,7 +765,13 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "sessions_token_hash_unique": {
+          "name": "sessions_token_hash_unique",
+          "nullsNotDistinct": false,
+          "columns": ["token_hash"]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false

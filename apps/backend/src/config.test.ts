@@ -79,7 +79,7 @@ describe("backend config", () => {
     process.env.GITHUB_APP_WEBHOOK_SECRET = "webhook-secret";
     process.env.GITHUB_APP_CLIENT_ID = "Iv1.abc123";
     process.env.GITHUB_APP_CLIENT_SECRET = "client-secret-value";
-    process.env.ANTHROPIC_API_KEY = "sk-ant-fake";
+    process.env.GITHUB_PAT = "ghp_fake";
     process.chdir(backendDir);
 
     try {
@@ -106,7 +106,7 @@ describe("backend config", () => {
     delete process.env.GITHUB_APP_WEBHOOK_SECRET;
     delete process.env.GITHUB_APP_CLIENT_ID;
     delete process.env.GITHUB_APP_CLIENT_SECRET;
-    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.GITHUB_PAT;
     process.env.APP_PROFILE = "prd";
     process.chdir(backendDir);
 

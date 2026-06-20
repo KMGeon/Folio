@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { logoutUrl } from "@/lib/auth";
-import { PR } from "@/lib/sample-review";
+import type { ReviewPrMeta } from "@/lib/review-api";
 
 function BrandMark() {
   return (
@@ -26,7 +26,7 @@ function Crumb({ label }: { label: string }) {
   );
 }
 
-export function TopBar() {
+export function TopBar({ pr }: { pr: ReviewPrMeta }) {
   return (
     <header className="flex min-h-12 shrink-0 items-center justify-between gap-3 border-b px-4 py-2">
       <nav className="flex min-w-0 items-center gap-1.5 text-sm">
@@ -34,12 +34,12 @@ export function TopBar() {
           <BrandMark />
         </span>
         <span className="hidden items-center gap-1.5 sm:flex">
-          <Crumb label={PR.org} />
+          <Crumb label={pr.org} />
           <span className="text-muted-foreground/50">/</span>
-          <Crumb label={PR.repo} />
+          <Crumb label={pr.repo} />
           <span className="text-muted-foreground/50">/</span>
         </span>
-        <span className="px-1 font-medium">#{PR.number}</span>
+        <span className="px-1 font-medium">#{pr.number}</span>
       </nav>
 
       <div className="flex shrink-0 items-center gap-1.5">

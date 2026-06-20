@@ -149,7 +149,7 @@ describe("auth routes", () => {
   // Fix 1: RepoAccessGuard 403 deny path — proves guard ordering (SessionAuthGuard runs first
   // and attaches req.user, then RepoAccessGuard reads user.login) and that an unknown repo
   // (getByFullName → null) results in repo_access_denied without any GitHub network call.
-  it("GET chapters returns 403 repo_access_denied when repo is not found in db", async () => {
+  it("GET review returns 403 repo_access_denied when repo is not found in db", async () => {
     getById.mockResolvedValue({ id: "u1", login: "octocat", avatarUrl: "https://a" });
     upsertByGithubId.mockResolvedValue({ id: "u1", login: "octocat", avatarUrl: "https://a" });
     // repo unknown → userCanAccessRepo returns false → RepoAccessGuard denies
@@ -166,7 +166,7 @@ describe("auth routes", () => {
     );
 
     const res = await request(app.getHttpServer())
-      .get("/api/v1/pulls/acme/widget/1/chapters")
+      .get("/api/v1/pulls/acme/widget/1/review")
       .set("Cookie", sessionCookie ?? "");
 
     expect(res.status).toBe(403);

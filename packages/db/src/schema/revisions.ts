@@ -20,6 +20,9 @@ export const revisions = pgTable(
     baseSha: text("base_sha").notNull(),
     mergeBaseSha: text("merge_base_sha").notNull(),
     prologue: jsonb("prologue").$type<Prologue>(),
+    // Full unified diff captured at decompose time so the read path slices
+    // chapter code without re-hitting GitHub.
+    rawDiff: text("raw_diff"),
   },
   (table) => [uniqueIndex("revisions_pr_index_unique").on(table.prId, table.index)],
 );

@@ -1,5 +1,4 @@
 import {
-  CheckCircle2,
   ChevronDown,
   ChevronRight,
   Circle,
@@ -10,23 +9,23 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { PR, getActiveChapter } from "@/lib/sample-review";
+import type { ReviewChapter } from "@/lib/review-api";
 import { cn } from "@/lib/utils";
 
-const RISK_LABEL: Record<string, string> = {
-  low: "낮은 위험",
-  medium: "중간 위험",
-  high: "높은 위험",
-};
+// risk/viewed/reviewHints are not in ReviewPayload; those sub-sections are omitted.
 
-const RISK_STYLES: Record<string, string> = {
-  low: "border-primary/30 text-primary",
-  medium: "border-syntax-code/40 text-syntax-code",
-  high: "border-destructive/40 text-destructive",
-};
+export function ChapterPanel({
+  chapters,
+  activeIndex,
+}: {
+  chapters: ReviewChapter[];
+  activeIndex: number;
+}) {
+  const chapter = chapters.find((c) => c.index === activeIndex) ?? chapters[0];
+  if (!chapter) {
+    return null;
+  }
 
-export function ChapterPanel() {
-  const chapter = getActiveChapter();
   const additions = chapter.files.reduce((sum, file) => sum + file.additions, 0);
 
   return (
@@ -61,30 +60,10 @@ export function ChapterPanel() {
       <div className="px-4 pt-3">
         <h2 className="text-lg font-semibold tracking-tight">{chapter.title}</h2>
         <div className="mt-2 flex items-center gap-2">
-          <span
-            className={cn(
-              "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium",
-              RISK_STYLES[chapter.risk],
-            )}
-          >
-            {RISK_LABEL[chapter.risk]}
-          </span>
           <span className="font-mono text-xs text-primary">+ {additions}</span>
         </div>
 
         <p className="mt-4 text-sm leading-relaxed text-muted-foreground">{chapter.summary}</p>
-      </div>
-
-      <div className="mt-5 border-t px-4 py-4">
-        <h3 className="text-xs font-medium text-muted-foreground">리뷰 포인트</h3>
-        <ul className="mt-3 space-y-2 text-sm leading-6">
-          {chapter.reviewHints.map((hint) => (
-            <li key={hint} className="flex gap-2 text-muted-foreground">
-              <CheckCircle2 className="mt-1 size-3.5 shrink-0 text-primary" />
-              <span>{hint}</span>
-            </li>
-          ))}
-        </ul>
       </div>
 
       <div className="border-t px-4 py-4">
@@ -123,7 +102,7 @@ export function ChapterPanel() {
       <div className="border-t px-4 py-4">
         <h3 className="text-xs font-medium text-muted-foreground">전체 챕터</h3>
         <div className="mt-3 space-y-1">
-          {PR.chapters.map((item) => (
+          {chapters.map((item) => (
             <button
               type="button"
               key={item.index}
@@ -134,7 +113,6 @@ export function ChapterPanel() {
             >
               <span className="w-5 shrink-0 text-xs text-muted-foreground">{item.index}</span>
               <span className="min-w-0 flex-1 truncate">{item.title}</span>
-              {item.viewed && <CheckCircle2 className="size-3.5 shrink-0 text-primary" />}
             </button>
           ))}
         </div>
