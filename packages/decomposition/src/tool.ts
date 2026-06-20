@@ -1,9 +1,10 @@
-// The `emit_chapters` Anthropic tool definition. Its `input_schema` is a JSON
+// The `emit_chapters` structured-output schema. Its `input_schema` is a JSON
 // Schema mirroring the strict Zod emit shape in @folio/types
-// (`ChapterEmitSchema` + `PrologueSchema`) so Claude is constrained at the API
-// boundary; the Zod parser in `schema.ts` re-validates on the way back.
+// (`ChapterEmitSchema` + `PrologueSchema`); it is passed to Codex as the turn's
+// `outputSchema` so the model is constrained to emit JSON, and the Zod parser in
+// `schema.ts` re-validates on the way back.
 
-/** Tool name forced via `tool_choice` so the model cannot reply in free text. */
+/** Logical name of the structured payload the model must emit. */
 export const EMIT_CHAPTERS_TOOL_NAME = "emit_chapters";
 
 const lineRefSchema = {
@@ -144,7 +145,9 @@ const prologueKeyChangeSchema = {
 const prologueSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["motivation", "outcome", "keyChanges", "focusAreas", "complexity"],
+  // Strict structured output: every property must be listed in `required`; optional
+  // values (diagram) stay expressible via a nullable type rather than omission.
+  required: ["motivation", "outcome", "diagram", "keyChanges", "focusAreas", "complexity"],
   properties: {
     motivation: {
       type: ["string", "null"],
@@ -183,8 +186,8 @@ const prologueSchema = {
 } as const;
 
 /**
- * The forced tool. Used with `tool_choice: { type: "tool", name }` so the model
- * is required to call it and return structured input rather than prose.
+ * The structured-output contract. Passed as the Codex turn's `outputSchema` so the
+ * model returns this JSON shape rather than prose.
  */
 export const emitChaptersTool = {
   name: EMIT_CHAPTERS_TOOL_NAME,
@@ -194,7 +197,9 @@ export const emitChaptersTool = {
   input_schema: {
     type: "object",
     additionalProperties: false,
-    required: ["chapters"],
+    // Strict structured output requires every property in `required`; the live model
+    // always emits a prologue. The Zod parser keeps it optional for stubbed callers.
+    required: ["chapters", "prologue"],
     properties: {
       chapters: {
         type: "array",

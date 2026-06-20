@@ -1,21 +1,9 @@
 import { formatDiffForLlm, parseUnifiedDiff } from "@folio/diff";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { decompose } from "../decompose.js";
 import { DIFF_BEGIN, DIFF_END, guardDiff, neutralizeInjection } from "../inject-guard.js";
 import { buildUserPrompt } from "../prompt.js";
 import { StubClient, fullCoverageChapter, readFixture } from "./helpers.js";
-
-const ORIGINAL_KEY = process.env.ANTHROPIC_API_KEY;
-beforeEach(() => {
-  process.env.ANTHROPIC_API_KEY = "test-key";
-});
-afterEach(() => {
-  if (ORIGINAL_KEY === undefined) {
-    delete process.env.ANTHROPIC_API_KEY;
-  } else {
-    process.env.ANTHROPIC_API_KEY = ORIGINAL_KEY;
-  }
-});
 
 describe("inject-guard primitives", () => {
   it("wraps the diff in BEGIN/END delimiters", () => {
@@ -46,7 +34,7 @@ describe("inject-guard primitives", () => {
   });
 });
 
-describe("inject-guard end-to-end (mocked Anthropic)", () => {
+describe("inject-guard end-to-end (mocked Codex)", () => {
   it("delimits the malicious .md inside the user prompt and never executes it", async () => {
     const diff = readFixture("injection-attempt.diff");
     const formatted = formatDiffForLlm(parseUnifiedDiff(diff)).text;

@@ -1,21 +1,11 @@
 import { filterFilesForLlm, parseUnifiedDiff, validateHunkCoverage } from "@folio/diff";
 import { ChapterSchema, PrologueSchema } from "@folio/types";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ResolvedConfig } from "../config.js";
 import { decompose, decomposeDeterministic } from "../decompose.js";
 import { StubClient, fullCoverageChapter, readFixture } from "./helpers.js";
 
-const ORIGINAL_KEY = process.env.ANTHROPIC_API_KEY;
-
-beforeEach(() => {
-  process.env.ANTHROPIC_API_KEY = "test-key";
-});
 afterEach(() => {
-  if (ORIGINAL_KEY === undefined) {
-    delete process.env.ANTHROPIC_API_KEY;
-  } else {
-    process.env.ANTHROPIC_API_KEY = ORIGINAL_KEY;
-  }
   vi.restoreAllMocks();
 });
 
@@ -24,7 +14,7 @@ function expectFullCoverage(diff: string, chapters: unknown): void {
   expect(() => validateHunkCoverage(allFiles, chapters as never)).not.toThrow();
 }
 
-describe("decompose — LLM happy path (mocked Anthropic)", () => {
+describe("decompose — LLM happy path (mocked Codex)", () => {
   it("returns source 'llm' with full coverage from a valid stubbed tool input", async () => {
     const diff = readFixture("refactor-with-tests.diff");
     const stub = new StubClient([
@@ -94,7 +84,7 @@ describe("decompose — LLM happy path (mocked Anthropic)", () => {
   });
 });
 
-describe("decompose — tiny PR + no key short-circuits", () => {
+describe("decompose — tiny PR + llm-off short-circuits", () => {
   it("produces a single chapter for a tiny PR (<= threshold)", async () => {
     const diff = readFixture("tiny-pr.diff");
     const spy = vi.fn();
@@ -115,13 +105,22 @@ describe("decompose — tiny PR + no key short-circuits", () => {
     expectFullCoverage(diff, result.chapters);
   });
 
-  it("uses fallback when ANTHROPIC_API_KEY is unset and no client factory given", async () => {
-    delete process.env.ANTHROPIC_API_KEY;
-    const diff = readFixture("refactor-with-tests.diff");
-    const result = await decompose({ diff });
-    expect(result.source).toBe("fallback");
-    expect(result.modelUsed).toBe("");
-    expectFullCoverage(diff, result.chapters);
+  it("uses fallback when FOLIO_DECOMP_LLM=0 and no client factory given", async () => {
+    const original = process.env.FOLIO_DECOMP_LLM;
+    process.env.FOLIO_DECOMP_LLM = "0";
+    try {
+      const diff = readFixture("refactor-with-tests.diff");
+      const result = await decompose({ diff });
+      expect(result.source).toBe("fallback");
+      expect(result.modelUsed).toBe("");
+      expectFullCoverage(diff, result.chapters);
+    } finally {
+      if (original === undefined) {
+        delete process.env.FOLIO_DECOMP_LLM;
+      } else {
+        process.env.FOLIO_DECOMP_LLM = original;
+      }
+    }
   });
 });
 

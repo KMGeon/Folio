@@ -1,26 +1,14 @@
 import { parseUnifiedDiff, validateHunkCoverage } from "@folio/diff";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { decompose } from "../decompose.js";
 import { StubClient, fullCoverageChapter, readFixture } from "./helpers.js";
-
-const ORIGINAL_KEY = process.env.ANTHROPIC_API_KEY;
-beforeEach(() => {
-  process.env.ANTHROPIC_API_KEY = "test-key";
-});
-afterEach(() => {
-  if (ORIGINAL_KEY === undefined) {
-    delete process.env.ANTHROPIC_API_KEY;
-  } else {
-    process.env.ANTHROPIC_API_KEY = ORIGINAL_KEY;
-  }
-});
 
 function expectFullCoverage(diff: string, chapters: unknown): void {
   const files = parseUnifiedDiff(diff);
   expect(() => validateHunkCoverage(files, chapters as never)).not.toThrow();
 }
 
-describe("repair loop (mocked Anthropic)", () => {
+describe("repair loop (mocked Codex)", () => {
   it("marks source 'llm-repaired' when the first output fails coverage and the second is valid", async () => {
     const diff = readFixture("refactor-with-tests.diff");
     // First response: a chapter missing several hunks → coverage failure.

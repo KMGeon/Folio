@@ -2,8 +2,8 @@
 // Centralizes every tunable so the orchestrator, client, repair loop, chunker,
 // and fallback share one source of truth.
 
-/** Default Claude model used for `emit_chapters` tool-use. */
-export const DEFAULT_MODEL = "claude-sonnet-4-6";
+/** Default Codex model used for the `emit_chapters` structured-output turn. */
+export const DEFAULT_MODEL = "gpt-5.5";
 
 /** Low temperature: decomposition is a near-deterministic structuring task. */
 export const DEFAULT_TEMPERATURE = 0.2;
@@ -17,10 +17,10 @@ export const DEFAULT_MAX_REPAIR_ATTEMPTS = 2;
  */
 export const DEFAULT_SINGLE_CHAPTER_HUNK_THRESHOLD = 3;
 
-/** Anthropic response token ceiling for one `emit_chapters` call. */
+/** Model response token ceiling for one `emit_chapters` call. */
 export const DEFAULT_MAX_TOKENS = 8192;
 
-/** Per-request wall-clock budget (ms) before the Anthropic call is aborted. */
+/** Per-request wall-clock budget (ms) before the model call is aborted. */
 export const DEFAULT_REQUEST_TIMEOUT_MS = 120_000;
 
 /**
@@ -40,20 +40,26 @@ export interface ResolvedConfig {
   maxTokens: number;
   requestTimeoutMs: number;
   maxDiffChars: number;
+  /** Whether the LLM (Codex) path is enabled; false forces deterministic fallback. */
+  llmEnabled: boolean;
+  /** Optional OpenAI API key; when unset the Codex SDK uses the local subscription auth. */
   apiKey: string | undefined;
 }
 
 import type { DecompositionOptions } from "./types.js";
 
-/** Read the model override from `FOLIO_DECOMP_MODEL`, else the SDK key, else default. */
+/** Read the model override from `FOLIO_DECOMP_MODEL`, else the default. */
 export function resolveModel(optModel?: string): string {
   return optModel ?? process.env.FOLIO_DECOMP_MODEL ?? DEFAULT_MODEL;
 }
 
-/** True when an Anthropic API key is present (gates the LLM path). */
-export function hasApiKey(): boolean {
-  const key = process.env.ANTHROPIC_API_KEY;
-  return typeof key === "string" && key.trim().length > 0;
+/**
+ * True unless explicitly disabled with `FOLIO_DECOMP_LLM=0`. Codex auth comes from
+ * the local CLI session, so there is no API key to gate on — we attempt the LLM
+ * path by default and degrade to the deterministic fallback on any failure.
+ */
+export function isLlmEnabled(): boolean {
+  return process.env.FOLIO_DECOMP_LLM?.trim() !== "0";
 }
 
 /** Merge caller options with env + defaults into a fully resolved config. */
@@ -67,6 +73,7 @@ export function resolveConfig(opts: DecompositionOptions = {}): ResolvedConfig {
     maxTokens: opts.maxTokens ?? DEFAULT_MAX_TOKENS,
     requestTimeoutMs: opts.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS,
     maxDiffChars: opts.maxDiffChars ?? DEFAULT_MAX_DIFF_CHARS,
-    apiKey: process.env.ANTHROPIC_API_KEY?.trim() || undefined,
+    llmEnabled: isLlmEnabled(),
+    apiKey: process.env.OPENAI_API_KEY?.trim() || undefined,
   };
 }
