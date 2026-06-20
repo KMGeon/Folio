@@ -18,7 +18,8 @@ export class SessionService {
   }
 
   async resolve(token: string | undefined): Promise<{ userId: string } | null> {
-    if (!token) {
+    // cookie-parser can revive a "j:{...}" cookie into an object; auth guards must fail closed.
+    if (typeof token !== "string" || !token) {
       return null;
     }
     const hash = this.hashToken(token);

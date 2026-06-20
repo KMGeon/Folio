@@ -133,7 +133,7 @@ describe("auth routes", () => {
   // The unhandled rejection surfaces as a 500 instead of 401.
   // Fix required in SessionService.resolve(): add `if (typeof token !== "string") return null;`
   // This test documents the current broken behavior; fix belongs in session.service.ts (Task 7 scope).
-  it.fails("me returns 401 (not 500) when folio_session cookie is a malformed non-string value", async () => {
+  it("me returns 401 (not 500) when folio_session cookie is a malformed non-string value", async () => {
     const app = await createServer();
     // Send a cookie header that parses to an object-like value via cookie-parser
     // (e.g. "folio_session=j:%7B%7D" triggers express cookie-parser JSON revival).
