@@ -11,7 +11,8 @@ vi.mock("@folio/db", () => ({
   chaptersRepo: { replaceForRevision: vi.fn(async () => []) },
 }));
 
-const { persistReview, syntheticInstallationId } = await import("./review-persistence.js");
+const { persistReview, syntheticInstallationId, syntheticRepoId } =
+  await import("./review-persistence.js");
 const db = await import("@folio/db");
 
 const summary = {
@@ -69,10 +70,21 @@ describe("persistReview", () => {
     expect(revisionId).toBe("rev1");
     expect(rows).toHaveLength(1);
     expect(rows[0].title).toBe("Chapter one");
+
+    // repository upsert must use the per-repo synthetic id, not the installation id.
+    expect(db.repositoriesRepo.upsertByGithubId).toHaveBeenCalledWith(
+      expect.objectContaining({ githubRepoId: syntheticRepoId("acme", "widget") }),
+    );
   });
 
   it("derives a stable negative synthetic installation id", () => {
     expect(syntheticInstallationId("acme")).toBe(syntheticInstallationId("acme"));
     expect(syntheticInstallationId("acme")).toBeLessThan(0);
+  });
+
+  it("derives a stable negative synthetic repo id distinct from the installation id", () => {
+    expect(syntheticRepoId("acme", "widget")).toBe(syntheticRepoId("acme", "widget"));
+    expect(syntheticRepoId("acme", "widget")).toBeLessThan(0);
+    expect(syntheticRepoId("acme", "widget")).not.toBe(syntheticInstallationId("acme"));
   });
 });

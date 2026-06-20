@@ -37,6 +37,20 @@ export function syntheticInstallationId(owner: string): number {
   return -Math.abs(hash) - 1;
 }
 
+/**
+ * Deterministic placeholder repo id for the PAT path (no real GitHub repo id).
+ * Derived from the full "owner/repo" name so different repos under the same owner
+ * never collide on the UNIQUE githubRepoId column.
+ */
+export function syntheticRepoId(owner: string, repo: string): number {
+  const fullName = `${owner}/${repo}`;
+  let hash = 0;
+  for (const ch of fullName) {
+    hash = (hash * 31 + ch.charCodeAt(0)) | 0;
+  }
+  return -Math.abs(hash) - 1;
+}
+
 function prStatus(summary: PullRequestSummary): string {
   if (summary.merged) {
     return PULL_REQUEST_STATUS.MERGED;
@@ -58,11 +72,12 @@ export async function persistReview(input: PersistReviewInput): Promise<Persiste
     accountType: ACCOUNT_TYPE.ORGANIZATION,
   });
 
-  // No real GitHub repo id on the PAT path → derive a stable synthetic one.
+  // No real GitHub repo id on the PAT path → derive a stable per-repo synthetic one
+  // so different repos under the same owner don't collide on the UNIQUE githubRepoId column.
   const fullName = `${input.owner}/${input.repo}`;
   const repository = await repositoriesRepo.upsertByGithubId({
     installationId: installation.id,
-    githubRepoId: ghInstallId, // stable, owner-scoped placeholder
+    githubRepoId: syntheticRepoId(input.owner, input.repo),
     owner: input.owner,
     name: input.repo,
     fullName,
