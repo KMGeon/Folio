@@ -6,8 +6,8 @@
 //
 //   folio-decompose-eval [--no-llm] [--fixtures <dir>]
 //
-// `--no-llm` (and the absence of ANTHROPIC_API_KEY) exercises the deterministic
-// fallback only, so CI is fully reproducible without the network.
+// `--no-llm` (or `FOLIO_DECOMP_LLM=0`) exercises the deterministic fallback only,
+// so CI is fully reproducible without spawning Codex.
 
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
@@ -135,7 +135,7 @@ async function main(): Promise<number> {
   }
 
   process.stdout.write(
-    `folio-decompose-eval — ${entries.length} fixtures (${args.noLlm ? "no-llm" : "llm-if-key"})\n\n`,
+    `folio-decompose-eval — ${entries.length} fixtures (${args.noLlm ? "no-llm" : "llm"})\n\n`,
   );
 
   const reports: FixtureReport[] = [];

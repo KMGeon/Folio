@@ -1,6 +1,6 @@
-// Deterministic, no-LLM decomposition. Used for tiny PRs, when ANTHROPIC_API_KEY
-// is absent, and when the LLM path + repair loop are exhausted. It ALWAYS covers
-// 100% of reviewable hunks exactly once.
+// Deterministic, no-LLM decomposition. Used for tiny PRs, when the LLM path is
+// disabled (FOLIO_DECOMP_LLM=0), and when the LLM path + repair loop are exhausted.
+// It ALWAYS covers 100% of reviewable hunks exactly once.
 //
 // Strategy precedence (issue E2 §fallback):
 //   1. tiny-PR rule  — <= threshold reviewable hunks → ONE chapter.

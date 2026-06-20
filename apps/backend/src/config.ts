@@ -64,6 +64,11 @@ const baseSchema = z.object({
   GITHUB_APP_ID: z.string().optional(),
   GITHUB_APP_PRIVATE_KEY: z.string().optional(),
   GITHUB_APP_WEBHOOK_SECRET: z.string().optional(),
+  GITHUB_APP_SLUG: z.string().optional(),
+  GITHUB_APP_CLIENT_ID: z.string().optional(),
+  GITHUB_APP_CLIENT_SECRET: z.string().optional(),
+  // Public base URL of this backend; used to build the OAuth callback redirect.
+  PUBLIC_API_BASE_URL: z.string().default("http://localhost:8080"),
   // Personal access token for the manual review trigger (read diff + write comment).
   GITHUB_PAT: z.string().optional(),
   // Base URL used to build "Open in Stage" deep links in the PR comment.
@@ -81,6 +86,8 @@ const REQUIRED_IN_PRD = [
   "GITHUB_APP_ID",
   "GITHUB_APP_PRIVATE_KEY",
   "GITHUB_APP_WEBHOOK_SECRET",
+  "GITHUB_APP_CLIENT_ID",
+  "GITHUB_APP_CLIENT_SECRET",
   "GITHUB_PAT",
 ] as const satisfies readonly (keyof Config)[];
 
@@ -107,3 +114,8 @@ function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
 }
 
 export const config: Config = loadConfig();
+
+/** Session/state cookies are Secure only in prd (dev runs plain http). */
+export function cookieIsSecure(): boolean {
+  return config.APP_PROFILE === "prd";
+}

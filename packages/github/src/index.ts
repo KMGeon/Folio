@@ -23,6 +23,12 @@ export {
   type InstallationToken,
   resetInstallationAuth,
 } from "./auth/installation-token.js";
+export {
+  buildAuthorizeUrl,
+  exchangeOAuthCode,
+  getAuthenticatedUser,
+  type OAuthUser,
+} from "./auth/user-oauth.js";
 
 // ─── Client ──────────────────────────────────────────────────────────────────
 export {
@@ -63,6 +69,9 @@ export {
   type ReviewCommentSummary,
   type ReviewSummary,
 } from "./pull-request.js";
+
+// ─── Repo permission ─────────────────────────────────────────────────────────────
+export { checkUserRepoPermission } from "./repo-permission.js";
 
 // ─── Comments ────────────────────────────────────────────────────────────────
 export {

@@ -1,13 +1,14 @@
-// Anthropic tool-use call. Forces the `emit_chapters` tool via `tool_choice` and
-// returns the raw tool input (an `unknown` to be Zod-validated by schema.ts).
+// Codex SDK call. Runs a single locked-down (read-only, no-network, no-approval)
+// Codex turn that returns the emit_chapters payload as structured JSON via
+// `outputSchema`, then parses it (an `unknown` re-validated by schema.ts).
 //
-// The engine talks to Anthropic through the small `ChapterClient` interface so
-// tests inject a stub and never touch the network. `createAnthropicClient`
-// builds the real one lazily (the SDK is only imported when used), so the
-// fallback path works with no `@anthropic-ai/sdk` resolution at runtime.
+// The engine talks to Codex through the small `ChapterClient` interface so tests
+// inject a stub and never spawn the CLI. `createCodexClient` builds the real one
+// lazily (the SDK is only imported when used), so the deterministic fallback path
+// works with no `@openai/codex-sdk` resolution at runtime.
 
 import type { ResolvedConfig } from "./config.js";
-import { EMIT_CHAPTERS_TOOL_NAME, emitChaptersTool } from "./tool.js";
+import { emitChaptersTool } from "./tool.js";
 
 /** One conversational turn fed to the model (system stays separate). */
 export interface ChapterClientRequest {
@@ -18,83 +19,117 @@ export interface ChapterClientRequest {
 
 /**
  * Minimal client surface the engine depends on. The real implementation wraps
- * the Anthropic SDK; tests pass a stub returning canned tool inputs.
+ * the Codex SDK; tests pass a stub returning canned payloads.
  */
 export interface ChapterClient {
   /** The model id this client calls (surfaced as `modelUsed`). */
   readonly model: string;
   /**
-   * Run one forced-tool turn. Resolves to the parsed tool input (`unknown`,
+   * Run one structured-output turn. Resolves to the parsed payload (`unknown`,
    * validated upstream). Rejects on transport / API errors.
    */
   emitChapters(req: ChapterClientRequest): Promise<unknown>;
 }
 
-/** Thrown when the model response contains no `emit_chapters` tool_use block. */
-export class NoToolUseError extends Error {
-  constructor(message = "Model did not return an emit_chapters tool_use block") {
+/** Thrown when the model response contains no parseable structured payload. */
+export class NoStructuredOutputError extends Error {
+  constructor(message = "Model did not return a parseable emit_chapters payload") {
     super(message);
-    this.name = "NoToolUseError";
-    Object.setPrototypeOf(this, NoToolUseError.prototype);
+    this.name = "NoStructuredOutputError";
+    Object.setPrototypeOf(this, NoStructuredOutputError.prototype);
   }
 }
 
 // Structural subset of the SDK we rely on — lets us type the lazy import without
 // a hard dependency at type-check time for consumers that never call the LLM.
-interface AnthropicLike {
-  messages: {
-    create(
-      body: unknown,
-      opts?: { signal?: AbortSignal },
-    ): Promise<{
-      content: (
-        | { type: "tool_use"; name: string; input: unknown }
-        | { type: string; [k: string]: unknown }
-      )[];
-    }>;
-  };
+interface CodexThreadLike {
+  run(
+    input: string,
+    turnOptions?: { outputSchema?: unknown; signal?: AbortSignal },
+  ): Promise<{ finalResponse: string }>;
+}
+interface CodexLike {
+  startThread(options?: {
+    model?: string;
+    sandboxMode?: "read-only" | "workspace-write" | "danger-full-access";
+    approvalPolicy?: "never" | "on-request" | "on-failure" | "untrusted";
+    skipGitRepoCheck?: boolean;
+    networkAccessEnabled?: boolean;
+    webSearchEnabled?: boolean;
+  }): CodexThreadLike;
 }
 
 /**
- * Build the production client. Lazily imports `@anthropic-ai/sdk` on first call
- * so importing this package never requires the SDK to be present.
+ * Flatten the system prompt + conversation turns into one Codex input. Codex has
+ * no separate system role, so each role is rendered as a labeled block; the repair
+ * loop's prior-attempt + feedback turns survive the flattening.
  */
-export function createAnthropicClient(config: ResolvedConfig): ChapterClient {
-  let sdk: AnthropicLike | null = null;
+function renderInput(req: ChapterClientRequest): string {
+  const parts = [`<instructions>\n${req.system}\n</instructions>`];
+  for (const m of req.messages) {
+    parts.push(`<${m.role}>\n${m.content}\n</${m.role}>`);
+  }
+  return parts.join("\n\n");
+}
 
-  async function getSdk(): Promise<AnthropicLike> {
-    if (sdk) {
-      return sdk;
+/** Extract the structured payload from a Codex final response (raw or fenced JSON). */
+function parsePayload(text: string): unknown {
+  const trimmed = text.trim();
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    // Tolerate prose-wrapped or fenced JSON: take the first balanced {...} span.
+    const start = trimmed.indexOf("{");
+    const end = trimmed.lastIndexOf("}");
+    if (start !== -1 && end > start) {
+      try {
+        return JSON.parse(trimmed.slice(start, end + 1));
+      } catch {
+        // fall through to the structured-output error below
+      }
     }
-    const mod = await import("@anthropic-ai/sdk");
-    const Anthropic = (mod as { default: new (o: { apiKey?: string }) => AnthropicLike }).default;
-    sdk = new Anthropic({ apiKey: config.apiKey });
-    return sdk;
+    throw new NoStructuredOutputError();
+  }
+}
+
+/**
+ * Build the production client. Lazily imports `@openai/codex-sdk` on first call so
+ * importing this package never requires the SDK to be present. Auth defaults to the
+ * local Codex CLI session (`~/.codex`) — a ChatGPT subscription — unless
+ * `OPENAI_API_KEY` is set (carried in `config.apiKey`), which the SDK uses instead.
+ */
+export function createCodexClient(config: ResolvedConfig): ChapterClient {
+  let codex: CodexLike | null = null;
+
+  async function getCodex(): Promise<CodexLike> {
+    if (codex) {
+      return codex;
+    }
+    const mod = await import("@openai/codex-sdk");
+    const Codex = (mod as { Codex: new (o?: { apiKey?: string }) => CodexLike }).Codex;
+    codex = new Codex(config.apiKey ? { apiKey: config.apiKey } : undefined);
+    return codex;
   }
 
   return {
     model: config.model,
     async emitChapters(req: ChapterClientRequest): Promise<unknown> {
-      const client = await getSdk();
-      const response = await client.messages.create(
-        {
-          model: config.model,
-          max_tokens: config.maxTokens,
-          temperature: config.temperature,
-          system: req.system,
-          tools: [emitChaptersTool],
-          tool_choice: { type: "tool", name: EMIT_CHAPTERS_TOOL_NAME },
-          messages: req.messages,
-        },
-        { signal: req.signal },
-      );
-
-      for (const block of response.content) {
-        if (block.type === "tool_use" && block.name === EMIT_CHAPTERS_TOOL_NAME) {
-          return (block as { input: unknown }).input;
-        }
-      }
-      throw new NoToolUseError();
+      const client = await getCodex();
+      // Decomposition only reads the diff carried in the prompt — lock the agent
+      // down so it cannot run commands, touch files, or reach the network.
+      const thread = client.startThread({
+        model: config.model,
+        sandboxMode: "read-only",
+        approvalPolicy: "never",
+        skipGitRepoCheck: true,
+        networkAccessEnabled: false,
+        webSearchEnabled: false,
+      });
+      const turn = await thread.run(renderInput(req), {
+        outputSchema: emitChaptersTool.input_schema,
+        signal: req.signal,
+      });
+      return parsePayload(turn.finalResponse);
     },
   };
 }

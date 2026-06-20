@@ -15,6 +15,13 @@
       "when": 1781957988547,
       "tag": "0001_quick_christian_walker",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1781962101428,
+      "tag": "0002_red_ultimo",
+      "breakpoints": true
     }
   ]
 }

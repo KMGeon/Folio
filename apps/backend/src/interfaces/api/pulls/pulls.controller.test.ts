@@ -2,7 +2,13 @@ import { Test } from "@nestjs/testing";
 import { describe, expect, it, vi } from "vitest";
 import { ReviewPullFacade } from "../../../application/review/review-pull.facade.js";
 import { ReviewReadFacade } from "../../../application/review/review-read.facade.js";
+import { RepoAccessGuard } from "../common/repo-access.guard.js";
+import { SessionAuthGuard } from "../common/session-auth.guard.js";
 import { PullsController } from "./pulls.controller.js";
+
+// This unit test calls controller methods directly; bypass the auth guards
+// (their DI lives in AuthModule) so the test stays focused on controller logic.
+const allowGuard = { canActivate: () => true };
 
 describe("PullsController", () => {
   it("POST triggers a review run", async () => {
@@ -19,7 +25,12 @@ describe("PullsController", () => {
         { provide: ReviewPullFacade, useValue: { run } },
         { provide: ReviewReadFacade, useValue: { getReview: vi.fn() } },
       ],
-    }).compile();
+    })
+      .overrideGuard(SessionAuthGuard)
+      .useValue(allowGuard)
+      .overrideGuard(RepoAccessGuard)
+      .useValue(allowGuard)
+      .compile();
     const controller = moduleRef.get(PullsController);
 
     const result = await controller.createReview({ owner: "acme", repo: "widget", number: 7 });
@@ -35,7 +46,12 @@ describe("PullsController", () => {
         { provide: ReviewPullFacade, useValue: { run: vi.fn() } },
         { provide: ReviewReadFacade, useValue: { getReview } },
       ],
-    }).compile();
+    })
+      .overrideGuard(SessionAuthGuard)
+      .useValue(allowGuard)
+      .overrideGuard(RepoAccessGuard)
+      .useValue(allowGuard)
+      .compile();
     const controller = moduleRef.get(PullsController);
 
     const result = await controller.getReview("acme", "widget", "7");

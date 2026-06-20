@@ -15,6 +15,21 @@ export const ErrorType = {
     statusCode: 401,
     message: "GitHub webhook signature is invalid.",
   },
+  Unauthorized: {
+    code: "unauthorized",
+    statusCode: 401,
+    message: "Authentication is required.",
+  },
+  OAuthStateMismatch: {
+    code: "oauth_state_mismatch",
+    statusCode: 400,
+    message: "OAuth state did not match.",
+  },
+  RepoAccessDenied: {
+    code: "repo_access_denied",
+    statusCode: 403,
+    message: "You do not have access to this repository.",
+  },
   InternalError: {
     code: "internal_error",
     statusCode: 500,

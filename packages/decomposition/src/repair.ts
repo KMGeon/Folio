@@ -1,7 +1,7 @@
-// Bounded repair loop. On a Zod-schema or coverage failure we re-prompt Claude
-// with (a) its previous tool input echoed back and (b) the exact
-// missing/extra/duplicate list, asking it to "fix and resubmit" — mirroring
-// Retry-on-error contract for malformed model tool output. Capped at `maxRepairAttempts`.
+// Bounded repair loop. On a Zod-schema or coverage failure we re-prompt the model
+// with (a) its previous output echoed back and (b) the exact
+// missing/extra/duplicate list, asking it to "fix and resubmit" — a retry-on-error
+// contract for malformed model output. Capped at `maxRepairAttempts`.
 
 import type { PullRequestFile } from "@folio/types";
 import type { ChapterClient, ChapterClientRequest } from "./client.js";
@@ -33,7 +33,7 @@ function validate(
   if (!parsed.success) {
     return {
       ok: false,
-      feedback: `Your tool input did not match the required schema. Fix these issues and resubmit by calling emit_chapters:\n${parsed.error.issues
+      feedback: `Your emit_chapters output did not match the required schema. Fix these issues and resubmit the corrected JSON:\n${parsed.error.issues
         .map((i) => `  - ${i.path.join(".")}: ${i.message}`)
         .join("\n")}`,
     };
@@ -77,7 +77,7 @@ export async function runRepairLoop(firstRaw: unknown, ctx: RepairContext): Prom
   throw new Error(`Repair exhausted after ${ctx.maxRepairAttempts} attempts: ${result.feedback}`);
 }
 
-/** Echo the model's prior tool input back as assistant text for context. */
+/** Echo the model's prior output back as assistant text for context. */
 function renderPriorOutput(raw: unknown): string {
   let body: string;
   try {
@@ -85,5 +85,5 @@ function renderPriorOutput(raw: unknown): string {
   } catch {
     body = String(raw);
   }
-  return `My previous emit_chapters input was:\n${body}`;
+  return `My previous emit_chapters output was:\n${body}`;
 }

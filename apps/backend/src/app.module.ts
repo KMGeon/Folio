@@ -1,7 +1,8 @@
 import { Module } from "@nestjs/common";
 import { APP_FILTER, APP_INTERCEPTOR } from "@nestjs/core";
-import { ReviewModule } from "./application/review/review.module.js";
+import { AuthModule } from "./application/auth/auth.module.js";
 import { GitHubWebhookFacade } from "./application/github/github-webhook.facade.js";
+import { ReviewModule } from "./application/review/review.module.js";
 import { GitHubWebhookService } from "./domain/github/github-webhook.service.js";
 import { GitHubWebhookAdapter } from "./infrastructure/github/github-webhook.adapter.js";
 import { ApiResponseInterceptor } from "./interfaces/api/common/api-response.interceptor.js";
@@ -11,8 +12,8 @@ import { InternalModule } from "./internal/internal.module.js";
 import { CoreExceptionFilter } from "./support/error/core-exception.filter.js";
 
 @Module({
-  // PullsController moved into ReviewModule to co-locate it with its facades.
-  imports: [InternalModule, ReviewModule],
+  // PullsController lives in ReviewModule; AuthModule owns the OAuth/session stack.
+  imports: [InternalModule, ReviewModule, AuthModule],
   controllers: [HealthController, GitHubWebhookController],
   providers: [
     GitHubWebhookFacade,

@@ -25,6 +25,15 @@ export const repositoriesRepo = {
     return row ?? null;
   },
 
+  async getByFullName(fullName: string, db: Db = getDb()): Promise<RepositoryRow | null> {
+    const [row] = await db
+      .select()
+      .from(repositories)
+      .where(eq(repositories.fullName, fullName))
+      .limit(1);
+    return row ?? null;
+  },
+
   async listByInstallation(installationId: string, db: Db = getDb()): Promise<RepositoryRow[]> {
     return db.select().from(repositories).where(eq(repositories.installationId, installationId));
   },

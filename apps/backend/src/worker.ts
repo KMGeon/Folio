@@ -3,7 +3,7 @@
  *
  * In production this process claims decomposition jobs from a Postgres queue
  * (FOR UPDATE SKIP LOCKED), runs the PR -> chapters decomposition via the
- * Anthropic API (config.FOLIO_DECOMP_MODEL), and writes results back.
+ * Codex SDK (config.FOLIO_DECOMP_MODEL), and writes results back.
  *
  * TODO(I2): claim jobs from the SKIP-LOCKED queue and run decomposition.
  */
