@@ -71,8 +71,17 @@ function renderContext(input: DecompositionInput): string {
  * sanitized) formatted-diff block, and the call-to-action. `formattedDiff` is
  * the `=== HUNKS ===`-style text from `formatDiffForLlm` in @folio/diff.
  */
-export function buildUserPrompt(input: DecompositionInput, formattedDiff: string): string {
+export function buildUserPrompt(
+  input: DecompositionInput,
+  formattedDiff: string,
+  smallPrHunkCount?: number,
+): string {
   const guarded = guardDiff(formattedDiff);
+  // Small PRs tend to be over-split; nudge toward one chapter without forcing it.
+  const task =
+    smallPrHunkCount !== undefined
+      ? `Cluster every hunk above into ordered chapters and produce the prologue, then call emit_chapters. Ensure every (filePath, oldStart) hunk header appears in exactly one chapter's hunkRefs. This PR is small (${smallPrHunkCount} reviewable hunks). Prefer a SINGLE chapter unless the changes are genuinely independent.`
+      : "Cluster every hunk above into ordered chapters and produce the prologue, then call emit_chapters. Ensure every (filePath, oldStart) hunk header appears in exactly one chapter's hunkRefs.";
   return [
     "## PR context (trusted)",
     renderContext(input),
@@ -81,6 +90,6 @@ export function buildUserPrompt(input: DecompositionInput, formattedDiff: string
     guarded.text,
     "",
     "## Task",
-    "Cluster every hunk above into ordered chapters and produce the prologue, then call emit_chapters. Ensure every (filePath, oldStart) hunk header appears in exactly one chapter's hunkRefs.",
+    task,
   ].join("\n");
 }
