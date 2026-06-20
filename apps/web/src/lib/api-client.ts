@@ -1,4 +1,4 @@
-import { webEnv } from "./env.js";
+import { webEnv } from "./env";
 
 export interface ApiSuccessResponse<T> {
   success: true;
