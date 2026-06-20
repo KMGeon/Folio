@@ -1,21 +1,9 @@
 import { parseUnifiedDiff, validateHunkCoverage } from "@folio/diff";
 import type { ChapterEmit } from "@folio/types";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { fitsInOneChunk, mergeChunkChapters, splitIntoChunks } from "../chunking.js";
 import { decompose } from "../decompose.js";
 import { StubClient, readFixture } from "./helpers.js";
-
-const ORIGINAL_KEY = process.env.ANTHROPIC_API_KEY;
-beforeEach(() => {
-  process.env.ANTHROPIC_API_KEY = "test-key";
-});
-afterEach(() => {
-  if (ORIGINAL_KEY === undefined) {
-    delete process.env.ANTHROPIC_API_KEY;
-  } else {
-    process.env.ANTHROPIC_API_KEY = ORIGINAL_KEY;
-  }
-});
 
 describe("splitIntoChunks", () => {
   it("keeps a small diff in one chunk", () => {
@@ -61,7 +49,7 @@ describe("mergeChunkChapters", () => {
   });
 });
 
-describe("chunked decompose end-to-end (mocked Anthropic)", () => {
+describe("chunked decompose end-to-end (mocked Codex)", () => {
   it("proposes per chunk, merges, and keeps full coverage with contiguous order", async () => {
     const diff = readFixture("multi-dir.diff");
     const files = parseUnifiedDiff(diff);

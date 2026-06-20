@@ -42,5 +42,6 @@ Environment is parsed and validated in `src/config.ts` (see `.env.example` at
 the repo root). Runtime profile is selected with `APP_PROFILE=dev|prd`.
 Common values are loaded from `.env`, then profile-specific values from
 `.env.dev` or `.env.prd`. Key vars: `APP_PROFILE`, `PORT`, `WEB_ORIGIN`,
-`DATABASE_URL`, `ANTHROPIC_API_KEY`, `FOLIO_DECOMP_MODEL`, `GITHUB_APP_ID`,
-`GITHUB_APP_WEBHOOK_SECRET`.
+`DATABASE_URL`, `FOLIO_DECOMP_MODEL`, `FOLIO_DECOMP_LLM`, `GITHUB_APP_ID`,
+`GITHUB_APP_WEBHOOK_SECRET`. Decomposition runs through the Codex SDK, which
+authenticates via the local Codex CLI session (`~/.codex`) — no API key env var.

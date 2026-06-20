@@ -14,7 +14,7 @@ export interface DecompositionInput {
 }
 
 export interface DecompositionOptions {
-  /** Default "claude-sonnet-4-6" (or `FOLIO_DECOMP_MODEL`). */
+  /** Default "gpt-5.5" (or `FOLIO_DECOMP_MODEL`). */
   model?: string;
   /** Sampling temperature; default 0.2. */
   temperature?: number;
@@ -22,13 +22,13 @@ export interface DecompositionOptions {
   maxRepairAttempts?: number;
   /** PRs at/below this hunk count collapse into one chapter. */
   singleChapterHunkThreshold?: number;
-  /** Anthropic response token ceiling. */
+  /** Model response token ceiling. */
   maxTokens?: number;
   /** Per-request timeout (ms). */
   requestTimeoutMs?: number;
   /** Soft char ceiling for one prompt's diff block before chunking kicks in. */
   maxDiffChars?: number;
-  /** Cancellation propagated to the Anthropic SDK. */
+  /** Cancellation propagated to the Codex SDK. */
   signal?: AbortSignal;
 }
 

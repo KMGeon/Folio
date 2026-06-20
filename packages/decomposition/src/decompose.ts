@@ -1,7 +1,7 @@
 // Orchestrator. The public entry the I2 worker calls.
 //
 // Pipeline:
-//   parse diff (E1) → filter excluded files → tiny-PR / no-key short-circuit to
+//   parse diff (E1) → filter excluded files → tiny-PR / llm-off short-circuit to
 //   deterministic fallback → format + inject-guard → LLM emit_chapters (chunked
 //   if large) → Zod + coverage validation → bounded repair loop → assemble wire
 //   chapters (+ excluded "Other changes" bucket) → final coverage guarantee.
@@ -14,7 +14,7 @@ import { filterFilesForLlm, formatDiffForLlm, parseUnifiedDiff } from "@folio/di
 import type { ChapterEmit, Prologue, PullRequestFile } from "@folio/types";
 import { assembleChapters } from "./assemble.js";
 import { fitsInOneChunk, mergeChunkChapters, splitIntoChunks } from "./chunking.js";
-import { type ChapterClient, createAnthropicClient } from "./client.js";
+import { type ChapterClient, createCodexClient } from "./client.js";
 import { type ResolvedConfig, resolveConfig } from "./config.js";
 import { coverageOf, isFullyCovered } from "./coverage.js";
 import { buildFallbackChapters } from "./fallback.js";
@@ -29,7 +29,7 @@ import { runRepairLoop } from "./repair.js";
 import { type AgentOutput, AgentOutputSchema } from "./schema.js";
 import type { DecompositionInput, DecompositionOptions, DecompositionResult } from "./types.js";
 
-/** Test seam: supply a stub client instead of the real Anthropic SDK. */
+/** Test seam: supply a stub client instead of the real Codex SDK. */
 export interface DecomposeDeps {
   clientFactory?: (config: ResolvedConfig) => ChapterClient;
 }
@@ -52,7 +52,7 @@ function excludedBucket(
 
 /**
  * Pure deterministic decomposition (no LLM). Used directly by the harness
- * `--no-llm`, by the tiny-PR / no-key short-circuit, and as the universal
+ * `--no-llm`, by the tiny-PR / llm-off short-circuit, and as the universal
  * fallback. Always 100% covered.
  */
 export function decomposeDeterministic(
@@ -110,14 +110,14 @@ export async function decompose(
   const catchAll = excludedBucket(allFiles, excludedByPath);
   const reviewableHunks = countHunks(reviewable);
 
-  // No reviewable hunks, or tiny PR, or no API key → deterministic path.
-  const noKey = !config.apiKey && !deps.clientFactory;
-  if (reviewableHunks === 0 || reviewableHunks <= config.singleChapterHunkThreshold || noKey) {
+  // No reviewable hunks, or tiny PR, or LLM disabled → deterministic path.
+  const llmOff = !config.llmEnabled && !deps.clientFactory;
+  if (reviewableHunks === 0 || reviewableHunks <= config.singleChapterHunkThreshold || llmOff) {
     return decomposeDeterministic(input, opts);
   }
 
   try {
-    const client = (deps.clientFactory ?? createAnthropicClient)(config);
+    const client = (deps.clientFactory ?? createCodexClient)(config);
     const { output, repaired } = await runLlm(input, reviewable, client, config, opts.signal);
 
     const merged = ensureFullCoverage(output.chapters, reviewable);

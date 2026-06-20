@@ -14,7 +14,8 @@ export type { ChapterEmit, KeyChangeEmit, Prologue } from "@folio/types";
  */
 export const AgentOutputSchema = z.strictObject({
   chapters: z.array(ChapterEmitSchema),
-  prologue: PrologueSchema.optional(),
+  // nullish: stubbed callers may omit it; the live Codex schema emits null when absent.
+  prologue: PrologueSchema.nullish(),
 });
 export type AgentOutput = z.infer<typeof AgentOutputSchema>;
 
