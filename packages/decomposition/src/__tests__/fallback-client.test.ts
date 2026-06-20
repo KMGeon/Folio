@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { createCodexBreaker, createFallbackClient } from "../fallback-client.js";
+import {
+  createCodexBreaker,
+  createDefaultClient,
+  createFallbackClient,
+} from "../fallback-client.js";
+import type { ResolvedConfig } from "../config.js";
 import { StubClient } from "./helpers.js";
 
 const req = { system: "S", messages: [] as { role: "user" | "assistant"; content: string }[] };
@@ -62,5 +67,33 @@ describe("createFallbackClient", () => {
     const secondary = new StubClient([new Error("s")], "ollama");
     const client = createFallbackClient(primary, secondary, { now: () => 0 });
     await expect(client.emitChapters(req)).rejects.toThrow("s");
+  });
+});
+
+function cfg(over: Partial<ResolvedConfig>): ResolvedConfig {
+  return { ollamaEnabled: true, codexCooldownMs: 1000, ...over } as ResolvedConfig;
+}
+
+describe("createDefaultClient", () => {
+  it("falls to ollama when codex fails and ollama is enabled", async () => {
+    const codex = new StubClient([new Error("boom")], "codex");
+    const ollama = new StubClient([{ chapters: [9] }], "ollama");
+    const client = createDefaultClient(cfg({ ollamaEnabled: true }), {
+      codexFactory: () => codex,
+      ollamaFactory: () => ollama,
+    });
+    const out = await client.emitChapters(req);
+    expect(out).toEqual({ chapters: [9] });
+  });
+
+  it("propagates codex failure when ollama is disabled (→ deterministic upstream)", async () => {
+    const codex = new StubClient([new Error("boom")], "codex");
+    const ollama = new StubClient([{ chapters: [9] }], "ollama");
+    const client = createDefaultClient(cfg({ ollamaEnabled: false }), {
+      codexFactory: () => codex,
+      ollamaFactory: () => ollama,
+    });
+    await expect(client.emitChapters(req)).rejects.toThrow("boom");
+    expect(ollama.requests.length).toBe(0);
   });
 });

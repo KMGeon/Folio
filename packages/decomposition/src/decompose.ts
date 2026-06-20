@@ -14,7 +14,8 @@ import { filterFilesForLlm, formatDiffForLlm, parseUnifiedDiff } from "@folio/di
 import type { ChapterEmit, Prologue, PullRequestFile } from "@folio/types";
 import { assembleChapters } from "./assemble.js";
 import { fitsInOneChunk, mergeChunkChapters, splitIntoChunks } from "./chunking.js";
-import { type ChapterClient, createCodexClient } from "./client.js";
+import type { ChapterClient } from "./client.js";
+import { createDefaultClient } from "./fallback-client.js";
 import { type ResolvedConfig, resolveConfig } from "./config.js";
 import { coverageOf, isFullyCovered } from "./coverage.js";
 import { buildFallbackChapters } from "./fallback.js";
@@ -117,7 +118,7 @@ export async function decompose(
   }
 
   try {
-    const client = (deps.clientFactory ?? createCodexClient)(config);
+    const client = (deps.clientFactory ?? createDefaultClient)(config);
     const { output, repaired } = await runLlm(input, reviewable, client, config, opts.signal);
 
     const merged = ensureFullCoverage(output.chapters, reviewable);

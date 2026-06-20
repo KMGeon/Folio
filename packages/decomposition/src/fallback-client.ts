@@ -5,7 +5,9 @@
 // when both providers fail. The breaker is shared across decompose() calls so a
 // Codex outage stops being re-probed on every PR for `cooldownMs`.
 
-import type { ChapterClient, ChapterClientRequest } from "./client.js";
+import { type ChapterClient, type ChapterClientRequest, createCodexClient } from "./client.js";
+import type { ResolvedConfig } from "./config.js";
+import { createOllamaClient } from "./ollama-client.js";
 
 export interface CodexBreaker {
   /** Open while openUntil > now (exclusive); a half-open probe is allowed at now === openUntil. */
@@ -30,6 +32,30 @@ export function createCodexBreaker(cooldownMs: number): CodexBreaker {
 export interface FallbackOptions {
   breaker?: CodexBreaker;
   now?: () => number;
+}
+
+/** Module-shared breaker so a Codex outage persists across PRs (decompose() calls). */
+let sharedBreaker: CodexBreaker | null = null;
+
+export interface DefaultClientDeps {
+  codexFactory?: (config: ResolvedConfig) => ChapterClient;
+  ollamaFactory?: (config: ResolvedConfig) => ChapterClient;
+}
+
+/**
+ * The production client wiring: Codex primary, Ollama fallback (when enabled),
+ * guarded by a process-shared circuit breaker. `deps` exists only as a test seam.
+ */
+export function createDefaultClient(
+  config: ResolvedConfig,
+  deps: DefaultClientDeps = {},
+): ChapterClient {
+  const codex = (deps.codexFactory ?? createCodexClient)(config);
+  const ollama = config.ollamaEnabled ? (deps.ollamaFactory ?? createOllamaClient)(config) : null;
+  if (!sharedBreaker) {
+    sharedBreaker = createCodexBreaker(config.codexCooldownMs);
+  }
+  return createFallbackClient(codex, ollama, { breaker: sharedBreaker });
 }
 
 /**
