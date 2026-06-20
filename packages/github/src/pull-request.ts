@@ -16,6 +16,7 @@ export interface PullRequestSummary {
   headRef: string;
   headSha: string;
   baseRef: string;
+  baseSha: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -91,6 +92,7 @@ export async function getPullRequest(
     headRef: data.head.ref,
     headSha: data.head.sha,
     baseRef: data.base.ref,
+    baseSha: data.base.sha,
     createdAt: data.created_at,
     updatedAt: data.updated_at,
   };
