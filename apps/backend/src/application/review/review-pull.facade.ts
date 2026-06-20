@@ -55,9 +55,8 @@ export class ReviewPullFacade {
       prologue,
     });
 
-    const ordered = chapters
-      .map((c) => ({ order: c.order, title: c.title }))
-      .sort((a, b) => a.order - b.order);
+    // 1-based position matches the read facade's chapter index and the deep-link order.
+    const ordered = chapters.map((c, i) => ({ order: i + 1, title: c.title }));
 
     const body = buildChapterCommentBody({
       org: input.owner,

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import type { Chapter } from "@folio/types";
 
 vi.mock("@folio/db", () => ({
   installationsRepo: { upsertByGithubId: vi.fn(async () => ({ id: "inst1" })) },
@@ -46,7 +47,7 @@ describe("persistReview", () => {
           externalId: "chapter-1",
           prId: "",
           revisionId: "",
-          order: "0|hzzzzz:",
+          order: "0|hzzzzz:" as Chapter["order"],
           title: "Chapter one",
           summary: "does a thing",
           hunkRefs: [{ filePath: "a.ts", oldStart: 1 }],
@@ -66,7 +67,7 @@ describe("persistReview", () => {
     );
     // chapters are written for the new revision.
     const [revisionId, rows] = (db.chaptersRepo.replaceForRevision as ReturnType<typeof vi.fn>).mock
-      .calls[0];
+      .calls[0]!;
     expect(revisionId).toBe("rev1");
     expect(rows).toHaveLength(1);
     expect(rows[0].title).toBe("Chapter one");

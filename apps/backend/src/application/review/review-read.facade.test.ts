@@ -32,10 +32,11 @@ describe("ReviewReadFacade", () => {
   it("assembles pr meta + chapters with sliced code", async () => {
     const facade = new ReviewReadFacade();
     const payload = await facade.getReview("acme", "widget", 7);
+    expect(payload).not.toBeNull();
     expect(payload?.pr.title).toBe("PR");
     expect(payload?.chapters).toHaveLength(1);
-    expect(payload?.chapters[0].index).toBe(1);
-    expect(payload?.chapters[0].diffLines.length).toBeGreaterThan(0);
+    expect(payload!.chapters[0]!.index).toBe(1);
+    expect(payload!.chapters[0]!.diffLines.length).toBeGreaterThan(0);
   });
 
   it("returns null when the pr is unknown", async () => {

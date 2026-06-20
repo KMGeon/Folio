@@ -24,7 +24,7 @@ describe("buildChapterCommentBody", () => {
   });
 
   it("handles a single chapter (singular copy)", () => {
-    const body = buildChapterCommentBody({ ...input, chapters: [input.chapters[0]] });
+    const body = buildChapterCommentBody({ ...input, chapters: [input.chapters[0]!] });
     expect(body).toContain("1 individual chapter");
   });
 });

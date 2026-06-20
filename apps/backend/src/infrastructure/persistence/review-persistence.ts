@@ -51,7 +51,7 @@ export function syntheticRepoId(owner: string, repo: string): number {
   return -Math.abs(hash) - 1;
 }
 
-function prStatus(summary: PullRequestSummary): string {
+function prStatus(summary: PullRequestSummary): "draft" | "open" | "merged" | "closed" {
   if (summary.merged) {
     return PULL_REQUEST_STATUS.MERGED;
   }
