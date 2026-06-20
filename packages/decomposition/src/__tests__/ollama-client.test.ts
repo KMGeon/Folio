@@ -32,7 +32,7 @@ describe("createOllamaClient", () => {
     await client.emitChapters({ system: "SYS", messages: [{ role: "user", content: "U" }] });
 
     expect(client.model).toBe("qwen2.5-coder:14b");
-    const [url, init] = fetchMock.mock.calls[0];
+    const [url, init] = fetchMock.mock.calls[0]!;
     expect(url).toBe("http://localhost:11434/v1/chat/completions");
     const sent = JSON.parse((init as RequestInit).body as string);
     expect(sent.model).toBe("qwen2.5-coder:14b");
