@@ -1,5 +1,6 @@
 import { BookOpen, Github, ShieldCheck } from "lucide-react";
 
+import { ChapterSceneBackground } from "@/components/three/chapter-scene-background";
 import { Button } from "@/components/ui/button";
 import { loginUrl } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -34,22 +35,21 @@ export default function LoginPage() {
   );
 }
 
-/** Signature: a sample PR decomposed into an ordered chapter table-of-contents. */
+/** Signature: a live 3D stack of chapter slabs behind the table-of-contents. */
 function ChapterSpine() {
   const totalAdd = SAMPLE_CHAPTERS.reduce((n, c) => n + c.add, 0);
   const totalDel = SAMPLE_CHAPTERS.reduce((n, c) => n + c.del, 0);
 
   return (
     <section className="relative hidden overflow-hidden border-r bg-sidebar/40 lg:block">
-      {/* lone aesthetic risk: one faint green light source, kept low and off-center */}
+      {/* signature: live 3D chapter slabs drift behind the table-of-contents */}
+      <ChapterSceneBackground />
+      {/* scrim darkens the lower-left so the copy + TOC stay readable over the scene */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{
-          backgroundImage:
-            "radial-gradient(60% 55% at 22% 12%, color-mix(in oklab, var(--primary) 13%, transparent), transparent 72%)",
-        }}
+        className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-background via-background/55 to-transparent"
       />
+
       <div className="relative flex h-full flex-col justify-between p-12 xl:p-16">
         <div className="flex items-center gap-3">
           <div className="flex size-8 items-center justify-center rounded-md border bg-primary/10 text-primary">
@@ -137,7 +137,7 @@ function AuthPanel() {
   return (
     <section className="flex items-center justify-center p-6 sm:p-10">
       <div className="w-full max-w-sm">
-        {/* brand shown here too — left spine is hidden on small screens */}
+        {/* brand shown here too — the 3D spine is hidden on small screens */}
         <div className="flex items-center gap-3 lg:hidden">
           <div className="flex size-8 items-center justify-center rounded-md border bg-primary/10 text-primary">
             <BookOpen className="size-4" />
