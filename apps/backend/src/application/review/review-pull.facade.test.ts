@@ -96,5 +96,9 @@ describe("ReviewPullFacade", () => {
     const result = await facade.run({ owner: "acme", repo: "widget", number: 7 });
     expect(result.commentUrl).toBeNull();
     expect(result.commentError).toContain("no write access");
+    // Verify persisted ids and chapters survive the non-fatal comment failure.
+    expect(result.prId).toBe("pr1");
+    expect(result.revisionId).toBe("rev1");
+    expect(result.chapters.length).toBeGreaterThan(0);
   });
 });
