@@ -90,6 +90,32 @@ describe("decompose — LLM happy path (mocked Codex)", () => {
     const userMsg = stub.requests[0]?.messages[0]?.content ?? "";
     expect(userMsg).not.toContain("Prefer a SINGLE chapter");
   });
+
+  it("keeps LLM chapters (source 'llm') when output has a duplicate hunk ref repaired by stub", async () => {
+    const diff = readFixture("refactor-with-tests.diff");
+    const base = fullCoverageChapter(diff);
+    // Two chapters that BOTH claim base's first hunk → duplicate on first attempt.
+    // Second stub response provides fully-covered chapters → repair succeeds.
+    const dupRef = base.hunkRefs[0];
+    const dupOutput = {
+      chapters: [
+        { ...base, id: "chapter-1", order: 1 },
+        {
+          id: "chapter-2",
+          order: 2,
+          title: "Dup",
+          summary: "s",
+          hunkRefs: [dupRef],
+          keyChanges: [],
+        },
+      ],
+    };
+    const fixedOutput = { chapters: [base] };
+    const stub = new StubClient([dupOutput, fixedOutput]);
+    const result = await decompose({ diff }, {}, { clientFactory: () => stub });
+    expect(result.source).toBe("llm-repaired");
+    expectFullCoverage(diff, result.chapters);
+  });
 });
 
 describe("decompose — tiny PR now takes the LLM path", () => {

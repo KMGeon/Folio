@@ -19,11 +19,8 @@ import { createDefaultClient } from "./fallback-client.js";
 import { type ResolvedConfig, resolveConfig } from "./config.js";
 import { coverageOf, isFullyCovered } from "./coverage.js";
 import { buildFallbackChapters } from "./fallback.js";
-import {
-  type CatchAllChapter,
-  buildExcludedChanges,
-  buildLeftoverChanges,
-} from "./other-changes.js";
+import { type CatchAllChapter, buildExcludedChanges } from "./other-changes.js";
+import { sanitizeChapters } from "./sanitize-coverage.js";
 import { buildFallbackPrologue } from "./prologue.js";
 import { SYSTEM_PROMPT, buildUserPrompt } from "./prompt.js";
 import { runRepairLoop } from "./repair.js";
@@ -225,34 +222,18 @@ function buildPromptFor(
 }
 
 /**
- * Guarantee full coverage of the merged chapter set against `reviewable`. Any
- * still-unassigned hunk is swept into a leftover "Other changes" chapter so the
- * engine never returns a partial cover. Throws on extra/duplicate refs (caller
- * catches → fallback) since those signal a genuinely bad output we won't ship.
+ * Guarantee full coverage of the merged chapter set against `reviewable`. If the
+ * chapters already cover everything, returns them unchanged. Otherwise delegates
+ * to sanitizeChapters, which keeps the LLM's structure + narration while stripping
+ * invalid/duplicate refs and sweeping any missing hunks into a leftover chapter.
+ * Graceful: never throws on extra/duplicate refs (previously did → discarded all LLM output).
  */
 function ensureFullCoverage(chapters: ChapterEmit[], reviewable: PullRequestFile[]): ChapterEmit[] {
   const report = coverageOf(reviewable, chapters);
   if (isFullyCovered(report)) {
     return chapters;
   }
-  if (report.extra.length > 0 || report.duplicates.length > 0) {
-    throw new Error("Merged chapters contain extra or duplicate hunk refs");
-  }
-  // Only missing hunks remain → sweep them into a leftover chapter.
-  const leftover = buildLeftoverChanges(report.missing);
-  if (!leftover) {
-    return chapters;
-  }
-  const order = chapters.length + 1;
-  return [
-    ...chapters,
-    {
-      id: `chapter-${order}`,
-      order,
-      title: leftover.title,
-      summary: leftover.summary,
-      hunkRefs: leftover.hunkRefs,
-      keyChanges: [],
-    },
-  ];
+  // Graceful: keep the LLM's chapters + narration; strip bad refs, sweep missing.
+  // (Previously threw on extra/duplicate refs → discarded all LLM output.)
+  return sanitizeChapters(chapters, reviewable);
 }
