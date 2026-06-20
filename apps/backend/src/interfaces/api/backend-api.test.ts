@@ -30,16 +30,14 @@ describe("Backend API", () => {
     await app.close();
   });
 
-  it("keeps the PR review API stubs available", async () => {
+  it("returns 404 for a review that does not exist", async () => {
+    // Stubs removed in Task 8; real GET endpoint returns 404 when no DB record found.
     const app = await createTestServer();
 
-    const pulls = await request(app.getHttpServer()).get("/api/v1/pulls");
-    const chapters = await request(app.getHttpServer()).get("/api/v1/pulls/pr-1/chapters");
+    const res = await request(app.getHttpServer()).get("/api/v1/pulls/acme/widget/1/review");
 
-    expect(pulls.status).toBe(200);
-    expect(pulls.body).toEqual({ success: true, data: [] });
-    expect(chapters.status).toBe(200);
-    expect(chapters.body).toEqual({ success: true, data: { chapters: [], prologue: null } });
+    expect(res.status).toBe(404);
+    expect(res.body).toMatchObject({ success: false });
     await app.close();
   });
 });
