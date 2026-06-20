@@ -2,6 +2,7 @@ import type { Octokit } from "octokit";
 import { describe, expect, it, vi } from "vitest";
 import {
   getPullRequest,
+  getPullRequestCommits,
   getPullRequestDiff,
   getReviews,
   listPullRequestFiles,
@@ -15,6 +16,7 @@ function fakeOctokit(overrides: {
   paginate?: ReturnType<typeof vi.fn>;
   listFiles?: unknown;
   listReviews?: unknown;
+  listCommits?: unknown;
 }): Octokit {
   return {
     rest: {
@@ -22,6 +24,7 @@ function fakeOctokit(overrides: {
         get: overrides.get ?? vi.fn(),
         listFiles: overrides.listFiles ?? "listFiles-endpoint",
         listReviews: overrides.listReviews ?? "listReviews-endpoint",
+        listCommits: overrides.listCommits ?? "listCommits-endpoint",
       },
     },
     paginate: overrides.paginate ?? vi.fn(),
@@ -99,6 +102,25 @@ describe("listPullRequestFiles", () => {
     expect(paginate).toHaveBeenCalledWith(
       "listFiles-endpoint",
       expect.objectContaining({ per_page: 100, pull_number: 5 }),
+    );
+  });
+});
+
+describe("getPullRequestCommits", () => {
+  it("paginates and maps commits onto {sha, message}", async () => {
+    const paginate = vi.fn().mockResolvedValue([
+      { sha: "aaa111", commit: { message: "feat: first\n\nbody" } },
+      { sha: "bbb222", commit: { message: "fix: second" } },
+    ]);
+    const client = fakeOctokit({ paginate });
+    const commits = await getPullRequestCommits(client, REF);
+    expect(commits).toEqual([
+      { sha: "aaa111", message: "feat: first\n\nbody" },
+      { sha: "bbb222", message: "fix: second" },
+    ]);
+    expect(paginate).toHaveBeenCalledWith(
+      "listCommits-endpoint",
+      expect.objectContaining({ owner: "acme", repo: "widgets", pull_number: 5, per_page: 100 }),
     );
   });
 });
