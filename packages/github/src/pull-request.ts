@@ -32,6 +32,18 @@ export interface PullRequestFile {
   previousFilename?: string;
 }
 
+export interface PullRequestCommit {
+  sha: string;
+  /** Full commit message (first line is used as a grouping hint downstream). */
+  message: string;
+  /** Author login (falls back to the git author name when no GitHub user). */
+  author: string;
+  /** ISO-8601 authored timestamp, or "" when GitHub omits it. */
+  authoredAt: string;
+  /** Parent commit SHAs — drives branch/merge lanes in the commit graph. */
+  parents: string[];
+}
+
 export interface ReviewSummary {
   id: number;
   reviewerLogin: string | null;
@@ -112,6 +124,30 @@ export async function getPullRequestDiff(client: Octokit, ref: PullRequestRef): 
   // With the diff media type GitHub returns the raw text body; Octokit's types
   // still describe the JSON shape, so `data` is the diff string at runtime.
   return res.data as unknown as string;
+}
+
+/**
+ * List a PR's commits (oldest→newest), paginating at 100/page. Commit messages
+ * are a strong author-authored grouping signal for the decomposition LLM.
+ */
+export async function getPullRequestCommits(
+  client: Octokit,
+  ref: PullRequestRef,
+): Promise<PullRequestCommit[]> {
+  const commits = await client.paginate(client.rest.pulls.listCommits, {
+    owner: ref.owner,
+    repo: ref.repo,
+    pull_number: ref.number,
+    per_page: PER_PAGE,
+  });
+  // author/date/parents all ship in the same listCommits payload — no extra calls.
+  return commits.map((c) => ({
+    sha: c.sha,
+    message: c.commit.message,
+    author: c.author?.login ?? c.commit.author?.name ?? "unknown",
+    authoredAt: c.commit.author?.date ?? c.commit.committer?.date ?? "",
+    parents: c.parents?.map((p) => p.sha) ?? [],
+  }));
 }
 
 /**

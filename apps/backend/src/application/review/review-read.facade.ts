@@ -1,12 +1,31 @@
-import { Injectable } from "@nestjs/common";
-import { chaptersRepo, pullRequestsRepo, repositoriesRepo, revisionsRepo } from "@folio/db";
+import { Injectable, Logger } from "@nestjs/common";
+import {
+  chaptersRepo,
+  installationsRepo,
+  pullRequestsRepo,
+  repositoriesRepo,
+  reviewStateRepo,
+  revisionsRepo,
+} from "@folio/db";
+import { createInstallationOctokit, getPullRequestCommits } from "@folio/github";
 import { sliceChapterCode } from "../../domain/review/chapter-diff-slice.js";
-import type { ReviewChapter, ReviewPayload } from "../../domain/review/review-read-model.js";
+import type {
+  ReviewChapter,
+  ReviewCommit,
+  ReviewPayload,
+} from "../../domain/review/review-read-model.js";
 import { syntheticRepoId } from "../../infrastructure/persistence/review-persistence.js";
 
 @Injectable()
 export class ReviewReadFacade {
-  async getReview(owner: string, repo: string, number: number): Promise<ReviewPayload | null> {
+  private readonly logger = new Logger(ReviewReadFacade.name);
+
+  async getReview(
+    owner: string,
+    repo: string,
+    number: number,
+    userId: string,
+  ): Promise<ReviewPayload | null> {
     const repository = await repositoriesRepo.getByGithubId(syntheticRepoId(owner, repo));
     if (!repository) {
       return null;
@@ -24,6 +43,8 @@ export class ReviewReadFacade {
 
     const rawDiff = revision.rawDiff ?? "";
     const rows = await chaptersRepo.listByRevision(revision.id);
+    const { chapterIds } = await reviewStateRepo.viewedForRevision(userId, revision.id);
+    const viewedIds = new Set(chapterIds);
     const chapters: ReviewChapter[] = rows.map((row, i) => {
       const code = sliceChapterCode(rawDiff, row.hunkRefs);
       return {
@@ -32,8 +53,23 @@ export class ReviewReadFacade {
         summary: row.summary,
         files: code.files,
         diffLines: code.diffLines,
+        viewed: viewedIds.has(row.id),
       };
     });
+
+    // Commits power the construction-flow graph. Fetched live (no DB column yet);
+    // a GitHub hiccup must not break the review, so failures degrade to [].
+    let commits: ReviewCommit[] = [];
+    try {
+      // Inlined (not via review-pull.facade) so the octokit dependency is self-contained.
+      const installation = await installationsRepo.getById(repository.installationId);
+      if (installation) {
+        const octokit = await createInstallationOctokit(installation.githubInstallationId);
+        commits = await getPullRequestCommits(octokit, { owner, repo, number });
+      }
+    } catch (err) {
+      this.logger.warn(`Failed to load commits for ${owner}/${repo}#${number}: ${String(err)}`);
+    }
 
     return {
       pr: {
@@ -41,11 +77,15 @@ export class ReviewReadFacade {
         repo,
         number,
         title: pr.title,
+        status: pr.status,
+        author: pr.authorLogin,
+        htmlUrl: pr.htmlUrl,
         headSha: pr.headSha,
         baseBranch: pr.baseRef,
         headBranch: pr.headRef,
       },
       chapters,
+      commits,
     };
   }
 }

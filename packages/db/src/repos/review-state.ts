@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, gte, sql } from "drizzle-orm";
 import { type Db, getDb } from "../client.js";
 import { chapters } from "../schema/chapters.js";
 import { chapterReviewState, fileReviewState } from "../schema/review-state.js";
@@ -102,5 +102,25 @@ export const reviewStateRepo = {
       filePaths: files.map((f) => f.filePath),
       chapterIds: chs.map((c) => c.chapterId),
     };
+  },
+
+  /**
+   * Daily count of chapters a user marked viewed over the last `sinceDays`,
+   * for the dashboard activity heatmap. Returns only days with activity.
+   */
+  async viewCountsByDay(
+    userId: string,
+    sinceDays = 365,
+    db: Db = getDb(),
+  ): Promise<{ date: string; count: number }[]> {
+    const since = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000);
+    return db
+      .select({
+        date: sql<string>`to_char(${chapterReviewState.viewedAt}, 'YYYY-MM-DD')`,
+        count: sql<number>`cast(count(*) as int)`,
+      })
+      .from(chapterReviewState)
+      .where(and(eq(chapterReviewState.userId, userId), gte(chapterReviewState.viewedAt, since)))
+      .groupBy(sql`1`);
   },
 };

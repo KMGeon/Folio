@@ -14,7 +14,7 @@ export const jobs = pgTable(
   {
     ...baseColumns(),
     kind: text("kind", {
-      enum: [JOB_KIND.DECOMPOSE, JOB_KIND.RE_CHAPTER, JOB_KIND.SYNC_COMMENTS],
+      enum: [JOB_KIND.DECOMPOSE, JOB_KIND.RE_CHAPTER, JOB_KIND.SYNC_COMMENTS, JOB_KIND.REVIEW_PULL],
     }).notNull(),
     status: text("status", {
       enum: [

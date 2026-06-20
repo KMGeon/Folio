@@ -60,10 +60,12 @@ export {
 // ─── Pull request ────────────────────────────────────────────────────────────
 export {
   getPullRequest,
+  getPullRequestCommits,
   getPullRequestDiff,
   getReviewComments,
   getReviews,
   listPullRequestFiles,
+  type PullRequestCommit,
   type PullRequestFile,
   type PullRequestSummary,
   type ReviewCommentSummary,

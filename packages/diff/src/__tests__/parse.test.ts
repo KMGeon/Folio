@@ -176,7 +176,7 @@ describe("parseUnifiedDiff", () => {
   });
 
   it("handles CRLF and 'No newline at end of file' markers", () => {
-    const [file] = parseUnifiedDiff(fixture("crlf-nonewline.diff"));
+    const [file] = parseUnifiedDiff(fixture("crlf-nonewline.diff").replace(/\n/g, "\r\n"));
     if (!file) {
       throw new Error("no file");
     }

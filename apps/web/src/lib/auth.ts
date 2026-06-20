@@ -15,11 +15,14 @@ export interface SessionUser {
   avatarUrl: string;
 }
 
-/** Returns the current user, or null when unauthenticated. */
-export async function getMe(): Promise<SessionUser | null> {
+/**
+ * Returns the current user, or null when unauthenticated. Pass `cookie` from a
+ * server component (credentials:"include" only attaches cookies in the browser).
+ */
+export async function getMe(cookie?: string): Promise<SessionUser | null> {
   const res = await fetch(new URL("/api/v1/auth/me", webEnv.apiBaseUrl), {
     credentials: "include",
-    headers: { accept: "application/json" },
+    headers: { accept: "application/json", ...(cookie ? { cookie } : {}) },
   });
   if (!res.ok) {
     return null;

@@ -37,7 +37,7 @@ describe("repair loop (mocked Codex)", () => {
     expectFullCoverage(diff, result.chapters);
   });
 
-  it("falls back (no throw) when repair attempts are exhausted", async () => {
+  it("keeps best-effort LLM output (llm-repaired) when repair exhausts on a schema-valid-but-uncovered output", async () => {
     const diff = readFixture("refactor-with-tests.diff");
     const bad = {
       chapters: [
@@ -51,7 +51,7 @@ describe("repair loop (mocked Codex)", () => {
         },
       ],
     };
-    // First call + 2 repair attempts all bad → fallback.
+    // First call + 2 repair attempts all bad → graceful best-effort return.
     const stub = new StubClient([bad, bad, bad]);
 
     const result = await decompose(
@@ -62,9 +62,11 @@ describe("repair loop (mocked Codex)", () => {
       },
     );
 
-    expect(result.source).toBe("fallback");
-    expect(result.modelUsed).toBe("");
+    expect(result.source).toBe("llm-repaired");
     expect(stub.requests.length).toBe(3);
+    // The LLM-authored chapter survived (not replaced by deterministic fallback).
+    expect(result.chapters.some((c) => c.title === "Partial")).toBe(true);
+    // Coverage sanitizer fills the gaps so the result is still fully covered.
     expectFullCoverage(diff, result.chapters);
   });
 

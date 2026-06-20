@@ -21,8 +21,17 @@ vi.mock("@folio/db", () => ({
   },
   chaptersRepo: {
     listByRevision: vi.fn(async () => [
-      { title: "C1", summary: "s", order: "0|a:", hunkRefs: [{ filePath: "a.ts", oldStart: 1 }] },
+      {
+        id: "ch1",
+        title: "C1",
+        summary: "s",
+        order: "0|a:",
+        hunkRefs: [{ filePath: "a.ts", oldStart: 1 }],
+      },
     ]),
+  },
+  reviewStateRepo: {
+    viewedForRevision: vi.fn(async () => ({ filePaths: [], chapterIds: ["ch1"] })),
   },
 }));
 
@@ -31,12 +40,13 @@ const { ReviewReadFacade } = await import("./review-read.facade.js");
 describe("ReviewReadFacade", () => {
   it("assembles pr meta + chapters with sliced code", async () => {
     const facade = new ReviewReadFacade();
-    const payload = await facade.getReview("acme", "widget", 7);
+    const payload = await facade.getReview("acme", "widget", 7, "user1");
     expect(payload).not.toBeNull();
     expect(payload?.pr.title).toBe("PR");
     expect(payload?.chapters).toHaveLength(1);
     expect(payload!.chapters[0]!.index).toBe(1);
     expect(payload!.chapters[0]!.diffLines.length).toBeGreaterThan(0);
+    expect(payload!.chapters[0]!.viewed).toBe(true);
   });
 
   it("returns null when the pr is unknown", async () => {
@@ -45,6 +55,6 @@ describe("ReviewReadFacade", () => {
       null,
     );
     const facade = new ReviewReadFacade();
-    expect(await facade.getReview("acme", "widget", 999)).toBeNull();
+    expect(await facade.getReview("acme", "widget", 999, "user1")).toBeNull();
   });
 });

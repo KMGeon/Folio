@@ -10,7 +10,7 @@ import type { Group } from "three";
 const BG = "#121212"; // --background oklch(0.145 0 0)
 const SLAB = "#1f1f22"; // --card
 const GREEN = "#46c07c"; // --primary oklch(0.58 0.13 145)
-const AMBER = "#c79a4a"; // --syntax-code (medium risk)
+const AMBER = "#c79a4a"; // --warning / medium risk
 
 const CHAPTERS = [GREEN, AMBER, GREEN, GREEN, AMBER];
 

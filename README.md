@@ -29,10 +29,8 @@ In an Orca workspace this is automated by `orca.yaml`: `scripts.setup` runs
 
 Profiles are explicit:
 
-- `APP_PROFILE=dev|prd` for the backend.
-- `NEXT_PUBLIC_APP_PROFILE=dev|prd` for the web app.
-- `.env` holds common local values.
-- `.env.dev` and `.env.prd` can override common values per profile.
+- `APP_PROFILE=dev|prd` for the backend and web app.
+- `.env` is the single local env file, copied from `.env.example`.
 
 The backend returns all API responses in a common envelope:
 

@@ -82,27 +82,69 @@ describe("decompose — LLM happy path (mocked Codex)", () => {
     expect(result.prologue).not.toBeNull();
     PrologueSchema.parse(result.prologue);
   });
+
+  it("omits the soft hint for a PR larger than the threshold", async () => {
+    const diff = readFixture("refactor-with-tests.diff"); // 4 reviewable hunks > threshold (3)
+    const stub = new StubClient([{ chapters: [fullCoverageChapter(diff)] }]);
+    await decompose({ diff }, {}, { clientFactory: () => stub });
+    const userMsg = stub.requests[0]?.messages[0]?.content ?? "";
+    expect(userMsg).not.toContain("Prefer a SINGLE chapter");
+  });
+
+  it("keeps LLM chapters (source 'llm') when output has a duplicate hunk ref repaired by stub", async () => {
+    const diff = readFixture("refactor-with-tests.diff");
+    const base = fullCoverageChapter(diff);
+    // Two chapters that BOTH claim base's first hunk → duplicate on first attempt.
+    // Second stub response provides fully-covered chapters → repair succeeds.
+    const dupRef = base.hunkRefs[0];
+    const dupOutput = {
+      chapters: [
+        { ...base, id: "chapter-1", order: 1 },
+        {
+          id: "chapter-2",
+          order: 2,
+          title: "Dup",
+          summary: "s",
+          hunkRefs: [dupRef],
+          keyChanges: [],
+        },
+      ],
+    };
+    const fixedOutput = { chapters: [base] };
+    const stub = new StubClient([dupOutput, fixedOutput]);
+    const result = await decompose({ diff }, {}, { clientFactory: () => stub });
+    expect(result.source).toBe("llm-repaired");
+    expectFullCoverage(diff, result.chapters);
+  });
 });
 
-describe("decompose — tiny PR + llm-off short-circuits", () => {
-  it("produces a single chapter for a tiny PR (<= threshold)", async () => {
+describe("decompose — tiny PR now takes the LLM path", () => {
+  it("calls the LLM for a tiny PR and returns source 'llm'", async () => {
     const diff = readFixture("tiny-pr.diff");
-    const spy = vi.fn();
-    const result = await decompose(
-      { diff },
-      {},
-      {
-        clientFactory: () => {
-          spy();
-          return new StubClient([]);
-        },
-      },
+    const stub = new StubClient([{ chapters: [fullCoverageChapter(diff)] }]);
+    const spy = vi.fn(() => stub);
+    const result = await decompose({ diff }, {}, { clientFactory: spy });
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(result.source).toBe("llm");
+    expect(stub.requests.length).toBe(1);
+    expectFullCoverage(diff, result.chapters);
+  });
+
+  it("includes the single-chapter soft hint in the prompt for a tiny PR", async () => {
+    const diff = readFixture("tiny-pr.diff");
+    const stub = new StubClient([{ chapters: [fullCoverageChapter(diff)] }]);
+    await decompose({ diff }, {}, { clientFactory: () => stub });
+    const userMsg = stub.requests[0]?.messages[0]?.content ?? "";
+    expect(userMsg).toContain(
+      "Prefer a SINGLE chapter unless the changes are genuinely independent.",
     );
-    // Tiny PR never calls the LLM.
+  });
+
+  it("routes a 0-reviewable-hunk diff to deterministic without calling the LLM", async () => {
+    const spy = vi.fn(() => new StubClient([]));
+    const result = await decompose({ diff: "" }, {}, { clientFactory: spy });
     expect(spy).not.toHaveBeenCalled();
     expect(result.source).toBe("fallback");
-    expect(result.chapters.length).toBe(1);
-    expectFullCoverage(diff, result.chapters);
   });
 
   it("uses fallback when FOLIO_DECOMP_LLM=0 and no client factory given", async () => {

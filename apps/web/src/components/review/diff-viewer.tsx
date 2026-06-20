@@ -26,7 +26,7 @@ export function DiffViewer({ chapter }: { chapter: ReviewChapter }) {
           <ChevronDown className="size-4 text-muted-foreground" />
           <FileText className="size-4 text-primary" />
           <span className="min-w-0 truncate font-mono text-[13px]">{diffFile}</span>
-          <span className="ml-2 font-mono text-xs text-primary">+{additions}</span>
+          <span className="ml-2 font-mono text-xs text-diff-add-fg">+{additions}</span>
           <Circle className="ml-auto size-4 text-muted-foreground" />
         </div>
 

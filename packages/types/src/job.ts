@@ -5,6 +5,10 @@ export const JOB_KIND = {
   DECOMPOSE: "decompose",
   RE_CHAPTER: "re_chapter",
   SYNC_COMMENTS: "sync_comments",
+  // Webhook-driven end-to-end review: fetch PR → decompose → persist → comment.
+  // Carries the GitHub coordinates (not prId/revisionId) because the worker
+  // creates those rows itself via ReviewPullFacade.
+  REVIEW_PULL: "review_pull",
 } as const;
 export type JobKind = (typeof JOB_KIND)[keyof typeof JOB_KIND];
 
@@ -41,10 +45,20 @@ export const SyncCommentsJobPayloadSchema = z.object({
 });
 export type SyncCommentsJobPayload = z.infer<typeof SyncCommentsJobPayloadSchema>;
 
+export const ReviewPullJobPayloadSchema = z.object({
+  kind: z.literal(JOB_KIND.REVIEW_PULL),
+  owner: z.string(),
+  repo: z.string(),
+  number: z.number().int().positive(),
+  headSha: z.string(),
+});
+export type ReviewPullJobPayload = z.infer<typeof ReviewPullJobPayloadSchema>;
+
 export const JobPayloadSchema = z.discriminatedUnion("kind", [
   DecomposeJobPayloadSchema,
   ReChapterJobPayloadSchema,
   SyncCommentsJobPayloadSchema,
+  ReviewPullJobPayloadSchema,
 ]);
 export type JobPayload = z.infer<typeof JobPayloadSchema>;
 

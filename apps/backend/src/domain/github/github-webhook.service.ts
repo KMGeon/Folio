@@ -1,20 +1,30 @@
 import { Inject, Injectable } from "@nestjs/common";
+import type { AccountType } from "@folio/types";
+import { InstallationSyncFacade } from "../../application/github/installation-sync.facade.js";
 import { config } from "../../config.js";
 import { GitHubWebhookAdapter } from "../../infrastructure/github/github-webhook.adapter.js";
+import { ReviewJobQueue } from "../../infrastructure/persistence/review-job-queue.js";
 import { LOGGER_PORT } from "../../internal/logger/logger.port.js";
 import type { LoggerPort } from "../../internal/logger/logger.port.js";
 import { CoreException } from "../../support/error/core-exception.js";
 import { ErrorType } from "../../support/error/error-type.js";
 import type { GitHubWebhookCommand, GitHubWebhookResult } from "./github-webhook.model.js";
 
+// pull_request actions that change the diff worth re-decomposing.
+const REVIEWABLE_PR_ACTIONS = new Set(["opened", "synchronize", "reopened", "ready_for_review"]);
+// installation actions that (re)grant access and warrant a repository sync.
+const INSTALL_SYNC_ACTIONS = new Set(["created", "new_permissions_accepted", "unsuspend"]);
+
 @Injectable()
 export class GitHubWebhookService {
   constructor(
     @Inject(GitHubWebhookAdapter) private readonly gitHubWebhookAdapter: GitHubWebhookAdapter,
+    @Inject(ReviewJobQueue) private readonly reviewJobQueue: ReviewJobQueue,
+    @Inject(InstallationSyncFacade) private readonly installationSync: InstallationSyncFacade,
     @Inject(LOGGER_PORT) private readonly logger: LoggerPort,
   ) {}
 
-  accept(command: GitHubWebhookCommand): GitHubWebhookResult {
+  async accept(command: GitHubWebhookCommand): Promise<GitHubWebhookResult> {
     const { deliveryId, eventName, signature } = command.headers;
 
     if (!deliveryId || !eventName) {
@@ -64,7 +74,11 @@ export class GitHubWebhookService {
       pullNumber,
     });
 
-    // TODO(I1): enqueue decomposition/sync work for subscribed GitHub events.
+    // Side effects are best-effort: a failure here must not turn the 202 into a
+    // 5xx (GitHub would retry the whole delivery). Errors are logged and the
+    // job queue / reaper handle retries on their own cadence.
+    await this.dispatch(event, deliveryId);
+
     return {
       received: true,
       deliveryId,
@@ -74,5 +88,57 @@ export class GitHubWebhookService {
       repository,
       pullNumber,
     };
+  }
+
+  private async dispatch(
+    event: NonNullable<ReturnType<GitHubWebhookAdapter["parseEvent"]>>,
+    deliveryId: string,
+  ): Promise<void> {
+    try {
+      if (
+        event.name === "installation" &&
+        INSTALL_SYNC_ACTIONS.has(event.action) &&
+        event.payload.installation
+      ) {
+        const account = event.payload.installation.account as
+          | { login: string; type: AccountType }
+          | undefined;
+        await this.installationSync.sync({
+          githubInstallationId: event.payload.installation.id,
+          account: account ? { login: account.login, type: account.type } : undefined,
+        });
+        return;
+      }
+
+      if (
+        event.name === "installation_repositories" &&
+        event.action === "added" &&
+        event.payload.installation
+      ) {
+        await this.installationSync.sync({
+          githubInstallationId: event.payload.installation.id,
+        });
+        return;
+      }
+
+      if (event.name === "pull_request" && REVIEWABLE_PR_ACTIONS.has(event.action)) {
+        const repository = event.payload.repository;
+        if (!repository) {
+          return;
+        }
+        await this.reviewJobQueue.enqueueReviewPull({
+          owner: repository.owner.login,
+          repo: repository.name,
+          number: event.payload.pull_request.number,
+          headSha: event.payload.pull_request.head.sha,
+        });
+      }
+    } catch (err) {
+      this.logger.error("[folio] webhook side-effect failed", err, {
+        deliveryId,
+        event: event.name,
+        action: event.action,
+      });
+    }
   }
 }

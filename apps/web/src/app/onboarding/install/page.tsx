@@ -1,12 +1,22 @@
 import { ArrowUpRight, CheckCircle2, Github, PlugZap } from "lucide-react";
+import { cookies } from "next/headers";
 
-import { AppShell } from "@/components/app-shell";
+import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
+import { getMe } from "@/lib/auth";
 
-export default function InstallPage() {
+export const dynamic = "force-dynamic";
+
+export default async function InstallPage() {
+  const cookieHeader = (await cookies())
+    .getAll()
+    .map((c) => `${c.name}=${c.value}`)
+    .join("; ");
+  const user = await getMe(cookieHeader);
+
   return (
-    <AppShell active="설치">
-      <div className="flex min-h-svh flex-col">
+    <AppLayout user={user}>
+      <div className="flex-1 overflow-y-auto">
         <header className="border-b px-6 py-5">
           <h1 className="text-base font-semibold">GitHub App 설치</h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -59,7 +69,7 @@ export default function InstallPage() {
           </aside>
         </div>
       </div>
-    </AppShell>
+    </AppLayout>
   );
 }
 

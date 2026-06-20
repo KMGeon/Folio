@@ -1,8 +1,8 @@
 // Orchestrator. The public entry the I2 worker calls.
 //
 // Pipeline:
-//   parse diff (E1) → filter excluded files → tiny-PR / llm-off short-circuit to
-//   deterministic fallback → format + inject-guard → LLM emit_chapters (chunked
+//   parse diff (E1) → filter excluded files → (no-reviewable-hunk / llm-off short-circuit
+//   to deterministic fallback) → format + inject-guard → LLM emit_chapters (chunked
 //   if large) → Zod + coverage validation → bounded repair loop → assemble wire
 //   chapters (+ excluded "Other changes" bucket) → final coverage guarantee.
 //
@@ -14,15 +14,13 @@ import { filterFilesForLlm, formatDiffForLlm, parseUnifiedDiff } from "@folio/di
 import type { ChapterEmit, Prologue, PullRequestFile } from "@folio/types";
 import { assembleChapters } from "./assemble.js";
 import { fitsInOneChunk, mergeChunkChapters, splitIntoChunks } from "./chunking.js";
-import { type ChapterClient, createCodexClient } from "./client.js";
+import type { ChapterClient } from "./client.js";
+import { createDefaultClient } from "./fallback-client.js";
 import { type ResolvedConfig, resolveConfig } from "./config.js";
 import { coverageOf, isFullyCovered } from "./coverage.js";
 import { buildFallbackChapters } from "./fallback.js";
-import {
-  type CatchAllChapter,
-  buildExcludedChanges,
-  buildLeftoverChanges,
-} from "./other-changes.js";
+import { type CatchAllChapter, buildExcludedChanges } from "./other-changes.js";
+import { sanitizeChapters } from "./sanitize-coverage.js";
 import { buildFallbackPrologue } from "./prologue.js";
 import { SYSTEM_PROMPT, buildUserPrompt } from "./prompt.js";
 import { runRepairLoop } from "./repair.js";
@@ -110,15 +108,26 @@ export async function decompose(
   const catchAll = excludedBucket(allFiles, excludedByPath);
   const reviewableHunks = countHunks(reviewable);
 
-  // No reviewable hunks, or tiny PR, or LLM disabled → deterministic path.
+  // No reviewable hunks, or LLM disabled → deterministic path.
+  // (Tiny PRs now take the LLM path too, for real narration + prologue.)
   const llmOff = !config.llmEnabled && !deps.clientFactory;
-  if (reviewableHunks === 0 || reviewableHunks <= config.singleChapterHunkThreshold || llmOff) {
+  if (reviewableHunks === 0 || llmOff) {
     return decomposeDeterministic(input, opts);
   }
 
   try {
-    const client = (deps.clientFactory ?? createCodexClient)(config);
-    const { output, repaired } = await runLlm(input, reviewable, client, config, opts.signal);
+    const client = (deps.clientFactory ?? createDefaultClient)(config);
+    // ≤ threshold → hint the model toward a single chapter (soft, not a cap).
+    const smallPrHunkCount =
+      reviewableHunks <= config.singleChapterHunkThreshold ? reviewableHunks : undefined;
+    const { output, repaired } = await runLlm(
+      input,
+      reviewable,
+      client,
+      config,
+      opts.signal,
+      smallPrHunkCount,
+    );
 
     const merged = ensureFullCoverage(output.chapters, reviewable);
     const chapters = assembleChapters(merged, catchAll);
@@ -147,9 +156,15 @@ async function runLlm(
   client: ChapterClient,
   config: ResolvedConfig,
   signal: AbortSignal | undefined,
+  smallPrHunkCount: number | undefined,
 ): Promise<{ output: AgentOutput; repaired: boolean }> {
   if (fitsInOneChunk(reviewable, config.maxDiffChars)) {
-    const userPrompt = buildPromptFor(input, reviewable);
+    const userPrompt = buildPromptFor(
+      input,
+      reviewable,
+      Number.POSITIVE_INFINITY,
+      smallPrHunkCount,
+    );
     const raw = await client.emitChapters({
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: userPrompt }],
@@ -200,40 +215,25 @@ function buildPromptFor(
   input: DecompositionInput,
   files: PullRequestFile[],
   maxChars: number = Number.POSITIVE_INFINITY,
+  smallPrHunkCount?: number,
 ): string {
   const formatted = formatDiffForLlm(files, { maxChars }).text;
-  return buildUserPrompt(input, formatted);
+  return buildUserPrompt(input, formatted, smallPrHunkCount);
 }
 
 /**
- * Guarantee full coverage of the merged chapter set against `reviewable`. Any
- * still-unassigned hunk is swept into a leftover "Other changes" chapter so the
- * engine never returns a partial cover. Throws on extra/duplicate refs (caller
- * catches → fallback) since those signal a genuinely bad output we won't ship.
+ * Guarantee full coverage of the merged chapter set against `reviewable`. If the
+ * chapters already cover everything, returns them unchanged. Otherwise delegates
+ * to sanitizeChapters, which keeps the LLM's structure + narration while stripping
+ * invalid/duplicate refs and sweeping any missing hunks into a leftover chapter.
+ * Graceful: never throws on extra/duplicate refs (previously did → discarded all LLM output).
  */
 function ensureFullCoverage(chapters: ChapterEmit[], reviewable: PullRequestFile[]): ChapterEmit[] {
   const report = coverageOf(reviewable, chapters);
   if (isFullyCovered(report)) {
     return chapters;
   }
-  if (report.extra.length > 0 || report.duplicates.length > 0) {
-    throw new Error("Merged chapters contain extra or duplicate hunk refs");
-  }
-  // Only missing hunks remain → sweep them into a leftover chapter.
-  const leftover = buildLeftoverChanges(report.missing);
-  if (!leftover) {
-    return chapters;
-  }
-  const order = chapters.length + 1;
-  return [
-    ...chapters,
-    {
-      id: `chapter-${order}`,
-      order,
-      title: leftover.title,
-      summary: leftover.summary,
-      hunkRefs: leftover.hunkRefs,
-      keyChanges: [],
-    },
-  ];
+  // Graceful: keep the LLM's chapters + narration; strip bad refs, sweep missing.
+  // (Previously threw on extra/duplicate refs → discarded all LLM output.)
+  return sanitizeChapters(chapters, reviewable);
 }

@@ -1,8 +1,8 @@
 export type AppProfile = "dev" | "prd";
 
 export const webEnv = {
-  profile: parseProfile(process.env.NEXT_PUBLIC_APP_PROFILE),
-  apiBaseUrl: resolveApiBaseUrl(parseProfile(process.env.NEXT_PUBLIC_APP_PROFILE)),
+  profile: parseProfile(process.env.APP_PROFILE),
+  apiBaseUrl: resolveApiBaseUrl(parseProfile(process.env.APP_PROFILE)),
 };
 
 function parseProfile(value: string | undefined): AppProfile {
@@ -19,5 +19,5 @@ function resolveApiBaseUrl(profile: AppProfile): string {
   if (profile === "dev") {
     return "http://localhost:8080";
   }
-  throw new Error("NEXT_PUBLIC_API_BASE_URL is required when NEXT_PUBLIC_APP_PROFILE=prd");
+  throw new Error("NEXT_PUBLIC_API_BASE_URL is required when APP_PROFILE=prd");
 }
