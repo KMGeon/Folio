@@ -16,3 +16,26 @@ export interface ChapterCode {
   files: WebChapterFile[];
   diffLines: WebDiffLine[];
 }
+
+export interface ReviewPrMeta {
+  org: string;
+  repo: string;
+  number: number;
+  title: string;
+  headSha: string;
+  baseBranch: string;
+  headBranch: string;
+}
+
+export interface ReviewChapter {
+  index: number;
+  title: string;
+  summary: string;
+  files: WebChapterFile[];
+  diffLines: WebDiffLine[];
+}
+
+export interface ReviewPayload {
+  pr: ReviewPrMeta;
+  chapters: ReviewChapter[];
+}
