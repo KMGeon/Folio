@@ -4,7 +4,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { AppLayout } from "@/components/app-layout";
-import { ContributionsSkyline } from "@/components/three/contributions-skyline";
 import { RiskPill, StatusPill } from "@/components/status-pill";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api-client";
@@ -45,8 +44,6 @@ export default async function DashboardPage() {
         </header>
 
         <div className="space-y-6 p-4 md:p-6">
-          <ContributionsSkyline activity={data.activity} />
-
           <div className="grid gap-3 md:grid-cols-3">
             <Metric label="리뷰 준비" value={String(data.metrics.ready)} icon={CheckCircle2} />
             <Metric label="처리 중" value={String(data.metrics.processing)} icon={Clock3} />
