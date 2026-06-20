@@ -1,0 +1,37 @@
+diff --git a/api/routes.ts b/api/routes.ts
+index 1010101..2020202 100644
+--- a/api/routes.ts
++++ b/api/routes.ts
+@@ -1,3 +1,4 @@
+ export const routes = [
++  "/health",
+   "/users",
+ ];
+diff --git a/api/handlers.ts b/api/handlers.ts
+index 3030303..4040404 100644
+--- a/api/handlers.ts
++++ b/api/handlers.ts
+@@ -5,3 +5,6 @@ export function users() {
+   return [];
+ }
++export function health() {
++  return { ok: true };
++}
+diff --git a/web/App.tsx b/web/App.tsx
+index 5050505..6060606 100644
+--- a/web/App.tsx
++++ b/web/App.tsx
+@@ -1,4 +1,5 @@
+ export function App() {
++  // show health badge
+   return null;
+ }
+diff --git a/web/Badge.tsx b/web/Badge.tsx
+new file mode 100644
+index 0000000..7070707
+--- /dev/null
++++ b/web/Badge.tsx
+@@ -0,0 +1,3 @@
++export function Badge() {
++  return null;
++}

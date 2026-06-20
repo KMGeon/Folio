@@ -1,0 +1,32 @@
+node_modules/
+dist/
+out/
+build/
+coverage/
+*.log
+*.tsbuildinfo
+.DS_Store
+.turbo/
+
+# next.js
+.next/
+next-env.d.ts
+
+# env
+.env
+.env.local
+.env.dev
+.env.prd
+.env.test
+.env.*.local
+
+# deployment / framework caches
+.vercel/
+.netlify/
+.output/
+
+# package managers
+.pnpm-store/
+
+# agent scratch/spec output
+docs/superpowers/

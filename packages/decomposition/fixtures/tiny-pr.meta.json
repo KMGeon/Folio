@@ -1,0 +1,7 @@
+{
+  "prTitle": "Guard add() against NaN inputs",
+  "prBody": "Tiny safety fix so add() never returns NaN.",
+  "commits": [
+    { "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "message": "fix: guard add() against NaN" }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "prTitle": "Add gzip compression to responses",
+  "prBody": "Adds fast-gzip and wires it into the HTTP server. Lockfile churn included.",
+  "commits": [
+    { "sha": "3333333333333333333333333333333333333333", "message": "feat: gzip responses" }
+  ]
+}

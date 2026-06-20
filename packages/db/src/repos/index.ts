@@ -1,0 +1,10 @@
+export { installationsRepo } from "./installations.js";
+export { repositoriesRepo } from "./repositories.js";
+export { usersRepo } from "./users.js";
+export { pullRequestsRepo } from "./pull-requests.js";
+export { revisionsRepo } from "./revisions.js";
+export { chaptersRepo } from "./chapters.js";
+export { reviewStateRepo } from "./review-state.js";
+export { commentsRepo } from "./comments.js";
+export { subscriptionsRepo } from "./subscriptions.js";
+export { foliantRepo } from "./foliant.js";
