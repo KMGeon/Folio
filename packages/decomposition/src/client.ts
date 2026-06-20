@@ -72,8 +72,8 @@ function renderInput(req: ChapterClientRequest): string {
   return parts.join("\n\n");
 }
 
-/** Extract the structured payload from a Codex final response (raw or fenced JSON). */
-function parsePayload(text: string): unknown {
+/** Extract the structured payload from a model final response (raw or fenced JSON). Shared by Codex + Ollama clients. */
+export function parseStructuredPayload(text: string): unknown {
   const trimmed = text.trim();
   try {
     return JSON.parse(trimmed);
@@ -129,7 +129,7 @@ export function createCodexClient(config: ResolvedConfig): ChapterClient {
         outputSchema: emitChaptersTool.input_schema,
         signal: req.signal,
       });
-      return parsePayload(turn.finalResponse);
+      return parseStructuredPayload(turn.finalResponse);
     },
   };
 }
