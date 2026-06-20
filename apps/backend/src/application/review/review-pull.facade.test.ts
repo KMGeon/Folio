@@ -31,6 +31,7 @@ function fakeOctokit() {
                 },
               },
         ),
+        listCommits: "listCommits-endpoint",
       },
       issues: {
         listComments,
@@ -38,13 +39,59 @@ function fakeOctokit() {
         updateComment,
       },
     },
-    // listIssueComments uses client.paginate internally; return empty array so
-    // upsertMarkedComment falls through to createComment on first run.
-    paginate: vi.fn(async () => []),
+    // Branch paginate by endpoint: commits return a sample; issue comments return [].
+    paginate: vi.fn(async (endpoint: unknown) =>
+      endpoint === "listCommits-endpoint"
+        ? [{ sha: "c1", commit: { message: "feat: do a thing" } }]
+        : [],
+    ),
   };
 }
 
 describe("ReviewPullFacade", () => {
+  it("uses the repository GitHub App installation when no Octokit is injected", async () => {
+    vi.resetModules();
+    const octokit = fakeOctokit();
+    const createInstallationOctokit = vi.fn(async () => octokit);
+    vi.doMock("@folio/db", () => ({
+      repositoriesRepo: {
+        getByFullName: vi.fn(async () => ({ installationId: "inst-db-id" })),
+      },
+      installationsRepo: {
+        getById: vi.fn(async () => ({ githubInstallationId: 123456 })),
+      },
+    }));
+    vi.doMock("@folio/github", async () => {
+      const actual = (await vi.importActual("@folio/github")) as Record<string, unknown>;
+      return { ...actual, createInstallationOctokit };
+    });
+    const { ReviewPullFacade: Facade } = await import("./review-pull.facade.js");
+    const facade = new Facade({
+      persist: vi.fn(async () => ({ prId: "pr1", revisionId: "rev1", revisionIndex: 0 })),
+      decomposeDeps: {
+        clientFactory: () => ({
+          model: "stub",
+          emitChapters: async () => ({
+            chapters: [
+              {
+                id: "chapter-1",
+                order: 1,
+                title: "All changes",
+                summary: "x",
+                hunkRefs: [{ filePath: "a.ts", oldStart: 1 }],
+                keyChanges: [],
+              },
+            ],
+          }),
+        }),
+      },
+    });
+
+    await facade.run({ owner: "acme", repo: "widget", number: 7 });
+
+    expect(createInstallationOctokit).toHaveBeenCalledWith(123456);
+  });
+
   it("decomposes, persists, and reports a comment url", async () => {
     const octokit = fakeOctokit();
     const persistReview = vi.fn(async () => ({
@@ -91,6 +138,25 @@ describe("ReviewPullFacade", () => {
     const facade = new ReviewPullFacade({
       octokitFactory: () => octokit as never,
       persist: vi.fn(async () => ({ prId: "pr1", revisionId: "rev1", revisionIndex: 0 })),
+      // Stub decomposition so the test never depends on the ambient FOLIO_DECOMP_LLM
+      // env (a real LLM client would hang here); chapter content is irrelevant.
+      decomposeDeps: {
+        clientFactory: () => ({
+          model: "stub",
+          emitChapters: async () => ({
+            chapters: [
+              {
+                id: "chapter-1",
+                order: 1,
+                title: "All changes",
+                summary: "x",
+                hunkRefs: [{ filePath: "a.ts", oldStart: 1 }],
+                keyChanges: [],
+              },
+            ],
+          }),
+        }),
+      },
     });
 
     const result = await facade.run({ owner: "acme", repo: "widget", number: 7 });
@@ -100,5 +166,36 @@ describe("ReviewPullFacade", () => {
     expect(result.prId).toBe("pr1");
     expect(result.revisionId).toBe("rev1");
     expect(result.chapters.length).toBeGreaterThan(0);
+  });
+
+  it("passes PR commit messages into the decomposition prompt", async () => {
+    const octokit = fakeOctokit();
+    let seenUserPrompt = "";
+    const facade = new ReviewPullFacade({
+      octokitFactory: () => octokit as never,
+      persist: vi.fn(async () => ({ prId: "pr1", revisionId: "rev1", revisionIndex: 0 })),
+      decomposeDeps: {
+        clientFactory: () => ({
+          model: "stub",
+          emitChapters: async (req: { messages: { content: string }[] }) => {
+            seenUserPrompt = req.messages[0]?.content ?? "";
+            return {
+              chapters: [
+                {
+                  id: "chapter-1",
+                  order: 1,
+                  title: "All changes",
+                  summary: "x",
+                  hunkRefs: [{ filePath: "a.ts", oldStart: 1 }],
+                  keyChanges: [],
+                },
+              ],
+            };
+          },
+        }),
+      },
+    });
+    await facade.run({ owner: "acme", repo: "widget", number: 7 });
+    expect(seenUserPrompt).toContain("feat: do a thing");
   });
 });

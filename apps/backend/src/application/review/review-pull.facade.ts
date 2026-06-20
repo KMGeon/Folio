@@ -1,10 +1,16 @@
 import { Injectable } from "@nestjs/common";
+import { installationsRepo, repositoriesRepo } from "@folio/db";
 import { decompose, type DecomposeDeps } from "@folio/decomposition";
-import { getPullRequest, getPullRequestDiff, upsertMarkedComment } from "@folio/github";
+import {
+  createInstallationOctokit,
+  getPullRequest,
+  getPullRequestCommits,
+  getPullRequestDiff,
+  upsertMarkedComment,
+} from "@folio/github";
 import type { Octokit } from "octokit";
 import { config } from "../../config.js";
 import { buildChapterCommentBody } from "../../domain/review/chapter-comment-body.js";
-import { createPatOctokit } from "../../infrastructure/github/pat-octokit.js";
 import {
   persistReview as defaultPersistReview,
   type PersistReviewInput,
@@ -20,7 +26,7 @@ export interface RunReviewResult {
 }
 
 export interface ReviewPullDeps {
-  octokitFactory?: (token: string) => Octokit;
+  octokitFactory?: (input: { owner: string; repo: string }) => Octokit | Promise<Octokit>;
   persist?: (input: PersistReviewInput) => Promise<PersistedReview>;
   decomposeDeps?: DecomposeDeps;
 }
@@ -30,15 +36,16 @@ export class ReviewPullFacade {
   constructor(private readonly deps: ReviewPullDeps = {}) {}
 
   async run(input: { owner: string; repo: string; number: number }): Promise<RunReviewResult> {
-    const token = config.GITHUB_PAT ?? "";
-    const octokit = (this.deps.octokitFactory ?? createPatOctokit)(token);
+    const octokit = await (this.deps.octokitFactory ?? createRepoInstallationOctokit)(input);
     const ref = { owner: input.owner, repo: input.repo, number: input.number };
 
     const summary = await getPullRequest(octokit, ref);
     const rawDiff = await getPullRequestDiff(octokit, ref);
+    // Author commit messages are a strong grouping signal for the LLM.
+    const commits = await getPullRequestCommits(octokit, ref);
 
     const { chapters, prologue } = await decompose(
-      { diff: rawDiff, prTitle: summary.title, prBody: summary.body },
+      { diff: rawDiff, prTitle: summary.title, prBody: summary.body, commits },
       { model: config.FOLIO_DECOMP_MODEL },
       this.deps.decomposeDeps ?? {},
     );
@@ -48,7 +55,7 @@ export class ReviewPullFacade {
       owner: input.owner,
       repo: input.repo,
       summary,
-      // PAT path has no cheap merge-base lookup; the PR base commit SHA is a stable stand-in.
+      // Manual trigger has no cheap merge-base lookup; the PR base commit SHA is a stable stand-in.
       mergeBaseSha: summary.baseSha,
       rawDiff,
       chapters,
@@ -87,4 +94,21 @@ export class ReviewPullFacade {
       commentError,
     };
   }
+}
+
+async function createRepoInstallationOctokit(input: {
+  owner: string;
+  repo: string;
+}): Promise<Octokit> {
+  const repository = await repositoriesRepo.getByFullName(`${input.owner}/${input.repo}`);
+  if (!repository) {
+    throw new Error(`Repository ${input.owner}/${input.repo} is not installed for Folio`);
+  }
+  const installation = await installationsRepo.getById(repository.installationId);
+  if (!installation) {
+    throw new Error(
+      `Installation ${repository.installationId} is missing for ${input.owner}/${input.repo}`,
+    );
+  }
+  return createInstallationOctokit(installation.githubInstallationId);
 }
