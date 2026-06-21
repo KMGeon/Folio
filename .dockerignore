@@ -1,0 +1,14 @@
+.git
+.github
+.next
+.turbo
+build
+coverage
+dist
+node_modules
+*.log
+*.tsbuildinfo
+.DS_Store
+.env
+.env.*
+!.env.example
