@@ -1,0 +1,139 @@
+.heroShell::before {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  content: "";
+  background-image:
+    linear-gradient(to right, var(--border) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--border) 1px, transparent 1px);
+  background-size: 88px 88px;
+  mask-image: linear-gradient(to bottom, transparent, black 18%, black 72%, transparent);
+  opacity: 0.18;
+}
+
+.liveBoard {
+  animation: boardDrift 8s ease-in-out infinite;
+}
+
+.glowPulse {
+  animation: glowPulse 3.8s ease-in-out infinite;
+}
+
+.statusPulse {
+  animation: statusPulse 1.4s ease-in-out infinite;
+}
+
+.pipelineLine::after {
+  position: absolute;
+  inset-block: -1px;
+  inline-size: 34%;
+  content: "";
+  background: linear-gradient(to right, transparent, var(--primary), transparent);
+  animation: scanLine 2.8s linear infinite;
+}
+
+.pipelineCard {
+  animation: cardWake 3.6s ease-in-out infinite;
+}
+
+.chapterCard {
+  animation: chapterWake 4.2s ease-in-out infinite;
+}
+
+.codeLine {
+  animation: codeReveal 3.4s ease-in-out infinite;
+}
+
+@keyframes boardDrift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+
+  50% {
+    transform: translate3d(0, -8px, 0);
+  }
+}
+
+@keyframes glowPulse {
+  0%,
+  100% {
+    opacity: 0.28;
+    transform: scale(0.96);
+  }
+
+  50% {
+    opacity: 0.58;
+    transform: scale(1.04);
+  }
+}
+
+@keyframes statusPulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(0.86);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.18);
+  }
+}
+
+@keyframes scanLine {
+  from {
+    transform: translateX(-120%);
+  }
+
+  to {
+    transform: translateX(320%);
+  }
+}
+
+@keyframes cardWake {
+  0%,
+  100% {
+    border-color: var(--border);
+  }
+
+  42%,
+  58% {
+    border-color: color-mix(in oklch, var(--primary) 42%, transparent);
+  }
+}
+
+@keyframes chapterWake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  50% {
+    transform: translateX(4px);
+  }
+}
+
+@keyframes codeReveal {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+
+  35%,
+  70% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .liveBoard,
+  .glowPulse,
+  .statusPulse,
+  .pipelineLine::after,
+  .pipelineCard,
+  .chapterCard,
+  .codeLine {
+    animation: none;
+  }
+}
