@@ -2,12 +2,13 @@ import { describe, expect, it } from "vitest";
 import { SYSTEM_PROMPT, buildUserPrompt } from "../prompt.js";
 
 const HINT =
-  "이 PR은 작지만 반드시 변경 파일에서 어떤 작업을 했는지 설명하는 Stage 제목과 요약을 작성한다.";
+  "이 PR은 작지만 반드시 어떤 작업 또는 기능 변경인지 설명하는 Stage 제목과 요약을 작성한다.";
 
 describe("prompt language and stage rules", () => {
-  it("requires Korean output and file-work stages in the system prompt", () => {
+  it("requires Korean output and task/function stages in the system prompt", () => {
     expect(SYSTEM_PROMPT).toContain("반드시 한국어");
-    expect(SYSTEM_PROMPT).toContain("파일 또는 밀접한 파일 그룹");
+    expect(SYSTEM_PROMPT).toContain("작은 Task 또는 기능 단위");
+    expect(SYSTEM_PROMPT).toContain("파일 하나당 하나의 Stage를 만들지 않는다");
   });
 
   it("omits the hint when smallPrHunkCount is undefined", () => {
