@@ -24,12 +24,22 @@ export interface ReviewPrMeta {
   repo: string;
   number: number;
   title: string;
+  body: string;
   status: PullRequestStatus;
   author: string;
   htmlUrl: string;
   headSha: string;
   baseBranch: string;
   headBranch: string;
+}
+
+export interface ReviewIssueComment {
+  id: number;
+  body: string;
+  author: string;
+  avatarUrl: string;
+  createdAt: string;
+  htmlUrl: string;
 }
 
 export interface ReviewChapter {
@@ -49,11 +59,14 @@ export interface ReviewCommit {
   author: string;
   authoredAt: string;
   parents: string[];
+  branch: "base" | "head";
 }
 
 export interface ReviewPayload {
   pr: ReviewPrMeta;
   chapters: ReviewChapter[];
+  /** PR conversation comments from GitHub; empty when GitHub is unreachable. */
+  comments: ReviewIssueComment[];
   /** Oldest→newest PR commits; empty when GitHub is unreachable at read time. */
   commits: ReviewCommit[];
 }

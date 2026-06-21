@@ -40,7 +40,12 @@ export default async function ChapterReviewPage({
   return (
     <AppLayout user={user} breadcrumb={{ org, repo, number: Number(number) }}>
       {/* ReviewView owns the PR header, tabs, the graph+cards overview, and in-place diff. */}
-      <ReviewView pr={review.pr} chapters={review.chapters} commits={review.commits} />
+      <ReviewView
+        pr={review.pr}
+        chapters={review.chapters}
+        comments={review.comments}
+        commits={review.commits}
+      />
     </AppLayout>
   );
 }

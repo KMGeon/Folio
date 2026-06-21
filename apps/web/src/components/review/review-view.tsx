@@ -8,17 +8,21 @@ import {
   GitMerge,
   GitPullRequest,
   Github,
+  Search,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { ChapterCards } from "@/components/review/chapter-cards";
+import { FileTree, type ChangedFile } from "@/components/review/changed-file-tree";
 import { CommitGraph } from "@/components/review/commit-graph";
 import { DiffViewer } from "@/components/review/diff-viewer";
+import { ReviewPrologue } from "@/components/review/review-prologue";
 import { Button } from "@/components/ui/button";
 import type {
   PullRequestStatus,
   ReviewChapter,
   ReviewCommit,
+  ReviewIssueComment,
   ReviewPrMeta,
 } from "@/lib/review-api";
 import { cn } from "@/lib/utils";
@@ -50,13 +54,7 @@ const STATUS_META: Record<
 };
 
 type Tab = "chapters" | "files";
-
-interface ChangedFile {
-  path: string;
-  additions: number;
-  deletions: number;
-  chapterIndex: number;
-}
+type ChapterPanelTab = "chapters" | "activity";
 
 /** Aggregate every chapter's files into a deduped changed-file list for the Files tab. */
 function aggregateFiles(chapters: ReviewChapter[]): ChangedFile[] {
@@ -73,6 +71,7 @@ function aggregateFiles(chapters: ReviewChapter[]): ChangedFile[] {
           additions: file.additions,
           deletions: file.deletions,
           chapterIndex: chapter.index,
+          chapterTitle: chapter.title,
         });
       }
     }
@@ -83,19 +82,30 @@ function aggregateFiles(chapters: ReviewChapter[]): ChangedFile[] {
 export function ReviewView({
   pr,
   chapters,
+  comments,
   commits,
 }: {
   pr: ReviewPrMeta;
   chapters: ReviewChapter[];
+  comments: ReviewIssueComment[];
   commits: ReviewCommit[];
 }) {
   const [tab, setTab] = useState<Tab>("chapters");
+  const [chapterPanelTab, setChapterPanelTab] = useState<ChapterPanelTab>("chapters");
   // null = the graph+cards overview; a number = that chapter's in-place diff review.
   const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
 
   const status = STATUS_META[pr.status];
   const StatusIcon = status.icon;
   const files = aggregateFiles(chapters);
+  const selectedFile = useMemo(
+    () => files.find((file) => file.path === selectedFilePath) ?? files[0] ?? null,
+    [files, selectedFilePath],
+  );
+  const selectedFileChapter = selectedFile
+    ? chapters.find((chapter) => chapter.index === selectedFile.chapterIndex)
+    : null;
   const totalAdditions = files.reduce((sum, file) => sum + file.additions, 0);
   const totalDeletions = files.reduce((sum, file) => sum + file.deletions, 0);
 
@@ -224,57 +234,114 @@ export function ReviewView({
                 </Button>
               </div>
             </div>
-            <DiffViewer chapter={openChapter} />
+            <DiffViewer
+              chapter={openChapter}
+              commentContext={{
+                org: pr.org,
+                repo: pr.repo,
+                number: pr.number,
+                chapterIndex: openChapter.index,
+              }}
+            />
           </div>
         ) : (
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 md:px-6">
-            {/* The differentiator: construction flow (commits) beside review flow (chapters). */}
-            <div className="grid gap-6 lg:grid-cols-2">
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.35fr)]">
               <section>
-                <h2 className="mb-3 font-medium text-muted-foreground text-xs uppercase tracking-wide">
-                  작업 흐름
-                </h2>
-                <div className="rounded-lg border bg-card p-2">
-                  <CommitGraph commits={commits} />
-                </div>
+                <ReviewPrologue pr={pr} comments={comments} />
               </section>
               <section>
-                <h2 className="mb-3 font-medium text-muted-foreground text-xs uppercase tracking-wide">
-                  챕터
-                </h2>
-                <ChapterCards chapters={chapters} onSelect={setOpenIndex} />
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h2 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+                    리뷰
+                  </h2>
+                  <div className="flex rounded-md bg-muted/60 p-0.5">
+                    <PanelTabButton
+                      active={chapterPanelTab === "chapters"}
+                      label={`챕터 ${chapters.length}`}
+                      onClick={() => setChapterPanelTab("chapters")}
+                    />
+                    <PanelTabButton
+                      active={chapterPanelTab === "activity"}
+                      label={`활동 ${commits.length}`}
+                      onClick={() => setChapterPanelTab("activity")}
+                    />
+                  </div>
+                </div>
+                {chapterPanelTab === "chapters" ? (
+                  <ChapterCards chapters={chapters} onSelect={setOpenIndex} />
+                ) : (
+                  <div className="rounded-lg border bg-card p-2">
+                    <CommitGraph commits={commits} pr={pr} />
+                  </div>
+                )}
               </section>
             </div>
           </div>
         )
       ) : (
-        <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
-          <div className="mb-3 text-muted-foreground text-sm">변경된 파일 {files.length}개</div>
-          <div className="overflow-hidden rounded-lg border bg-card">
-            {files.map((file) => (
-              <button
-                key={file.path}
-                type="button"
-                onClick={() => {
-                  setTab("chapters");
-                  setOpenIndex(file.chapterIndex);
-                }}
-                className="flex w-full items-center gap-2 border-b px-3 py-2.5 text-left text-sm last:border-b-0 hover:bg-accent"
-              >
-                <FileText className="size-4 shrink-0 text-muted-foreground" />
-                <span className="min-w-0 flex-1 truncate font-mono text-[13px]">{file.path}</span>
-                <span className="shrink-0 text-muted-foreground text-xs">
-                  제{file.chapterIndex}장
-                </span>
-                <span className="shrink-0 font-mono text-diff-add-fg text-xs">
-                  +{file.additions}
-                </span>
-                <span className="shrink-0 font-mono text-diff-del-fg text-xs">
-                  -{file.deletions}
-                </span>
-              </button>
-            ))}
-          </div>
+        <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[24rem_minmax(0,1fr)]">
+          <aside className="min-h-72 border-b bg-card/35 lg:min-h-0 lg:border-r lg:border-b-0">
+            <div className="flex h-14 items-center justify-between border-b px-4">
+              <div className="flex items-center gap-2 font-medium">
+                <FileText className="size-4 text-muted-foreground" />
+                Files
+                <span className="text-muted-foreground">({files.length})</span>
+              </div>
+            </div>
+            <div className="border-b p-3">
+              <div className="flex h-9 items-center gap-2 rounded-md border bg-background/55 px-3 text-muted-foreground text-sm">
+                <Search className="size-4" />
+                <span>Filter files...</span>
+              </div>
+            </div>
+            <FileTree
+              files={files}
+              selectedPath={selectedFile?.path ?? ""}
+              onSelect={setSelectedFilePath}
+            />
+          </aside>
+          <main className="min-w-0 overflow-y-auto p-6">
+            {selectedFile && selectedFileChapter ? (
+              <section className="overflow-hidden rounded-lg border bg-card">
+                <div className="flex items-center gap-3 border-b px-4 py-3">
+                  <FileText className="size-4 text-primary" />
+                  <span className="min-w-0 flex-1 truncate font-mono text-sm">
+                    {selectedFile.path}
+                  </span>
+                  <span className="font-mono text-diff-add-fg text-sm">
+                    +{selectedFile.additions}
+                  </span>
+                  {selectedFile.deletions > 0 ? (
+                    <span className="font-mono text-diff-del-fg text-sm">
+                      -{selectedFile.deletions}
+                    </span>
+                  ) : null}
+                </div>
+                <div className="border-b bg-muted/20 px-4 py-3">
+                  <div className="text-muted-foreground text-xs">
+                    제{selectedFile.chapterIndex}장
+                  </div>
+                  <div className="mt-1 font-medium">{selectedFile.chapterTitle}</div>
+                </div>
+                <DiffViewer
+                  chapter={selectedFileChapter}
+                  compact
+                  commentContext={{
+                    org: pr.org,
+                    repo: pr.repo,
+                    number: pr.number,
+                    chapterIndex: selectedFileChapter.index,
+                    path: selectedFile.path,
+                  }}
+                />
+              </section>
+            ) : (
+              <div className="flex min-h-60 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
+                변경된 파일이 없습니다.
+              </div>
+            )}
+          </main>
         </div>
       )}
     </>
@@ -315,6 +382,29 @@ function TabButton({
       >
         {count}
       </span>
+    </button>
+  );
+}
+
+function PanelTabButton({
+  active,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "rounded px-2.5 py-1 font-medium text-xs transition-colors",
+        active ? "bg-card text-foreground" : "text-muted-foreground hover:text-foreground",
+      )}
+    >
+      {label}
     </button>
   );
 }

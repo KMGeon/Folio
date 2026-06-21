@@ -13,8 +13,15 @@ describe("comment marker logic", () => {
 
   it("finds the comment bearing the marker", () => {
     const comments = [
-      { id: 1, body: "unrelated", user: "alice" },
-      { id: 2, body: withMarker("our table", KEY), user: "folio[bot]" },
+      { id: 1, body: "unrelated", user: "alice", avatarUrl: "a1", createdAt: "t1", htmlUrl: "u1" },
+      {
+        id: 2,
+        body: withMarker("our table", KEY),
+        user: "folio[bot]",
+        avatarUrl: "a2",
+        createdAt: "t2",
+        htmlUrl: "u2",
+      },
     ];
     expect(findMarkedComment(comments, KEY)?.id).toBe(2);
     expect(findMarkedComment(comments, "other")).toBeNull();

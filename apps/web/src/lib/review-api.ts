@@ -27,6 +27,20 @@ export interface ChapterViewedResult {
   progress: { viewed: number; total: number };
 }
 
+export interface CreateReviewCommentInput {
+  chapterIndex: number;
+  path: string;
+  side: "LEFT" | "RIGHT";
+  line: number;
+  body: string;
+}
+
+export interface CreatedReviewComment {
+  id: string;
+  githubCommentId: number;
+  htmlUrl: string;
+}
+
 /** Toggle a chapter's viewed mark for the current user (browser-only call). */
 export function setChapterViewed(
   org: string,
@@ -45,6 +59,20 @@ export function setChapterViewed(
   );
 }
 
+/** Create a GitHub inline review comment for one diff line. */
+export function createReviewComment(
+  org: string,
+  repo: string,
+  number: number,
+  input: CreateReviewCommentInput,
+): Promise<CreatedReviewComment> {
+  return apiRequest<CreatedReviewComment>(`/api/v1/pulls/${org}/${repo}/${number}/comments`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
 export type PullRequestStatus = "open" | "merged" | "closed" | "draft";
 
 export interface ReviewPrMeta {
@@ -52,12 +80,22 @@ export interface ReviewPrMeta {
   repo: string;
   number: number;
   title: string;
+  body: string;
   status: PullRequestStatus;
   author: string;
   htmlUrl: string;
   headSha: string;
   baseBranch: string;
   headBranch: string;
+}
+
+export interface ReviewIssueComment {
+  id: number;
+  body: string;
+  author: string;
+  avatarUrl: string;
+  createdAt: string;
+  htmlUrl: string;
 }
 
 /** A PR commit, rendered as the construction-flow graph beside the chapters. */
@@ -67,11 +105,13 @@ export interface ReviewCommit {
   author: string;
   authoredAt: string;
   parents: string[];
+  branch: "base" | "head";
 }
 
 export interface ReviewPayload {
   pr: ReviewPrMeta;
   chapters: ReviewChapter[];
+  comments: ReviewIssueComment[];
   /** Oldest→newest PR commits; may be empty if GitHub was unreachable. */
   commits: ReviewCommit[];
 }

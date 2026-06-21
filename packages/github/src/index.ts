@@ -59,12 +59,16 @@ export {
 
 // ─── Pull request ────────────────────────────────────────────────────────────
 export {
+  createReviewComment,
   getPullRequest,
   getPullRequestCommits,
   getPullRequestDiff,
+  getRepositoryCommits,
   getReviewComments,
   getReviews,
   listPullRequestFiles,
+  type CreatedReviewComment,
+  type CreateReviewCommentInput,
   type PullRequestCommit,
   type PullRequestFile,
   type PullRequestSummary,

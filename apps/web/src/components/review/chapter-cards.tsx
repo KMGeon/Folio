@@ -18,20 +18,22 @@ export function ChapterCards({
   onSelect?: (index: number) => void;
 }) {
   return (
-    <div className="flex flex-col gap-2">
+    <div className="overflow-hidden rounded-lg border bg-card">
       {chapters.map((chapter) => {
         const additions = chapter.files.reduce((sum, file) => sum + file.additions, 0);
         const deletions = chapter.files.reduce((sum, file) => sum + file.deletions, 0);
+        const risk = chapterRisk(chapter);
         const inner = (
           <>
-            <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full border font-mono text-muted-foreground text-xs">
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-full border font-mono text-muted-foreground text-xs">
               {chapter.viewed ? <CheckCircle2 className="size-3.5 text-primary" /> : chapter.index}
             </span>
             <div className="min-w-0 flex-1">
-              <div className="truncate font-medium text-sm group-hover:text-primary">
+              <div className="truncate font-semibold text-base group-hover:text-primary">
                 {chapter.title}
               </div>
-              <div className="mt-1.5 flex items-center gap-2.5 font-mono text-xs tabular-nums">
+              <div className="mt-2 flex flex-wrap items-center gap-2.5 font-mono text-sm tabular-nums">
+                <RiskPill risk={risk} />
                 <span className="text-diff-add-fg">+{additions}</span>
                 {deletions > 0 ? <span className="text-diff-del-fg">-{deletions}</span> : null}
                 <span className="flex items-center gap-1 text-muted-foreground">
@@ -40,11 +42,18 @@ export function ChapterCards({
                 </span>
               </div>
             </div>
-            <ArrowRight className="mt-1 size-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+            {chapter.index === 1 ? (
+              <span className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-md bg-primary px-4 font-medium text-primary-foreground text-sm">
+                Start reviewing
+                <ArrowRight className="size-4" />
+              </span>
+            ) : (
+              <ArrowRight className="mt-2 size-5 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
+            )}
           </>
         );
         const className = cn(
-          "group flex items-start gap-3 rounded-lg border bg-card p-4 text-left transition-colors hover:border-primary/40",
+          "group flex w-full items-center gap-4 border-b p-5 text-left transition-colors last:border-b-0 hover:bg-accent/55",
         );
         return onSelect ? (
           <button
@@ -66,5 +75,39 @@ export function ChapterCards({
         );
       })}
     </div>
+  );
+}
+
+type ChapterRisk = "low" | "medium" | "high";
+
+function chapterRisk(chapter: ReviewChapter): ChapterRisk {
+  const additions = chapter.files.reduce((sum, file) => sum + file.additions, 0);
+  const deletions = chapter.files.reduce((sum, file) => sum + file.deletions, 0);
+  const changed = additions + deletions;
+  if (deletions > 25 || changed > 350 || chapter.files.length > 8) {
+    return "high";
+  }
+  if (deletions > 0 || changed > 80 || chapter.files.length > 2) {
+    return "medium";
+  }
+  return "low";
+}
+
+function RiskPill({ risk }: { risk: ChapterRisk }) {
+  const meta = {
+    low: "bg-primary/15 text-primary",
+    medium: "bg-warning/15 text-warning",
+    high: "bg-destructive/15 text-destructive",
+  } satisfies Record<ChapterRisk, string>;
+  const label = {
+    low: "Low risk",
+    medium: "Medium risk",
+    high: "High risk",
+  } satisfies Record<ChapterRisk, string>;
+
+  return (
+    <span className={cn("rounded-full px-2 py-0.5 font-medium text-xs", meta[risk])}>
+      {label[risk]}
+    </span>
   );
 }

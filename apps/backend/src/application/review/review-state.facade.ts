@@ -6,7 +6,6 @@ import {
   reviewStateRepo,
   revisionsRepo,
 } from "@folio/db";
-import { syntheticRepoId } from "../../infrastructure/persistence/review-persistence.js";
 
 export interface SetChapterViewedInput {
   owner: string;
@@ -28,9 +27,7 @@ export interface ChapterViewedResult {
 export class ReviewStateFacade {
   /** Mark/unmark a chapter viewed for the user; returns the new viewed + progress. */
   async setChapterViewed(input: SetChapterViewedInput): Promise<ChapterViewedResult | null> {
-    const repository = await repositoriesRepo.getByGithubId(
-      syntheticRepoId(input.owner, input.repo),
-    );
+    const repository = await repositoriesRepo.getByFullName(`${input.owner}/${input.repo}`);
     if (!repository) {
       return null;
     }

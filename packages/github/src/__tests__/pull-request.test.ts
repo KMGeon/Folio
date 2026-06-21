@@ -1,6 +1,8 @@
 import type { Octokit } from "octokit";
 import { describe, expect, it, vi } from "vitest";
 import {
+  createReviewComment,
+  getRepositoryCommits,
   getPullRequest,
   getPullRequestCommits,
   getPullRequestDiff,
@@ -17,6 +19,8 @@ function fakeOctokit(overrides: {
   listFiles?: unknown;
   listReviews?: unknown;
   listCommits?: unknown;
+  listRepoCommits?: unknown;
+  createReviewComment?: ReturnType<typeof vi.fn>;
 }): Octokit {
   return {
     rest: {
@@ -25,6 +29,10 @@ function fakeOctokit(overrides: {
         listFiles: overrides.listFiles ?? "listFiles-endpoint",
         listReviews: overrides.listReviews ?? "listReviews-endpoint",
         listCommits: overrides.listCommits ?? "listCommits-endpoint",
+        createReviewComment: overrides.createReviewComment ?? vi.fn(),
+      },
+      repos: {
+        listCommits: overrides.listRepoCommits ?? "listRepoCommits-endpoint",
       },
     },
     paginate: overrides.paginate ?? vi.fn(),
@@ -58,6 +66,76 @@ describe("getPullRequest", () => {
       headSha: "abc123",
       baseRef: "main",
       baseSha: "base456",
+    });
+  });
+});
+
+describe("getRepositoryCommits", () => {
+  it("lists recent commits for a branch or sha", async () => {
+    const paginate = vi.fn().mockResolvedValue([
+      {
+        sha: "base1",
+        commit: { message: "base: latest", author: { date: "2026-06-03T00:00:00Z" } },
+        author: { login: "alice" },
+        parents: [{ sha: "base0" }],
+      },
+    ]);
+    const client = fakeOctokit({ paginate });
+
+    const commits = await getRepositoryCommits(client, {
+      owner: "acme",
+      repo: "widgets",
+      sha: "main",
+      perPage: 20,
+    });
+
+    expect(commits).toEqual([
+      {
+        sha: "base1",
+        message: "base: latest",
+        author: "alice",
+        authoredAt: "2026-06-03T00:00:00Z",
+        parents: ["base0"],
+      },
+    ]);
+    expect(paginate).toHaveBeenCalledWith(
+      "listRepoCommits-endpoint",
+      expect.objectContaining({ owner: "acme", repo: "widgets", sha: "main", per_page: 20 }),
+    );
+  });
+});
+
+describe("createReviewComment", () => {
+  it("creates a pull request inline comment at the requested side and line", async () => {
+    const create = vi.fn().mockResolvedValue({
+      data: {
+        id: 123,
+        html_url: "https://github.com/acme/widgets/pull/5#discussion_r123",
+      },
+    });
+    const client = fakeOctokit({ createReviewComment: create });
+
+    const comment = await createReviewComment(client, REF, {
+      body: "이 라인 확인이 필요합니다.",
+      commitSha: "head123",
+      path: "src/a.ts",
+      side: "RIGHT",
+      line: 42,
+    });
+
+    expect(comment).toEqual({
+      id: 123,
+      htmlUrl: "https://github.com/acme/widgets/pull/5#discussion_r123",
+    });
+    expect(create).toHaveBeenCalledWith({
+      owner: "acme",
+      repo: "widgets",
+      pull_number: 5,
+      body: "이 라인 확인이 필요합니다.",
+      commit_id: "head123",
+      path: "src/a.ts",
+      side: "RIGHT",
+      line: 42,
     });
   });
 });
