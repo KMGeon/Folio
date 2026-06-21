@@ -100,7 +100,7 @@ function ConversationCard({
   href?: string;
   children: React.ReactNode;
 }) {
-  const content = (
+  return (
     <article className="rounded-lg border bg-card p-4">
       <div className="mb-3 flex items-center gap-2 text-sm">
         <img
@@ -116,27 +116,35 @@ function ConversationCard({
         <span className="text-muted-foreground">{createdLabel}</span>
       </div>
       {children}
+      {href ? (
+        <a
+          href={href}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-3 inline-flex text-muted-foreground text-xs underline-offset-4 hover:text-foreground hover:underline"
+        >
+          GitHub에서 보기
+        </a>
+      ) : null}
     </article>
-  );
-
-  return href ? (
-    <a href={href} target="_blank" rel="noreferrer" className="block hover:border-primary/40">
-      {content}
-    </a>
-  ) : (
-    content
   );
 }
 
 function MarkdownText({ text }: { text: string }) {
   const lines = text.split(/\r?\n/u);
+  const blocks = toMarkdownBlocks(lines);
   return (
     <div className="space-y-2 text-sm leading-6 text-foreground/90">
-      {lines.map((line, index) => {
-        const key = `${index}-${line}`;
-        if (!line.trim()) {
+      {blocks.map((block, index) => {
+        const key = `${index}-${block.lines.join("\n")}`;
+        if (block.type === "spacer") {
           return <div key={key} className="h-1" />;
         }
+        if (block.type === "table") {
+          return <MarkdownTable key={key} lines={block.lines} />;
+        }
+
+        const line = block.lines[0] ?? "";
         if (line.startsWith("### ")) {
           return (
             <h4 key={key} className="pt-2 font-semibold text-base">
@@ -171,17 +179,118 @@ function MarkdownText({ text }: { text: string }) {
   );
 }
 
-function renderInlineMarkdown(line: string, keyPrefix: string) {
-  const parts = line.split(/(`[^`]+`)/u);
-  return parts.map((part, index) =>
-    part.startsWith("`") && part.endsWith("`") ? (
-      <code key={`${keyPrefix}-${index}`} className="rounded bg-muted px-1.5 py-0.5 font-mono">
-        {part.slice(1, -1)}
-      </code>
-    ) : (
-      <span key={`${keyPrefix}-${index}`}>{part}</span>
-    ),
+type MarkdownBlock =
+  | { type: "line"; lines: string[] }
+  | { type: "spacer"; lines: string[] }
+  | { type: "table"; lines: string[] };
+
+function toMarkdownBlocks(lines: string[]): MarkdownBlock[] {
+  const blocks: MarkdownBlock[] = [];
+  let index = 0;
+  while (index < lines.length) {
+    const line = lines[index] ?? "";
+    const next = lines[index + 1] ?? "";
+    if (!line.trim()) {
+      blocks.push({ type: "spacer", lines: [line] });
+      index += 1;
+      continue;
+    }
+    if (isTableRow(line) && isTableSeparator(next)) {
+      const tableLines = [line, next];
+      index += 2;
+      while (index < lines.length && isTableRow(lines[index] ?? "")) {
+        tableLines.push(lines[index] ?? "");
+        index += 1;
+      }
+      blocks.push({ type: "table", lines: tableLines });
+      continue;
+    }
+    blocks.push({ type: "line", lines: [line] });
+    index += 1;
+  }
+  return blocks;
+}
+
+function MarkdownTable({ lines }: { lines: string[] }) {
+  const header = parseTableCells(lines[0] ?? "");
+  const rows = lines.slice(2).map(parseTableCells);
+  return (
+    <div className="overflow-x-auto py-1">
+      <table className="w-full border-collapse text-left text-sm">
+        <thead>
+          <tr>
+            {header.map((cell, index) => (
+              <th
+                key={`${cell}-${index}`}
+                className="border border-border bg-muted/35 px-3 py-2 font-semibold"
+              >
+                {renderInlineMarkdown(cell, `th-${index}`)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, rowIndex) => (
+            <tr key={`${rowIndex}-${row.join("|")}`}>
+              {header.map((_, cellIndex) => (
+                <td
+                  key={`${rowIndex}-${cellIndex}`}
+                  className="border border-border px-3 py-2 align-top"
+                >
+                  {renderInlineMarkdown(row[cellIndex] ?? "", `td-${rowIndex}-${cellIndex}`)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
+}
+
+function isTableRow(line: string): boolean {
+  return line.trim().startsWith("|") && line.trim().endsWith("|");
+}
+
+function isTableSeparator(line: string): boolean {
+  return /^\s*\|?(?:\s*:?-{3,}:?\s*\|)+\s*$/u.test(line);
+}
+
+function parseTableCells(line: string): string[] {
+  return line
+    .trim()
+    .replace(/^\|/u, "")
+    .replace(/\|$/u, "")
+    .split("|")
+    .map((cell) => cell.trim());
+}
+
+function renderInlineMarkdown(line: string, keyPrefix: string) {
+  const parts = line.split(/(`[^`]+`|\[[^\]]+\]\([^)]+\))/u);
+  return parts.map((part, index) => {
+    if (part.startsWith("`") && part.endsWith("`")) {
+      return (
+        <code key={`${keyPrefix}-${index}`} className="rounded bg-muted px-1.5 py-0.5 font-mono">
+          {part.slice(1, -1)}
+        </code>
+      );
+    }
+    const link = /^\[([^\]]+)\]\(([^)]+)\)$/u.exec(part);
+    if (link) {
+      return (
+        <a
+          key={`${keyPrefix}-${index}`}
+          href={link[2]}
+          target="_blank"
+          rel="noreferrer"
+          className="text-primary underline-offset-4 hover:underline"
+        >
+          {link[1]}
+        </a>
+      );
+    }
+    return <span key={`${keyPrefix}-${index}`}>{part}</span>;
+  });
 }
 
 function formatDate(value: string): string {
