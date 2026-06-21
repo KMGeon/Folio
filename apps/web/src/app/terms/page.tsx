@@ -95,7 +95,7 @@ const SECTIONS: LegalSection[] = [
     blocks: [
       {
         type: "p",
-        text: "본 약관에 관한 문의는 support@folio.dev 로 연락해 주시기 바랍니다.",
+        text: "본 약관에 관한 문의는 support.foliodev@gmail.com 으로 연락해 주시기 바랍니다.",
       },
     ],
   },

@@ -88,7 +88,7 @@ const SECTIONS: LegalSection[] = [
     blocks: [
       {
         type: "p",
-        text: "개인정보 처리에 관한 문의는 privacy@folio.dev 로 연락해 주시기 바랍니다.",
+        text: "개인정보 처리에 관한 문의는 support.foliodev@gmail.com 으로 연락해 주시기 바랍니다.",
       },
     ],
   },
