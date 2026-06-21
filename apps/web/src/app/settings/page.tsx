@@ -1,9 +1,10 @@
-import { Github, KeyRound, Link2, Server } from "lucide-react";
+import { Github, KeyRound, Link2, Server, UserCheck } from "lucide-react";
 import { cookies } from "next/headers";
 
 import { AppLayout } from "@/components/app-layout";
+import { PendingUsersAdmin } from "@/components/pending-users-admin";
 import { Button } from "@/components/ui/button";
-import { getMe } from "@/lib/auth";
+import { getMe, getPendingUsers } from "@/lib/auth";
 import { webEnv } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +15,7 @@ export default async function SettingsPage() {
     .map((c) => `${c.name}=${c.value}`)
     .join("; ");
   const user = await getMe(cookieHeader);
+  const pendingUsers = user?.login === "KMGeon" ? await getPendingUsers(cookieHeader) : [];
 
   return (
     <AppLayout user={user}>
@@ -50,6 +52,11 @@ export default async function SettingsPage() {
               상태 확인
             </Button>
           </SettingsSection>
+          {user?.login === "KMGeon" ? (
+            <SettingsSection icon={UserCheck} title="가입 요청">
+              <PendingUsersAdmin initialUsers={pendingUsers} />
+            </SettingsSection>
+          ) : null}
         </div>
       </div>
     </AppLayout>

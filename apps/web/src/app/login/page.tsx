@@ -1,4 +1,4 @@
-import { Github, ShieldCheck } from "lucide-react";
+import { Clock3, Github, ShieldCheck } from "lucide-react";
 
 import { BrandMark } from "@/components/brand-mark";
 import { ChapterSceneBackground } from "@/components/three/chapter-scene-background";
@@ -30,15 +30,16 @@ const SAMPLE_CHAPTERS: { title: string; scope: string; add: number; del: number;
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ redirect?: string | string[] }>;
+  searchParams: Promise<{ redirect?: string | string[]; status?: string | string[] }>;
 }) {
-  const { redirect } = await searchParams;
+  const { redirect, status } = await searchParams;
   // Only honor a single in-app path; backend safeRedirectPath rejects anything else.
   const redirectPath = typeof redirect === "string" && redirect.startsWith("/") ? redirect : "/";
+  const isPending = status === "pending";
   return (
     <main className="grid min-h-svh lg:grid-cols-[1.05fr_minmax(0,460px)]">
       <ChapterSpine />
-      <AuthPanel redirectPath={redirectPath} />
+      <AuthPanel redirectPath={redirectPath} isPending={isPending} />
     </main>
   );
 }
@@ -135,7 +136,7 @@ function ChapterRow({
   );
 }
 
-function AuthPanel({ redirectPath }: { redirectPath: string }) {
+function AuthPanel({ redirectPath, isPending }: { redirectPath: string; isPending: boolean }) {
   return (
     <section className="flex items-center justify-center p-6 sm:p-10">
       <div className="w-full max-w-sm">
@@ -152,6 +153,19 @@ function AuthPanel({ redirectPath }: { redirectPath: string }) {
             GitHub로 로그인하면 리뷰 진행 상황이 모든 기기에서 이어집니다.
           </p>
         </div>
+
+        {isPending ? (
+          <div className="mt-6 flex items-start gap-3 rounded-lg border bg-card p-3 text-sm">
+            <Clock3 className="mt-0.5 size-4 shrink-0 text-warning" />
+            <div>
+              <p className="font-medium">승인 대기 중입니다.</p>
+              <p className="mt-1 text-muted-foreground text-xs leading-relaxed">
+                관리자 승인 후 Folio를 사용할 수 있습니다. 승인이 완료되면 다시 GitHub로 로그인해
+                주세요.
+              </p>
+            </div>
+          </div>
+        ) : null}
 
         <Button asChild size="lg" className="mt-8 w-full">
           <a href={loginUrl(redirectPath)}>
