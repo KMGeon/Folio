@@ -1,5 +1,6 @@
 import { Test } from "@nestjs/testing";
 import { describe, expect, it, vi } from "vitest";
+import { ReviewCommentFacade } from "../../../application/review/review-comment.facade.js";
 import { ReviewPullFacade } from "../../../application/review/review-pull.facade.js";
 import { ReviewReadFacade } from "../../../application/review/review-read.facade.js";
 import { ReviewStateFacade } from "../../../application/review/review-state.facade.js";
@@ -16,6 +17,7 @@ async function buildController(overrides: {
   run?: ReturnType<typeof vi.fn>;
   getReview?: ReturnType<typeof vi.fn>;
   setChapterViewed?: ReturnType<typeof vi.fn>;
+  createInlineComment?: ReturnType<typeof vi.fn>;
 }) {
   const moduleRef = await Test.createTestingModule({
     controllers: [PullsController],
@@ -25,6 +27,10 @@ async function buildController(overrides: {
       {
         provide: ReviewStateFacade,
         useValue: { setChapterViewed: overrides.setChapterViewed ?? vi.fn() },
+      },
+      {
+        provide: ReviewCommentFacade,
+        useValue: { createInlineComment: overrides.createInlineComment ?? vi.fn() },
       },
     ],
   })
@@ -86,5 +92,41 @@ describe("PullsController", () => {
       userId: "u1",
     });
     expect(result.progress).toEqual({ viewed: 1, total: 3 });
+  });
+
+  it("POST creates an inline review comment with the current user's login", async () => {
+    const createInlineComment = vi.fn(async () => ({
+      id: "comment1",
+      githubCommentId: 123,
+      htmlUrl: "https://github.com/acme/widget/pull/7#discussion_r123",
+    }));
+    const controller = await buildController({ createInlineComment });
+
+    const result = await controller.createInlineComment(
+      "acme",
+      "widget",
+      "7",
+      {
+        chapterIndex: 1,
+        path: "src/a.ts",
+        side: "RIGHT",
+        line: 12,
+        body: "  확인이 필요합니다.  ",
+      },
+      user,
+    );
+
+    expect(createInlineComment).toHaveBeenCalledWith({
+      owner: "acme",
+      repo: "widget",
+      number: 7,
+      chapterIndex: 1,
+      path: "src/a.ts",
+      side: "RIGHT",
+      line: 12,
+      body: "확인이 필요합니다.",
+      authorLogin: "octocat",
+    });
+    expect(result.githubCommentId).toBe(123);
   });
 });

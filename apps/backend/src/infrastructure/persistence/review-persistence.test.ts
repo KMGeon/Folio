@@ -1,9 +1,12 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Chapter } from "@folio/types";
 
 vi.mock("@folio/db", () => ({
   installationsRepo: { upsertByGithubId: vi.fn(async () => ({ id: "inst1" })) },
-  repositoriesRepo: { upsertByGithubId: vi.fn(async () => ({ id: "repo1" })) },
+  repositoriesRepo: {
+    getByFullName: vi.fn(async () => null),
+    upsertByGithubId: vi.fn(async () => ({ id: "repo1" })),
+  },
   pullRequestsRepo: { upsertByRepoAndNumber: vi.fn(async () => ({ id: "pr1" })) },
   revisionsRepo: {
     listByPr: vi.fn(async () => []),
@@ -34,6 +37,42 @@ const summary = {
 };
 
 describe("persistReview", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(db.repositoriesRepo.getByFullName).mockResolvedValue(null);
+  });
+
+  it("uses an existing installed repository before falling back to synthetic ids", async () => {
+    vi.mocked(db.repositoriesRepo.getByFullName).mockResolvedValueOnce({
+      id: "installed-repo",
+      installationId: "real-installation",
+      githubRepoId: 123,
+      owner: "acme",
+      name: "widget",
+      fullName: "acme/widget",
+      private: false,
+      defaultBranch: "main",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    await persistReview({
+      owner: "acme",
+      repo: "widget",
+      summary,
+      mergeBaseSha: "base123",
+      rawDiff: "diff --git a/a.ts b/a.ts\n",
+      prologue: null,
+      chapters: [],
+    });
+
+    expect(db.installationsRepo.upsertByGithubId).not.toHaveBeenCalled();
+    expect(db.repositoriesRepo.upsertByGithubId).not.toHaveBeenCalled();
+    expect(db.pullRequestsRepo.upsertByRepoAndNumber).toHaveBeenCalledWith(
+      expect.objectContaining({ repoId: "installed-repo" }),
+    );
+  });
+
   it("upserts the full chain and stores rawDiff + chapters", async () => {
     const result = await persistReview({
       owner: "acme",

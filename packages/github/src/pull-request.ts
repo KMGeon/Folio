@@ -62,6 +62,19 @@ export interface ReviewCommentSummary {
   commitSha: string;
 }
 
+export interface CreateReviewCommentInput {
+  body: string;
+  commitSha: string;
+  path: string;
+  side: "LEFT" | "RIGHT";
+  line: number;
+}
+
+export interface CreatedReviewComment {
+  id: number;
+  htmlUrl: string;
+}
+
 const PER_PAGE = 100;
 
 /** GitHub's review `state` strings map onto our REVIEW_STATE enum. */
@@ -150,6 +163,26 @@ export async function getPullRequestCommits(
   }));
 }
 
+/** List recent commits for a repository branch/ref, newest first as GitHub returns them. */
+export async function getRepositoryCommits(
+  client: Octokit,
+  input: { owner: string; repo: string; sha: string; perPage?: number },
+): Promise<PullRequestCommit[]> {
+  const commits = await client.paginate(client.rest.repos.listCommits, {
+    owner: input.owner,
+    repo: input.repo,
+    sha: input.sha,
+    per_page: input.perPage ?? 20,
+  });
+  return commits.map((c) => ({
+    sha: c.sha,
+    message: c.commit.message,
+    author: c.author?.login ?? c.commit.author?.name ?? "unknown",
+    authoredAt: c.commit.author?.date ?? c.commit.committer?.date ?? "",
+    parents: c.parents?.map((p) => p.sha) ?? [],
+  }));
+}
+
 /**
  * List every changed file in a PR, paginating at 100/page until exhausted, so
  * PRs with >100 files are fully covered.
@@ -215,4 +248,23 @@ export async function getReviewComments(
     line: c.line ?? null,
     commitSha: c.commit_id,
   }));
+}
+
+/** Create a single inline review comment on a PR diff line. */
+export async function createReviewComment(
+  client: Octokit,
+  ref: PullRequestRef,
+  input: CreateReviewCommentInput,
+): Promise<CreatedReviewComment> {
+  const { data } = await client.rest.pulls.createReviewComment({
+    owner: ref.owner,
+    repo: ref.repo,
+    pull_number: ref.number,
+    body: input.body,
+    commit_id: input.commitSha,
+    path: input.path,
+    side: input.side,
+    line: input.line,
+  });
+  return { id: data.id, htmlUrl: data.html_url };
 }

@@ -7,14 +7,17 @@ import {
   reviewStateRepo,
   revisionsRepo,
 } from "@folio/db";
-import { createInstallationOctokit, getPullRequestCommits } from "@folio/github";
+import {
+  createInstallationOctokit,
+  getPullRequestCommits,
+  getRepositoryCommits,
+} from "@folio/github";
 import { sliceChapterCode } from "../../domain/review/chapter-diff-slice.js";
 import type {
   ReviewChapter,
   ReviewCommit,
   ReviewPayload,
 } from "../../domain/review/review-read-model.js";
-import { syntheticRepoId } from "../../infrastructure/persistence/review-persistence.js";
 
 @Injectable()
 export class ReviewReadFacade {
@@ -26,7 +29,7 @@ export class ReviewReadFacade {
     number: number,
     userId: string,
   ): Promise<ReviewPayload | null> {
-    const repository = await repositoriesRepo.getByGithubId(syntheticRepoId(owner, repo));
+    const repository = await repositoriesRepo.getByFullName(`${owner}/${repo}`);
     if (!repository) {
       return null;
     }
@@ -65,7 +68,14 @@ export class ReviewReadFacade {
       const installation = await installationsRepo.getById(repository.installationId);
       if (installation) {
         const octokit = await createInstallationOctokit(installation.githubInstallationId);
-        commits = await getPullRequestCommits(octokit, { owner, repo, number });
+        const [baseCommits, prCommits] = await Promise.all([
+          getRepositoryCommits(octokit, { owner, repo, sha: pr.baseRef, perPage: 20 }),
+          getPullRequestCommits(octokit, { owner, repo, number }),
+        ]);
+        commits = mergeCommitFlow(
+          baseCommits.map((commit) => ({ ...commit, branch: "base" as const })),
+          prCommits.map((commit) => ({ ...commit, branch: "head" as const })),
+        );
       }
     } catch (err) {
       this.logger.warn(`Failed to load commits for ${owner}/${repo}#${number}: ${String(err)}`);
@@ -88,4 +98,15 @@ export class ReviewReadFacade {
       commits,
     };
   }
+}
+
+function mergeCommitFlow(baseCommits: ReviewCommit[], headCommits: ReviewCommit[]): ReviewCommit[] {
+  const bySha = new Map<string, ReviewCommit>();
+  for (const commit of baseCommits.reverse()) {
+    bySha.set(commit.sha, commit);
+  }
+  for (const commit of headCommits) {
+    bySha.set(commit.sha, commit);
+  }
+  return [...bySha.values()];
 }

@@ -2,7 +2,15 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@folio/db", () => ({
   repositoriesRepo: {
-    getByGithubId: vi.fn(async () => ({ id: "repo1", owner: "acme", name: "widget" })),
+    getByFullName: vi.fn(async () => ({
+      id: "repo1",
+      installationId: "inst1",
+      owner: "acme",
+      name: "widget",
+    })),
+  },
+  installationsRepo: {
+    getById: vi.fn(async () => ({ githubInstallationId: 123456 })),
   },
   pullRequestsRepo: {
     getByRepoAndNumber: vi.fn(async () => ({

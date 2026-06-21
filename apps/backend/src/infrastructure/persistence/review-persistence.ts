@@ -66,25 +66,16 @@ function prStatus(summary: PullRequestSummary): "draft" | "open" | "merged" | "c
 }
 
 export async function persistReview(input: PersistReviewInput): Promise<PersistedReview> {
-  const ghInstallId = syntheticInstallationId(input.owner);
-  const installation = await installationsRepo.upsertByGithubId({
-    githubInstallationId: ghInstallId,
-    accountLogin: input.owner,
-    accountType: ACCOUNT_TYPE.ORGANIZATION,
-  });
-
-  // Manual review has no real GitHub repo id here, so derive a stable synthetic one.
-  // so different repos under the same owner don't collide on the UNIQUE githubRepoId column.
   const fullName = `${input.owner}/${input.repo}`;
-  const repository = await repositoriesRepo.upsertByGithubId({
-    installationId: installation.id,
-    githubRepoId: syntheticRepoId(input.owner, input.repo),
-    owner: input.owner,
-    name: input.repo,
-    fullName,
-    private: false,
-    defaultBranch: input.summary.baseRef,
-  });
+  const existingRepository = await repositoriesRepo.getByFullName(fullName);
+  const repository =
+    existingRepository ??
+    (await persistSyntheticRepository({
+      owner: input.owner,
+      repo: input.repo,
+      fullName,
+      defaultBranch: input.summary.baseRef,
+    }));
 
   const pr = await pullRequestsRepo.upsertByRepoAndNumber({
     repoId: repository.id,
@@ -126,4 +117,30 @@ export async function persistReview(input: PersistReviewInput): Promise<Persiste
   await chaptersRepo.replaceForRevision(revision.id, rows);
 
   return { prId: pr.id, revisionId: revision.id, revisionIndex: revision.index };
+}
+
+async function persistSyntheticRepository(input: {
+  owner: string;
+  repo: string;
+  fullName: string;
+  defaultBranch: string;
+}) {
+  const ghInstallId = syntheticInstallationId(input.owner);
+  const installation = await installationsRepo.upsertByGithubId({
+    githubInstallationId: ghInstallId,
+    accountLogin: input.owner,
+    accountType: ACCOUNT_TYPE.ORGANIZATION,
+  });
+
+  // Only manual fallback paths lack GitHub installation sync data; webhook jobs
+  // should attach reviews to the real installed repository row when it exists.
+  return repositoriesRepo.upsertByGithubId({
+    installationId: installation.id,
+    githubRepoId: syntheticRepoId(input.owner, input.repo),
+    owner: input.owner,
+    name: input.repo,
+    fullName: input.fullName,
+    private: false,
+    defaultBranch: input.defaultBranch,
+  });
 }

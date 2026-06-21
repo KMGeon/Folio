@@ -49,6 +49,7 @@ export interface ReviewCommit {
   author: string;
   authoredAt: string;
   parents: string[];
+  branch: "base" | "head";
 }
 
 export interface ReviewPayload {
