@@ -1,7 +1,8 @@
-import { ArrowRight, BookOpen, Braces, CheckCircle2, Github, Split } from "lucide-react";
+import { ArrowRight, Braces, CheckCircle2, Github, Split } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
 
+import { BrandMark } from "@/components/brand-mark";
 import { ChapterSceneBackground } from "@/components/three/chapter-scene-background";
 import { Button } from "@/components/ui/button";
 import { loginUrl } from "@/lib/auth";
@@ -36,9 +37,7 @@ function HomepageHeader() {
   return (
     <header className="relative z-10 mx-auto flex h-16 max-w-7xl items-center justify-between px-5 md:px-8">
       <Link href="/homepage" className="flex items-center gap-3">
-        <div className="flex size-8 items-center justify-center rounded-md border bg-primary/10 text-primary">
-          <BookOpen className="size-4" />
-        </div>
+        <BrandMark />
         <span className="font-semibold text-sm">Folio</span>
       </Link>
       <nav className="hidden items-center gap-6 text-muted-foreground text-xs md:flex">

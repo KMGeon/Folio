@@ -4,6 +4,8 @@ import { PlugZap, Settings, SquareStack } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
+import { BrandMark } from "@/components/brand-mark";
+
 const NAV = [
   { href: "/", label: "대시보드", icon: SquareStack },
   { href: "/onboarding/install", label: "설치", icon: PlugZap },
@@ -48,7 +50,7 @@ export function NavMenu() {
         className="flex items-center rounded-md p-1 outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50 data-[open=true]:bg-accent"
         data-open={open}
       >
-        <img src="/folio-mark.png" alt="Folio" width={28} height={28} className="size-7" />
+        <BrandMark className="size-7" imageClassName="size-5" />
       </button>
 
       {open ? (
