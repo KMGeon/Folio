@@ -136,7 +136,7 @@ describe("decompose — tiny PR now takes the LLM path", () => {
     await decompose({ diff }, {}, { clientFactory: () => stub });
     const userMsg = stub.requests[0]?.messages[0]?.content ?? "";
     expect(userMsg).toContain("이 PR은 작은 변경입니다. reviewable hunk 수: 1.");
-    expect(userMsg).toContain("변경 파일에서 어떤 작업을 했는지 설명하는 Stage 제목과 요약");
+    expect(userMsg).toContain("어떤 작업 또는 기능 변경인지 설명하는 Stage 제목과 요약");
   });
 
   it("routes a 0-reviewable-hunk diff to deterministic without calling the LLM", async () => {

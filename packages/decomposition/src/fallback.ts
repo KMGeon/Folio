@@ -2,15 +2,13 @@
 // (FOLIO_DECOMP_LLM=0) and when the LLM path + repair loop are exhausted.
 // It ALWAYS covers 100% of reviewable hunks exactly once.
 //
-// Strategy precedence (issue E2 §fallback):
-//   1. file-work stages — each changed file gets an explicit review stage.
-//   2. grouped companion files can be added later when the relationship is
-//      unambiguous, but the fallback must never hide work behind "Apply changes".
+// Strategy precedence:
+//   1. task-area stages — group related files by feature/config/domain area.
+//   2. keep hunk coverage exact even when the grouping is necessarily heuristic.
 //
 // Commit-boundary grouping is only meaningful when a commit→hunk mapping is
-// available; a unified diff carries no such mapping, so fallback stays file-based.
+// available; a unified diff carries no such mapping, so fallback uses path signals.
 
-import { FILE_STATUS } from "@folio/types";
 import type { ChapterEmit, HunkReference, PullRequestFile } from "@folio/types";
 
 /** All `(filePath, oldStart)` hunk refs for a set of files, in file order. */
@@ -32,29 +30,50 @@ function countHunks(files: PullRequestFile[]): number {
   return n;
 }
 
-function statusAction(file: PullRequestFile): string {
-  switch (file.status) {
-    case FILE_STATUS.ADDED:
-      return "추가";
-    case FILE_STATUS.DELETED:
-      return "삭제";
-    case FILE_STATUS.RENAMED:
-    case FILE_STATUS.MOVED:
-      return "이동";
-    case FILE_STATUS.MODIFIED:
-      return "수정";
+interface TaskArea {
+  key: string;
+  title: string;
+  priority: number;
+}
+
+function topDir(filePath: string): string {
+  const slash = filePath.indexOf("/");
+  return slash === -1 ? "(root)" : filePath.slice(0, slash);
+}
+
+function taskAreaForPath(filePath: string): TaskArea {
+  if (/^(?:package\.json|pnpm-lock\.yaml|package-lock\.json|yarn\.lock)$/.test(filePath)) {
+    return { key: "dependencies", title: "의존성 설정 수정", priority: 10 };
   }
+  if (/^(?:docker-compose|Dockerfile|nginx\/|\.github\/workflows\/)/.test(filePath)) {
+    return { key: "deploy", title: "배포 설정 수정", priority: 15 };
+  }
+  if (/^(?:packages\/db\/|.*\/drizzle\/|.*\/schema\/)/.test(filePath)) {
+    return { key: "database", title: "DB 스키마 수정", priority: 20 };
+  }
+  if (/(?:^|\/)(?:auth|session|oauth|login)(?:\/|\.|-)/.test(filePath)) {
+    return { key: "auth", title: "인증 흐름 수정", priority: 30 };
+  }
+  if (filePath.startsWith("apps/web/")) {
+    return { key: "web-ui", title: "웹 화면 수정", priority: 50 };
+  }
+  if (filePath.startsWith("apps/backend/")) {
+    return { key: "backend", title: "백엔드 로직 수정", priority: 40 };
+  }
+  if (/^(?:docs\/|README\.md|AGENTS\.md)/.test(filePath)) {
+    return { key: "docs", title: "문서 수정", priority: 80 };
+  }
+
+  const dir = topDir(filePath);
+  return { key: `dir:${dir}`, title: `${dir} 작업 수정`, priority: 60 };
 }
 
-function titleForFile(file: PullRequestFile): string {
-  return `${file.path} ${statusAction(file)}`;
-}
-
-function summaryForFile(file: PullRequestFile): string {
-  const hunkCount = file.hunks.length;
+function summaryForTask(title: string, files: PullRequestFile[]): string {
+  const hunkCount = countHunks(files);
+  const fileList = files.map((file) => `\`${file.path}\``).join(", ");
   return [
-    `\`${file.path}\` 파일의 ${statusAction(file)} 작업입니다.`,
-    `변경된 hunk ${hunkCount}개를 이 Stage에서 확인합니다.`,
+    `${title}에 관련된 변경을 묶었습니다.`,
+    `${files.length}개 파일, hunk ${hunkCount}개를 이 Stage에서 확인합니다: ${fileList}.`,
   ].join(" ");
 }
 
@@ -87,15 +106,37 @@ export function buildFallbackChapters(
     return [];
   }
 
-  // File-stage fallback: even a one-hunk PR should say which file's work is being reviewed.
-  const chapters: ChapterEmit[] = [];
+  // Task-area fallback: coarse enough to avoid a file list, strict enough to keep coverage.
+  const groups = new Map<
+    string,
+    {
+      area: TaskArea;
+      files: PullRequestFile[];
+      firstIndex: number;
+    }
+  >();
   for (const file of files) {
-    const refs = collectHunkRefs([file]);
+    const area = taskAreaForPath(file.path);
+    const group = groups.get(area.key);
+    if (group) {
+      group.files.push(file);
+    } else {
+      groups.set(area.key, { area, files: [file], firstIndex: groups.size });
+    }
+  }
+
+  const orderedGroups = [...groups.values()].sort(
+    (a, b) => a.area.priority - b.area.priority || a.firstIndex - b.firstIndex,
+  );
+  const chapters: ChapterEmit[] = [];
+  for (const group of orderedGroups) {
+    const refs = collectHunkRefs(group.files);
     if (refs.length === 0) {
       continue;
     }
+    const title = group.area.title;
     const order = chapters.length + 1;
-    chapters.push(makeChapter(order, titleForFile(file), summaryForFile(file), refs));
+    chapters.push(makeChapter(order, title, summaryForTask(title, group.files), refs));
   }
 
   return chapters;

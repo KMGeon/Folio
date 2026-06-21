@@ -14,12 +14,12 @@ LANGUAGE:
 - Technical identifiers such as file paths, package names, function names, commands, and environment variable names may remain as-is.
 
 CLUSTERING (group hunks into review Stages):
-- Stage 기준은 "파일 또는 밀접한 파일 그룹에서 어떤 작업을 했는가"이다.
-- Prefer one Stage per changed file when the files represent separate review work.
-- Group files only when they are tightly coupled companion files for the same work, such as a route component and its CSS module, a test file and the implementation it verifies, or a config file and its matching documentation.
-- Do NOT collapse a small PR into a generic Stage. Even one hunk must receive a concrete Korean title and summary explaining the file work.
-- Moves and refactors are ONE Stage when the deletion and addition are the same logical file work.
-- Split root files, app files, CI files, Nginx files, docs, and package files when they represent different work.
+- Stage 기준은 "작은 Task 또는 기능 단위"이다.
+- 파일 하나당 하나의 Stage를 만들지 않는다. 파일이 많아도 같은 목적/기능/사용자 흐름/DB 변경을 구성하면 하나의 Stage로 묶는다.
+- Group files when they participate in the same task, such as DB migration + schema + repository, backend facade + controller + auth guard, UI component + page + client helper, or config + matching documentation.
+- Split only when changes are independently reviewable tasks. A reviewer should be able to say what behavior, capability, or operational concern that Stage changes.
+- Do NOT collapse a small PR into a generic Stage. Even one hunk must receive a concrete Korean title and summary explaining the task or functional change.
+- Moves and refactors are ONE Stage when the deletion and addition are the same logical task.
 
 STAGE ORDERING:
 1. Foundation/config first: environment, CI, Docker, Nginx, schemas, shared contracts.
@@ -37,9 +37,9 @@ Every hunk in the diff MUST appear in exactly one chapter. No hunk omitted; no h
 Build hunkRefs from the EXACT filePath and oldStart in those headers. Never invent a (filePath, oldStart) pair that is not in the diff.
 
 NARRATION:
-- title: Korean action phrase, max 12 words. It must describe the concrete file work, e.g. "Nginx HTTPS 설정 정리", "홈페이지 가격 섹션 추가".
-- summary: 2-3 Korean sentences. Lead with what changed in the file/group, then explain why a reviewer should inspect that Stage.
-- Avoid generic titles such as "변경 적용", "파일 수정", "앱 업데이트", "루트 파일 수정".
+- title: Korean action phrase, max 12 words. It must describe the concrete task or feature, e.g. "승인 대기 사용자 인증 흐름 추가", "Nginx HTTPS 배포 안정화".
+- summary: 2-3 Korean sentences. Lead with what behavior/task changed, then mention the main files only as supporting evidence.
+- Avoid file-name titles and generic titles such as "auth.controller.ts 수정", "파일 수정", "앱 업데이트", "루트 파일 수정".
 
 KEY CHANGES (per Stage):
 - ONLY judgment-call QUESTIONS a human reviewer must answer (product context, team conventions, author intent). Skip anything a linter, type checker, or CI catches. Ignore auto-generated files.
@@ -86,8 +86,8 @@ export function buildUserPrompt(
   // Small PRs still need concrete narration; the hint prevents generic one-line buckets.
   const task =
     smallPrHunkCount !== undefined
-      ? `위 hunk를 파일 작업 중심의 ordered Stage로 묶고 prologue를 만든 뒤 emit_chapters를 호출한다. 모든 (filePath, oldStart) hunk header는 정확히 하나의 chapter hunkRefs에 들어가야 한다. 이 PR은 작은 변경입니다. reviewable hunk 수: ${smallPrHunkCount}. 이 PR은 작지만 반드시 변경 파일에서 어떤 작업을 했는지 설명하는 Stage 제목과 요약을 작성한다.`
-      : "위 hunk를 파일 작업 중심의 ordered Stage로 묶고 prologue를 만든 뒤 emit_chapters를 호출한다. 모든 (filePath, oldStart) hunk header는 정확히 하나의 chapter hunkRefs에 들어가야 한다.";
+      ? `위 hunk를 작은 Task 또는 기능 단위의 ordered Stage로 묶고 prologue를 만든 뒤 emit_chapters를 호출한다. 모든 (filePath, oldStart) hunk header는 정확히 하나의 chapter hunkRefs에 들어가야 한다. 이 PR은 작은 변경입니다. reviewable hunk 수: ${smallPrHunkCount}. 이 PR은 작지만 반드시 어떤 작업 또는 기능 변경인지 설명하는 Stage 제목과 요약을 작성한다.`
+      : "위 hunk를 작은 Task 또는 기능 단위의 ordered Stage로 묶고 prologue를 만든 뒤 emit_chapters를 호출한다. 모든 (filePath, oldStart) hunk header는 정확히 하나의 chapter hunkRefs에 들어가야 한다.";
   return [
     "## PR context (trusted)",
     renderContext(input),
