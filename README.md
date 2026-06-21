@@ -3,149 +3,73 @@
 [![Deploy](https://github.com/KMGeon/Folio/actions/workflows/deploy.yml/badge.svg)](https://github.com/KMGeon/Folio/actions/workflows/deploy.yml)
 [![Release](https://img.shields.io/badge/release-v0.1.0-0e8a16)](https://github.com/KMGeon/Folio/releases/tag/v0.1.0)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178c6)](https://www.typescriptlang.org/)
-[![pnpm](https://img.shields.io/badge/pnpm-10.32.1-f69220)](https://pnpm.io/)
 [![Next.js](https://img.shields.io/badge/Next.js-App%20Router-000000)](https://nextjs.org/)
 [![NestJS](https://img.shields.io/badge/NestJS-API-e0234e)](https://nestjs.com/)
 
-Folio is a GitHub-native pull request review tool. It turns a large PR into
-ordered, logical review chapters so reviewers can inspect related changes in the
-right sequence instead of reading one long diff.
+Folio is a GitHub-native pull request review tool that turns a large PR into
+ordered review chapters.
 
-Production site: [https://folio.ai.kr](https://folio.ai.kr)
+Instead of asking reviewers to read one long diff from top to bottom, Folio groups
+related files, commits, and comments into a sequence that matches how the change
+should be understood.
 
-## What Folio Does
+Production: [https://folio.ai.kr](https://folio.ai.kr)
 
-- Ingests GitHub App webhooks and pull request data.
-- Generates review chapters from changed files, commits, comments, and PR context.
-- Shows a dense, chapter-first review UI for authenticated GitHub users.
-- Keeps authorization GitHub-native: users can only open reviews for repositories
-  they can access on GitHub.
-- Deploys from `main` to EC2 through GitHub Actions, Docker Compose, and Nginx.
+## Why Folio
 
-## Repository Layout
+Large pull requests are hard to review because the GitHub diff is file-first.
+Reviewers have to reconstruct the intent, dependencies, and review order by hand.
 
-```txt
-apps/backend   NestJS API, GitHub App webhook receiver, worker orchestration
-apps/web       Next.js App Router review UI
-packages/db    Drizzle/Postgres schema and repositories
-packages/diff  Diff parsing and hunk coverage
-packages/github GitHub App, OAuth, and Octokit helpers
-packages/decomposition PR chapter generation engine
-packages/types Shared Zod API and domain types
-```
+Folio makes the review flow chapter-first:
 
-## Local Development
+- Start with the context for the pull request.
+- Review related changes together.
+- Move through the PR in a logical order.
+- Keep comments and changed code close to the chapter they belong to.
+- Use GitHub as the source of truth for identity, repository access, and PR data.
 
-Prerequisites:
+## Core Features
 
-- Node.js 20+
-- pnpm 10.32.1
-- Docker, for the local Postgres profile
-- Codex CLI login if `FOLIO_DECOMP_LLM=1` and `OPENAI_API_KEY` is not set
+- GitHub App based PR ingestion.
+- Chapter generation for large pull requests.
+- GitHub OAuth login and repository access checks.
+- Chapter-focused review UI.
+- PR comments, prologue context, markdown tables, and inline diff comment support.
+- Production deployment for the Folio web app and API.
 
-```bash
-pnpm install
-cp .env.example .env
-pnpm db:up
+## How It Works
 
-pnpm dev:backend   # http://localhost:8080
-pnpm dev:web       # http://localhost:5173
-```
+1. A GitHub pull request is opened or updated.
+2. Folio receives the PR data through the GitHub App.
+3. The PR is decomposed into ordered review chapters.
+4. A reviewer logs in with GitHub.
+5. Folio shows only reviews the user can access on GitHub.
+6. The reviewer reads the PR chapter by chapter.
 
-The backend returns every API response in a common envelope:
+## Technology
 
-```json
-{ "success": true, "data": {} }
-```
+Folio is a pnpm + TypeScript monorepo.
 
-```json
-{ "success": false, "error": { "code": "invalid_signature", "message": "..." } }
-```
+- Next.js App Router for the web UI.
+- NestJS for the API and GitHub webhook server.
+- PostgreSQL and Drizzle for persistence.
+- Shared packages for GitHub integration, diff parsing, chapter decomposition, and
+  API types.
 
-## Runtime Profiles
+## Release
 
-Folio keeps local and production configuration explicit.
+Current production release: [v0.1.0](https://github.com/KMGeon/Folio/releases/tag/v0.1.0)
 
-| Runtime | Variable      | Values         |
-| ------- | ------------- | -------------- |
-| Backend | `APP_PROFILE` | `dev` or `prd` |
-| Web     | `APP_PROFILE` | `dev` or `prd` |
+### v0.1.0 Highlights
 
-Local defaults are in `.env.example`. Production must provide real values for:
-
-- `DATABASE_URL`
-- `GITHUB_APP_ID`
-- `GITHUB_APP_PRIVATE_KEY`
-- `GITHUB_APP_WEBHOOK_SECRET`
-- `GITHUB_APP_SLUG`
-- `GITHUB_APP_CLIENT_ID`
-- `GITHUB_APP_CLIENT_SECRET`
-- `PUBLIC_API_BASE_URL`
-- `FOLIO_WEB_BASE_URL`
-- `NEXT_PUBLIC_API_BASE_URL`
-
-For PR decomposition, Folio can use Codex, an Ollama-compatible fallback, and a
-deterministic fallback. See `.env.example` for `FOLIO_DECOMP_*` settings.
-
-## Deployment
-
-Deployment is managed by `.github/workflows/deploy.yml`.
-
-1. Push to `main` or run the workflow manually.
-2. GitHub Actions runs `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `pnpm build`.
-3. The workflow syncs the repository to the EC2 deploy path.
-4. The server runs `docker compose up -d --build --remove-orphans`.
-5. Nginx routes `folio.ai.kr` traffic to the backend on `8080` and the web app on
-   `5173`.
-
-Required GitHub Actions secrets:
-
-- `EC2_HOST`
-- `EC2_USER`
-- `EC2_SSH_KEY`
-- `DEPLOY_PATH`
-
-The EC2 host must keep its production `.env` file on the server. The deployment
-sync excludes `.env` and `.env.*`.
-
-## Verification
-
-Run the same checks used by CI before merging or deploying:
-
-```bash
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm build
-```
-
-## GitHub Labels
-
-Issue and PR labels use these groups:
-
-- `area:*` for the affected subsystem, such as `area:web`, `area:backend`,
-  `area:github`, `area:db`, `area:diff`, `area:engine`, `area:types`, and
-  `area:infra`.
-- `type:*` for the work kind, such as `type:feature`, `type:fix`, `type:docs`,
-  `type:ops`, and `type:test`.
-- `release:included` for work that should appear in the next release note.
-- `size:*` for review size.
-
-## Latest Release
-
-The first production MVP release is `v0.1.0`.
-
-| Author | Change                                                                                                                               |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------ |
-| KMGeon | Targeted the production domain and Nginx deploy path for `folio.ai.kr`.                                                              |
-| KMGeon | Added EC2 deployment through GitHub Actions.                                                                                         |
-| KMGeon | Removed the dashboard activity area for a leaner review flow.                                                                        |
-| KMGeon | Improved review rendering for GitHub comment avatars, markdown tables, nested activity, prologue comments, and inline diff comments. |
-| KMGeon | Expanded the GitHub App based review dashboard and synchronization flow.                                                             |
-| KMGeon | Guarded backend review creation when commit fetches fail.                                                                            |
-
-Full release history is available in [GitHub Releases](https://github.com/KMGeon/Folio/releases).
+| Author | Change                                                                         |
+| ------ | ------------------------------------------------------------------------------ |
+| KMGeon | Added production deployment for `folio.ai.kr`.                                 |
+| KMGeon | Added the GitHub App based review flow.                                        |
+| KMGeon | Added chapter-first PR review screens.                                         |
+| KMGeon | Added PR comment, markdown table, prologue, and inline diff comment rendering. |
+| KMGeon | Simplified the dashboard for the current review workflow.                      |
 
 ## Support
 
-For policy or production support, contact `support.foliodev@gmail.com`.
+For support or policy questions, contact `support.foliodev@gmail.com`.
