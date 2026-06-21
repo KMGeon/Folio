@@ -86,6 +86,7 @@ export class ReviewReadFacade {
             id: comment.id,
             body: stripFolioMarker(comment.body),
             author: comment.user,
+            avatarUrl: comment.avatarUrl,
             createdAt: comment.createdAt,
             htmlUrl: comment.htmlUrl,
           }));

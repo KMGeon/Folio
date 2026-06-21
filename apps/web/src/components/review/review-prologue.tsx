@@ -49,6 +49,7 @@ export function ReviewPrologue({
               <ConversationCard
                 key={comment.id}
                 author={comment.author}
+                avatarUrl={comment.avatarUrl}
                 createdLabel={formatDate(comment.createdAt)}
                 href={comment.htmlUrl}
               >
@@ -91,20 +92,23 @@ function PrologueTabButton({
 
 function ConversationCard({
   author,
+  avatarUrl,
   createdLabel,
   href,
   children,
 }: {
   author: string;
+  avatarUrl?: string;
   createdLabel: string;
   href?: string;
   children: React.ReactNode;
 }) {
+  const imageUrl = avatarUrl || `https://github.com/${author}.png?size=48`;
   return (
     <article className="rounded-lg border bg-card p-4">
       <div className="mb-3 flex items-center gap-2 text-sm">
         <img
-          src={`https://github.com/${author}.png?size=48`}
+          src={imageUrl}
           alt={author}
           width={24}
           height={24}

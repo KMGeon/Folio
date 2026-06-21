@@ -5,6 +5,7 @@ export interface IssueComment {
   id: number;
   body: string;
   user: string;
+  avatarUrl: string;
   createdAt: string;
   htmlUrl: string;
 }
@@ -77,6 +78,7 @@ export async function listIssueComments(
       id: c.id,
       body: c.body ?? "",
       user: c.user?.login ?? "",
+      avatarUrl: c.user?.avatar_url ?? "",
       createdAt: c.created_at,
       htmlUrl: c.html_url,
     }));

@@ -37,6 +37,7 @@ export interface ReviewIssueComment {
   id: number;
   body: string;
   author: string;
+  avatarUrl: string;
   createdAt: string;
   htmlUrl: string;
 }
