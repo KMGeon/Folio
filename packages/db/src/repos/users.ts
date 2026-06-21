@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { type Db, getDb } from "../client.js";
-import { type UserInsert, type UserRow, users } from "../schema/users.js";
+import { type UserInsert, type UserRow, USER_STATUS, users } from "../schema/users.js";
 
 export const usersRepo = {
   async create(input: UserInsert, db: Db = getDb()): Promise<UserRow> {
@@ -43,6 +43,23 @@ export const usersRepo = {
       throw new Error("usersRepo.upsertByGithubId: insert returned no row");
     }
     return row;
+  },
+
+  async listPending(db: Db = getDb()): Promise<UserRow[]> {
+    return db
+      .select()
+      .from(users)
+      .where(eq(users.status, USER_STATUS.PENDING))
+      .orderBy(asc(users.createdAt));
+  },
+
+  async approve(id: string, db: Db = getDb()): Promise<UserRow | null> {
+    const [row] = await db
+      .update(users)
+      .set({ status: USER_STATUS.APPROVED, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return row ?? null;
   },
 
   async delete(id: string, db: Db = getDb()): Promise<void> {

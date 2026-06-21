@@ -30,6 +30,11 @@ export const ErrorType = {
     statusCode: 403,
     message: "You do not have access to this repository.",
   },
+  AdminOnly: {
+    code: "admin_only",
+    statusCode: 403,
+    message: "Only the Folio administrator can perform this action.",
+  },
   InternalError: {
     code: "internal_error",
     statusCode: 500,

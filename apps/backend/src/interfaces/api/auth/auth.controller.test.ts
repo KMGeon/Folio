@@ -4,13 +4,21 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const upsertByGithubId = vi.fn();
 const getById = vi.fn();
+const listPending = vi.fn();
+const approve = vi.fn();
 const getByFullName = vi.fn();
 const sessionStore = new Map<string, { userId: string; expiresAt: Date }>();
 
 vi.mock("@folio/db", () => ({
+  USER_STATUS: {
+    PENDING: "pending",
+    APPROVED: "approved",
+  },
   usersRepo: {
     upsertByGithubId: (...args: unknown[]) => upsertByGithubId(...args),
     getById: (...args: unknown[]) => getById(...args),
+    listPending: (...args: unknown[]) => listPending(...args),
+    approve: (...args: unknown[]) => approve(...args),
   },
   sessionsRepo: {
     create: vi.fn(async (input: { tokenHash: string; userId: string; expiresAt: Date }) => {
@@ -87,6 +95,7 @@ describe("auth routes", () => {
       id: "u1",
       login: "octocat",
       avatarUrl: "https://avatars/octocat",
+      status: "approved",
     });
     const app = await createServer();
     const res = await request(app.getHttpServer())
@@ -103,6 +112,7 @@ describe("auth routes", () => {
       id: "u1",
       login: "octocat",
       avatarUrl: "https://avatars/octocat",
+      status: "approved",
     });
     const app = await createServer();
     const res = await request(app.getHttpServer()).get(
@@ -111,6 +121,27 @@ describe("auth routes", () => {
     expect(res.status).toBe(302);
     expect(res.headers.location).toBe("http://localhost:5173/");
     expect((res.headers["set-cookie"] as unknown as string[]).join()).toContain("folio_session");
+    await app.close();
+  });
+
+  it("records a new pending user but does not create a session until approved", async () => {
+    upsertByGithubId.mockResolvedValue({
+      id: "u1",
+      login: "new-reviewer",
+      avatarUrl: "https://avatars/new-reviewer",
+      status: "pending",
+    });
+    const app = await createServer();
+    const res = await request(app.getHttpServer())
+      .get("/api/v1/auth/github/callback?code=good&state=s1")
+      .set("Cookie", "folio_oauth_state=s1|/");
+
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toBe("http://localhost:5173/login?status=pending");
+    const cookies = res.headers["set-cookie"] as unknown as string[];
+    const sessionCookie = cookies.find((c) => c.startsWith("folio_session="));
+    expect(sessionCookie).toContain("Expires=Thu, 01 Jan 1970");
+    expect(sessionStore.size).toBe(0);
     await app.close();
   });
 
@@ -123,8 +154,18 @@ describe("auth routes", () => {
   });
 
   it("me returns the user with a valid session cookie", async () => {
-    getById.mockResolvedValue({ id: "u1", login: "octocat", avatarUrl: "https://a" });
-    upsertByGithubId.mockResolvedValue({ id: "u1", login: "octocat", avatarUrl: "https://a" });
+    getById.mockResolvedValue({
+      id: "u1",
+      login: "octocat",
+      avatarUrl: "https://a",
+      status: "approved",
+    });
+    upsertByGithubId.mockResolvedValue({
+      id: "u1",
+      login: "octocat",
+      avatarUrl: "https://a",
+      status: "approved",
+    });
     const app = await createServer();
     // Drive a real login to mint a valid session cookie.
     const login = await request(app.getHttpServer())
@@ -138,6 +179,151 @@ describe("auth routes", () => {
       .set("Cookie", sessionCookie ?? "");
     expect(me.status).toBe(200);
     expect(me.body).toMatchObject({ success: true, data: { user: { login: "octocat" } } });
+    await app.close();
+  });
+
+  it("me returns 401 when the session belongs to a pending user", async () => {
+    getById.mockResolvedValue({
+      id: "u1",
+      login: "octocat",
+      avatarUrl: "https://a",
+      status: "pending",
+    });
+    upsertByGithubId.mockResolvedValue({
+      id: "u1",
+      login: "octocat",
+      avatarUrl: "https://a",
+      status: "approved",
+    });
+    const app = await createServer();
+    const login = await request(app.getHttpServer())
+      .get("/api/v1/auth/github/callback?code=good&state=s1")
+      .set("Cookie", "folio_oauth_state=s1|/");
+    const sessionCookie = (login.headers["set-cookie"] as unknown as string[]).find((c) =>
+      c.startsWith("folio_session="),
+    );
+
+    const me = await request(app.getHttpServer())
+      .get("/api/v1/auth/me")
+      .set("Cookie", sessionCookie ?? "");
+
+    expect(me.status).toBe(401);
+    expect(me.body.error.code).toBe("unauthorized");
+    await app.close();
+  });
+
+  it("lets KMGeon list pending users", async () => {
+    getById.mockResolvedValue({
+      id: "admin",
+      login: "KMGeon",
+      avatarUrl: "https://a",
+      status: "approved",
+    });
+    upsertByGithubId.mockResolvedValue({
+      id: "admin",
+      login: "KMGeon",
+      avatarUrl: "https://a",
+      status: "approved",
+    });
+    listPending.mockResolvedValue([
+      {
+        id: "u2",
+        login: "new-reviewer",
+        avatarUrl: "https://avatars/new-reviewer",
+        email: null,
+        createdAt: new Date("2026-06-21T00:00:00.000Z"),
+      },
+    ]);
+
+    const app = await createServer();
+    const login = await request(app.getHttpServer())
+      .get("/api/v1/auth/github/callback?code=good&state=s1")
+      .set("Cookie", "folio_oauth_state=s1|/");
+    const sessionCookie = (login.headers["set-cookie"] as unknown as string[]).find((c) =>
+      c.startsWith("folio_session="),
+    );
+
+    const res = await request(app.getHttpServer())
+      .get("/api/v1/auth/admin/users/pending")
+      .set("Cookie", sessionCookie ?? "");
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      success: true,
+      data: { users: [{ id: "u2", login: "new-reviewer" }] },
+    });
+    await app.close();
+  });
+
+  it("rejects pending-user administration from non-admin users", async () => {
+    getById.mockResolvedValue({
+      id: "u1",
+      login: "octocat",
+      avatarUrl: "https://a",
+      status: "approved",
+    });
+    upsertByGithubId.mockResolvedValue({
+      id: "u1",
+      login: "octocat",
+      avatarUrl: "https://a",
+      status: "approved",
+    });
+
+    const app = await createServer();
+    const login = await request(app.getHttpServer())
+      .get("/api/v1/auth/github/callback?code=good&state=s1")
+      .set("Cookie", "folio_oauth_state=s1|/");
+    const sessionCookie = (login.headers["set-cookie"] as unknown as string[]).find((c) =>
+      c.startsWith("folio_session="),
+    );
+
+    const res = await request(app.getHttpServer())
+      .get("/api/v1/auth/admin/users/pending")
+      .set("Cookie", sessionCookie ?? "");
+
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe("admin_only");
+    await app.close();
+  });
+
+  it("lets KMGeon approve a pending user", async () => {
+    getById.mockResolvedValue({
+      id: "admin",
+      login: "KMGeon",
+      avatarUrl: "https://a",
+      status: "approved",
+    });
+    upsertByGithubId.mockResolvedValue({
+      id: "admin",
+      login: "KMGeon",
+      avatarUrl: "https://a",
+      status: "approved",
+    });
+    approve.mockResolvedValue({
+      id: "u2",
+      login: "new-reviewer",
+      avatarUrl: "https://avatars/new-reviewer",
+      status: "approved",
+    });
+
+    const app = await createServer();
+    const login = await request(app.getHttpServer())
+      .get("/api/v1/auth/github/callback?code=good&state=s1")
+      .set("Cookie", "folio_oauth_state=s1|/");
+    const sessionCookie = (login.headers["set-cookie"] as unknown as string[]).find((c) =>
+      c.startsWith("folio_session="),
+    );
+
+    const res = await request(app.getHttpServer())
+      .post("/api/v1/auth/admin/users/u2/approve")
+      .set("Cookie", sessionCookie ?? "");
+
+    expect(res.status).toBe(201);
+    expect(approve).toHaveBeenCalledWith("u2");
+    expect(res.body).toMatchObject({
+      success: true,
+      data: { user: { id: "u2", login: "new-reviewer", status: "approved" } },
+    });
     await app.close();
   });
 
@@ -166,8 +352,18 @@ describe("auth routes", () => {
   // and attaches req.user, then RepoAccessGuard reads user.login) and that an unknown repo
   // (getByFullName → null) results in repo_access_denied without any GitHub network call.
   it("GET review returns 403 repo_access_denied when repo is not found in db", async () => {
-    getById.mockResolvedValue({ id: "u1", login: "octocat", avatarUrl: "https://a" });
-    upsertByGithubId.mockResolvedValue({ id: "u1", login: "octocat", avatarUrl: "https://a" });
+    getById.mockResolvedValue({
+      id: "u1",
+      login: "octocat",
+      avatarUrl: "https://a",
+      status: "approved",
+    });
+    upsertByGithubId.mockResolvedValue({
+      id: "u1",
+      login: "octocat",
+      avatarUrl: "https://a",
+      status: "approved",
+    });
     // repo unknown → userCanAccessRepo returns false → RepoAccessGuard denies
     getByFullName.mockResolvedValue(null);
 

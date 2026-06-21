@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
-import { Controller, Get, Inject, Post, Query, Req, Res, UseGuards } from "@nestjs/common";
+import { Controller, Get, Inject, Param, Post, Query, Req, Res, UseGuards } from "@nestjs/common";
+import { usersRepo } from "@folio/db";
 import type { Response } from "express";
 import { AuthFacade } from "../../../application/auth/auth.facade.js";
 import { config, cookieIsSecure } from "../../../config.js";
@@ -17,6 +18,7 @@ import {
 const STATE_COOKIE = "folio_oauth_state";
 const SESSION_COOKIE = "folio_session";
 const STATE_TTL_MS = 10 * 60 * 1000;
+const ADMIN_LOGIN = "KMGeon";
 
 /** Only allow same-site relative redirect targets (no open redirect). */
 function safeRedirectPath(raw: string | undefined): string {
@@ -76,13 +78,18 @@ export class AuthController {
     redirectPath: string,
     res: Response,
   ): Promise<void> {
-    const { token, expiresAt } = await this.auth.completeLogin(code);
+    const completion = await this.auth.completeLogin(code);
     res.clearCookie(STATE_COOKIE, { path: "/" });
-    res.cookie(SESSION_COOKIE, token, {
+    if (completion.status === "pending") {
+      res.clearCookie(SESSION_COOKIE, { path: "/" });
+      res.redirect(`${config.WEB_ORIGIN}/login?status=pending`);
+      return;
+    }
+    res.cookie(SESSION_COOKIE, completion.token, {
       httpOnly: true,
       sameSite: "lax",
       secure: cookieIsSecure(),
-      expires: expiresAt,
+      expires: completion.expiresAt,
       path: "/",
     });
     res.redirect(`${config.WEB_ORIGIN}${safeRedirectPath(redirectPath)}`);
@@ -94,11 +101,62 @@ export class AuthController {
     return { user };
   }
 
+  @Get("admin/users/pending")
+  @UseGuards(SessionAuthGuard)
+  async pendingUsers(@CurrentUser() user: AuthedUser): Promise<{
+    users: {
+      id: string;
+      login: string;
+      avatarUrl: string;
+      email: string | null;
+      createdAt: Date;
+    }[];
+  }> {
+    assertAdmin(user);
+    const users = await usersRepo.listPending();
+    return {
+      users: users.map((row) => ({
+        id: row.id,
+        login: row.login,
+        avatarUrl: row.avatarUrl,
+        email: row.email,
+        createdAt: row.createdAt,
+      })),
+    };
+  }
+
+  @Post("admin/users/:id/approve")
+  @UseGuards(SessionAuthGuard)
+  async approveUser(
+    @CurrentUser() user: AuthedUser,
+    @Param("id") id: string,
+  ): Promise<{ user: { id: string; login: string; avatarUrl: string; status: string } }> {
+    assertAdmin(user);
+    const approved = await usersRepo.approve(id);
+    if (!approved) {
+      throw new CoreException(ErrorType.Unauthorized);
+    }
+    return {
+      user: {
+        id: approved.id,
+        login: approved.login,
+        avatarUrl: approved.avatarUrl,
+        status: approved.status,
+      },
+    };
+  }
+
   @Post("logout")
   async logout(@Req() req: AuthedRequest, @Res() res: Response): Promise<void> {
     await this.sessions.destroy(req.cookies?.[SESSION_COOKIE]);
     res.clearCookie(SESSION_COOKIE, { path: "/" });
     // Hand-mirrored envelope: @Res() bypasses the global ApiResponseInterceptor.
     res.status(200).json({ success: true, data: { ok: true } });
+  }
+}
+
+function assertAdmin(user: AuthedUser): void {
+  if (user.login !== ADMIN_LOGIN) {
+    throw new CoreException(ErrorType.AdminOnly);
   }
 }
