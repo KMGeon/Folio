@@ -8,4 +8,11 @@ describe("middleware public routes", () => {
 
     expect(source).toContain('"/homepage"');
   });
+
+  it("keeps brand assets outside the session gate", async () => {
+    const source = await readFile(new URL("./middleware.ts", import.meta.url), "utf8");
+
+    expect(source).toContain('"/folio-mark.png"');
+    expect(source).toContain('"/icon.png"');
+  });
 });

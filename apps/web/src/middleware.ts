@@ -1,7 +1,16 @@
 import { type NextRequest, NextResponse } from "next/server";
 
 // Public paths: marketing/login screens and Next internals/assets.
-const PUBLIC_PREFIXES = ["/homepage", "/login", "/_next", "/favicon"];
+const PUBLIC_PREFIXES = [
+  "/homepage",
+  "/login",
+  "/_next",
+  "/favicon",
+  "/icon.png",
+  "/apple-icon.png",
+  "/folio-mark.png",
+  "/folio-wordmark.png",
+];
 
 /**
  * App-wide session gate: redirect to /login when the session cookie is absent.
