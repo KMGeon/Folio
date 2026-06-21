@@ -8,7 +8,6 @@ import {
   GitMerge,
   GitPullRequest,
   Github,
-  MessageSquare,
   Search,
 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -54,7 +53,8 @@ const STATUS_META: Record<
   },
 };
 
-type Tab = "chapters" | "activity" | "files";
+type Tab = "chapters" | "files";
+type ChapterPanelTab = "chapters" | "activity";
 
 /** Aggregate every chapter's files into a deduped changed-file list for the Files tab. */
 function aggregateFiles(chapters: ReviewChapter[]): ChangedFile[] {
@@ -91,6 +91,7 @@ export function ReviewView({
   commits: ReviewCommit[];
 }) {
   const [tab, setTab] = useState<Tab>("chapters");
+  const [chapterPanelTab, setChapterPanelTab] = useState<ChapterPanelTab>("chapters");
   // null = the graph+cards overview; a number = that chapter's in-place diff review.
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
@@ -183,13 +184,6 @@ export function ReviewView({
               count={chapters.length}
             />
             <TabButton
-              active={tab === "activity"}
-              onClick={() => setTab("activity")}
-              icon={MessageSquare}
-              label="활동"
-              count={comments.length + commits.length}
-            />
-            <TabButton
               active={tab === "files"}
               onClick={() => setTab("files")}
               icon={FileText}
@@ -257,30 +251,34 @@ export function ReviewView({
                 <ReviewPrologue pr={pr} comments={comments} />
               </section>
               <section>
-                <h2 className="mb-3 font-medium text-muted-foreground text-xs uppercase tracking-wide">
-                  챕터
-                </h2>
-                <ChapterCards chapters={chapters} onSelect={setOpenIndex} />
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h2 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+                    리뷰
+                  </h2>
+                  <div className="flex rounded-md bg-muted/60 p-0.5">
+                    <PanelTabButton
+                      active={chapterPanelTab === "chapters"}
+                      label={`챕터 ${chapters.length}`}
+                      onClick={() => setChapterPanelTab("chapters")}
+                    />
+                    <PanelTabButton
+                      active={chapterPanelTab === "activity"}
+                      label={`활동 ${commits.length}`}
+                      onClick={() => setChapterPanelTab("activity")}
+                    />
+                  </div>
+                </div>
+                {chapterPanelTab === "chapters" ? (
+                  <ChapterCards chapters={chapters} onSelect={setOpenIndex} />
+                ) : (
+                  <div className="rounded-lg border bg-card p-2">
+                    <CommitGraph commits={commits} pr={pr} />
+                  </div>
+                )}
               </section>
             </div>
           </div>
         )
-      ) : tab === "activity" ? (
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 md:px-6">
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]">
-            <section>
-              <h2 className="mb-3 font-medium text-muted-foreground text-xs uppercase tracking-wide">
-                작업 흐름
-              </h2>
-              <div className="rounded-lg border bg-card p-2">
-                <CommitGraph commits={commits} pr={pr} />
-              </div>
-            </section>
-            <section>
-              <ReviewPrologue pr={pr} comments={comments} />
-            </section>
-          </div>
-        </div>
       ) : (
         <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[24rem_minmax(0,1fr)]">
           <aside className="min-h-72 border-b bg-card/35 lg:min-h-0 lg:border-r lg:border-b-0">
@@ -384,6 +382,29 @@ function TabButton({
       >
         {count}
       </span>
+    </button>
+  );
+}
+
+function PanelTabButton({
+  active,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "rounded px-2.5 py-1 font-medium text-xs transition-colors",
+        active ? "bg-card text-foreground" : "text-muted-foreground hover:text-foreground",
+      )}
+    >
+      {label}
     </button>
   );
 }
