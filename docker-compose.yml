@@ -13,6 +13,18 @@ services:
     ports:
       - "127.0.0.1:8080:8080"
 
+  worker:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    command: ["pnpm", "--filter", "@folio/backend", "exec", "tsx", "src/worker.ts"]
+    env_file:
+      - .env
+    environment:
+      APP_PROFILE: prd
+      NODE_ENV: production
+    restart: unless-stopped
+
   web:
     build:
       context: .
