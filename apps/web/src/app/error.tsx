@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { RotateCcw } from "lucide-react";
 
 export default function ErrorPage({
-  error,
   reset,
 }: {
   error: Error & { digest?: string };
@@ -18,7 +17,8 @@ export default function ErrorPage({
           요청을 처리하지 못했습니다
         </h1>
         <p className="mt-3 text-sm leading-6 text-muted-foreground">
-          {error.message || "잠시 후 다시 시도해 주세요."}
+          {/* Server/runtime error details stay in logs; the client gets only recovery guidance. */}
+          잠시 후 다시 시도해 주세요.
         </p>
         <Button type="button" className="mt-6" onClick={reset}>
           <RotateCcw className="size-4" />

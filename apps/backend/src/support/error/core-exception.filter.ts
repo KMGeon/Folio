@@ -1,4 +1,4 @@
-import { Catch, HttpException, Inject } from "@nestjs/common";
+import { Catch, HttpException, HttpStatus, Inject } from "@nestjs/common";
 import type { ArgumentsHost, ExceptionFilter } from "@nestjs/common";
 import { LOGGER_PORT } from "../../internal/logger/logger.port.js";
 import type { LoggerPort } from "../../internal/logger/logger.port.js";
@@ -26,19 +26,10 @@ export class CoreExceptionFilter implements ExceptionFilter {
     }
 
     if (exception instanceof HttpException) {
-      const exceptionResponse = exception.getResponse();
-      const message =
-        typeof exceptionResponse === "object" &&
-        exceptionResponse !== null &&
-        "message" in exceptionResponse
-          ? normalizeMessage((exceptionResponse as { message: unknown }).message)
-          : exception.message;
+      const error = publicHttpError(exception.getStatus());
       return response.status(exception.getStatus()).json({
         success: false,
-        error: {
-          code: "http_exception",
-          message,
-        },
+        error,
         path: request.url,
         timestamp: new Date().toISOString(),
       });
@@ -49,7 +40,7 @@ export class CoreExceptionFilter implements ExceptionFilter {
       success: false,
       error: {
         code: ErrorType.InternalError.code,
-        message: exception instanceof Error ? exception.message : ErrorType.InternalError.message,
+        message: ErrorType.InternalError.message,
       },
       path: request.url,
       timestamp: new Date().toISOString(),
@@ -57,12 +48,26 @@ export class CoreExceptionFilter implements ExceptionFilter {
   }
 }
 
-function normalizeMessage(message: unknown): string {
-  if (Array.isArray(message)) {
-    return message.join(", ");
+function publicHttpError(statusCode: number): { code: string; message: string } {
+  switch (statusCode) {
+    case HttpStatus.BAD_REQUEST:
+      return { code: "bad_request", message: "The request is invalid." };
+    case HttpStatus.UNAUTHORIZED:
+      return { code: "unauthorized", message: "Authentication is required." };
+    case HttpStatus.FORBIDDEN:
+      return { code: "forbidden", message: "You do not have permission to perform this action." };
+    case HttpStatus.NOT_FOUND:
+      return { code: "not_found", message: "The requested resource was not found." };
+    case HttpStatus.METHOD_NOT_ALLOWED:
+      return { code: "method_not_allowed", message: "This request method is not allowed." };
+    case HttpStatus.CONFLICT:
+      return { code: "conflict", message: "The request conflicts with the current state." };
+    case HttpStatus.TOO_MANY_REQUESTS:
+      return { code: "too_many_requests", message: "Too many requests. Please try again later." };
+    default:
+      if (statusCode >= 500) {
+        return { code: ErrorType.InternalError.code, message: ErrorType.InternalError.message };
+      }
+      return { code: "request_failed", message: "The request could not be completed." };
   }
-  if (typeof message === "string") {
-    return message;
-  }
-  return "Request failed.";
 }
