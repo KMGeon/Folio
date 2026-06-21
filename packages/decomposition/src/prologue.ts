@@ -35,7 +35,7 @@ function deriveComplexity(files: PullRequestFile[]): Complexity {
   }
   return {
     level,
-    reasoning: `${fileCount} file${fileCount === 1 ? "" : "s"} changed across ${hunks} hunk${hunks === 1 ? "" : "s"}.`,
+    reasoning: `${fileCount}개 파일에서 ${hunks}개 hunk가 변경되었습니다.`,
   };
 }
 
@@ -48,13 +48,12 @@ function deriveKeyChanges(files: PullRequestFile[]): PrologueKeyChange[] {
   const dirList = [...dirs].slice(0, 3).join(", ");
   const items: PrologueKeyChange[] = [
     {
-      summary: "Files changed across the pull request",
-      description: `Touches ${files.length} file${files.length === 1 ? "" : "s"} in ${dirList || "the repository"}.`,
+      summary: "PR 전체 변경 파일 정리",
+      description: `${dirList || "저장소"} 영역에서 ${files.length}개 파일이 변경되었습니다.`,
     },
     {
-      summary: "Deterministic decomposition was applied",
-      description:
-        "Chapters were grouped heuristically without a language-model pass; review groupings may be coarse.",
+      summary: "파일 작업 기준 Stage 생성",
+      description: "모델 없이 파일 작업 기준으로 Stage를 생성했습니다.",
     },
   ];
   return items;
@@ -69,18 +68,18 @@ function deriveFocusAreas(files: PullRequestFile[]): FocusArea[] {
     areas.push({
       type: FOCUS_AREA_TYPE.TESTING_GAP,
       severity: FOCUS_AREA_SEVERITY.INFO,
-      title: "No test changes detected",
+      title: "테스트 변경 없음",
       description:
-        "This change does not appear to touch tests — confirm the new behavior is covered elsewhere.",
+        "테스트 파일 변경이 보이지 않습니다. 새 동작이 다른 곳에서 검증되는지 확인하세요.",
       locations: files.slice(0, 5).map((f) => f.path),
     });
   }
   areas.push({
     type: FOCUS_AREA_TYPE.ARCHITECTURE,
     severity: FOCUS_AREA_SEVERITY.INFO,
-    title: "Heuristic grouping",
+    title: "파일 기준 Stage",
     description:
-      "Chapters were grouped by directory without semantic analysis — verify related changes were not split across chapters.",
+      "모델 없이 파일 기준으로 Stage를 나눴습니다. 서로 강하게 연결된 변경이 분리되지 않았는지 확인하세요.",
     locations: files.slice(0, 5).map((f) => f.path),
   });
   return areas.slice(0, 5);
@@ -96,7 +95,7 @@ export function buildFallbackPrologue(
 ): Prologue {
   const title = input.prTitle?.trim();
   return {
-    motivation: title ? `Pull request: ${title}` : null,
+    motivation: title ? `PR 제목: ${title}` : null,
     outcome: null,
     diagram: null,
     keyChanges: deriveKeyChanges(files),

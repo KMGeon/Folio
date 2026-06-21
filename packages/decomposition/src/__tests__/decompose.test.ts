@@ -88,7 +88,7 @@ describe("decompose — LLM happy path (mocked Codex)", () => {
     const stub = new StubClient([{ chapters: [fullCoverageChapter(diff)] }]);
     await decompose({ diff }, {}, { clientFactory: () => stub });
     const userMsg = stub.requests[0]?.messages[0]?.content ?? "";
-    expect(userMsg).not.toContain("Prefer a SINGLE chapter");
+    expect(userMsg).not.toContain("이 PR은 작은 변경입니다.");
   });
 
   it("keeps LLM chapters (source 'llm') when output has a duplicate hunk ref repaired by stub", async () => {
@@ -130,14 +130,13 @@ describe("decompose — tiny PR now takes the LLM path", () => {
     expectFullCoverage(diff, result.chapters);
   });
 
-  it("includes the single-chapter soft hint in the prompt for a tiny PR", async () => {
+  it("includes the concrete stage hint in the prompt for a tiny PR", async () => {
     const diff = readFixture("tiny-pr.diff");
     const stub = new StubClient([{ chapters: [fullCoverageChapter(diff)] }]);
     await decompose({ diff }, {}, { clientFactory: () => stub });
     const userMsg = stub.requests[0]?.messages[0]?.content ?? "";
-    expect(userMsg).toContain(
-      "Prefer a SINGLE chapter unless the changes are genuinely independent.",
-    );
+    expect(userMsg).toContain("이 PR은 작은 변경입니다. reviewable hunk 수: 1.");
+    expect(userMsg).toContain("변경 파일에서 어떤 작업을 했는지 설명하는 Stage 제목과 요약");
   });
 
   it("routes a 0-reviewable-hunk diff to deterministic without calling the LLM", async () => {
@@ -178,7 +177,7 @@ describe("decomposeDeterministic", () => {
   it("routes excluded lockfile hunks into an Other changes chapter", () => {
     const diff = readFixture("with-lockfile.diff");
     const result = decomposeDeterministic({ diff });
-    const other = result.chapters.find((c) => c.title === "Other changes");
+    const other = result.chapters.find((c) => c.title === "기타 변경");
     expect(other).toBeDefined();
     expect(other?.hunkRefs.some((r) => r.filePath === "pnpm-lock.yaml")).toBe(true);
     // Reviewable files were not excluded.
