@@ -1,5 +1,6 @@
-import { BookOpen } from "lucide-react";
 import Link from "next/link";
+
+import { BrandMark } from "@/components/brand-mark";
 
 export interface LegalSection {
   heading: string;
@@ -24,9 +25,7 @@ export function LegalPage({ title, effectiveDate, intro, sections }: LegalPagePr
           href="/"
           className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
-          <span className="flex size-7 items-center justify-center rounded-md border bg-primary/10 text-primary">
-            <BookOpen className="size-3.5" />
-          </span>
+          <BrandMark className="size-7" imageClassName="size-5" />
           <span className="font-semibold">Folio</span>
         </Link>
 

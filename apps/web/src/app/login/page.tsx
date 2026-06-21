@@ -1,5 +1,6 @@
-import { BookOpen, Github, ShieldCheck } from "lucide-react";
+import { Github, ShieldCheck } from "lucide-react";
 
+import { BrandMark } from "@/components/brand-mark";
 import { ChapterSceneBackground } from "@/components/three/chapter-scene-background";
 import { Button } from "@/components/ui/button";
 import { loginUrl } from "@/lib/auth";
@@ -140,9 +141,7 @@ function AuthPanel({ redirectPath }: { redirectPath: string }) {
       <div className="w-full max-w-sm">
         {/* brand shown here too — the 3D spine is hidden on small screens */}
         <div className="flex items-center gap-3 lg:hidden">
-          <div className="flex size-8 items-center justify-center rounded-md border bg-primary/10 text-primary">
-            <BookOpen className="size-4" />
-          </div>
+          <BrandMark />
           <span className="font-semibold text-sm">Folio</span>
         </div>
 
