@@ -11,11 +11,13 @@ import {
   createInstallationOctokit,
   getPullRequestCommits,
   getRepositoryCommits,
+  listIssueComments,
 } from "@folio/github";
 import { sliceChapterCode } from "../../domain/review/chapter-diff-slice.js";
 import type {
   ReviewChapter,
   ReviewCommit,
+  ReviewIssueComment,
   ReviewPayload,
 } from "../../domain/review/review-read-model.js";
 
@@ -60,25 +62,43 @@ export class ReviewReadFacade {
       };
     });
 
-    // Commits power the construction-flow graph. Fetched live (no DB column yet);
-    // a GitHub hiccup must not break the review, so failures degrade to [].
     let commits: ReviewCommit[] = [];
+    let comments: ReviewIssueComment[] = [];
     try {
-      // Inlined (not via review-pull.facade) so the octokit dependency is self-contained.
       const installation = await installationsRepo.getById(repository.installationId);
       if (installation) {
         const octokit = await createInstallationOctokit(installation.githubInstallationId);
-        const [baseCommits, prCommits] = await Promise.all([
-          getRepositoryCommits(octokit, { owner, repo, sha: pr.baseRef, perPage: 20 }),
-          getPullRequestCommits(octokit, { owner, repo, number }),
-        ]);
-        commits = mergeCommitFlow(
-          baseCommits.map((commit) => ({ ...commit, branch: "base" as const })),
-          prCommits.map((commit) => ({ ...commit, branch: "head" as const })),
-        );
+        // Live GitHub reads are additive UI context; each section degrades independently.
+        try {
+          const [baseCommits, prCommits] = await Promise.all([
+            getRepositoryCommits(octokit, { owner, repo, sha: pr.baseRef, perPage: 20 }),
+            getPullRequestCommits(octokit, { owner, repo, number }),
+          ]);
+          commits = mergeCommitFlow(
+            baseCommits.map((commit) => ({ ...commit, branch: "base" as const })),
+            prCommits.map((commit) => ({ ...commit, branch: "head" as const })),
+          );
+        } catch (err) {
+          this.logger.warn(`Failed to load commits for ${owner}/${repo}#${number}: ${String(err)}`);
+        }
+        try {
+          comments = (await listIssueComments(octokit, { owner, repo, number })).map((comment) => ({
+            id: comment.id,
+            body: stripFolioMarker(comment.body),
+            author: comment.user,
+            createdAt: comment.createdAt,
+            htmlUrl: comment.htmlUrl,
+          }));
+        } catch (err) {
+          this.logger.warn(
+            `Failed to load comments for ${owner}/${repo}#${number}: ${String(err)}`,
+          );
+        }
       }
     } catch (err) {
-      this.logger.warn(`Failed to load commits for ${owner}/${repo}#${number}: ${String(err)}`);
+      this.logger.warn(
+        `Failed to create GitHub client for ${owner}/${repo}#${number}: ${String(err)}`,
+      );
     }
 
     return {
@@ -87,6 +107,7 @@ export class ReviewReadFacade {
         repo,
         number,
         title: pr.title,
+        body: pr.body ?? "",
         status: pr.status,
         author: pr.authorLogin,
         htmlUrl: pr.htmlUrl,
@@ -95,6 +116,7 @@ export class ReviewReadFacade {
         headBranch: pr.headRef,
       },
       chapters,
+      comments,
       commits,
     };
   }
@@ -109,4 +131,8 @@ function mergeCommitFlow(baseCommits: ReviewCommit[], headCommits: ReviewCommit[
     bySha.set(commit.sha, commit);
   }
   return [...bySha.values()];
+}
+
+function stripFolioMarker(body: string): string {
+  return body.replace(/\n*\s*<!-- folio:[\w-]+ -->\s*$/u, "").trim();
 }

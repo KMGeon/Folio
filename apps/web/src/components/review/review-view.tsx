@@ -8,6 +8,7 @@ import {
   GitMerge,
   GitPullRequest,
   Github,
+  MessageSquare,
   Search,
 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -16,11 +17,13 @@ import { ChapterCards } from "@/components/review/chapter-cards";
 import { FileTree, type ChangedFile } from "@/components/review/changed-file-tree";
 import { CommitGraph } from "@/components/review/commit-graph";
 import { DiffViewer } from "@/components/review/diff-viewer";
+import { ReviewPrologue } from "@/components/review/review-prologue";
 import { Button } from "@/components/ui/button";
 import type {
   PullRequestStatus,
   ReviewChapter,
   ReviewCommit,
+  ReviewIssueComment,
   ReviewPrMeta,
 } from "@/lib/review-api";
 import { cn } from "@/lib/utils";
@@ -51,7 +54,7 @@ const STATUS_META: Record<
   },
 };
 
-type Tab = "chapters" | "files";
+type Tab = "chapters" | "activity" | "files";
 
 /** Aggregate every chapter's files into a deduped changed-file list for the Files tab. */
 function aggregateFiles(chapters: ReviewChapter[]): ChangedFile[] {
@@ -79,10 +82,12 @@ function aggregateFiles(chapters: ReviewChapter[]): ChangedFile[] {
 export function ReviewView({
   pr,
   chapters,
+  comments,
   commits,
 }: {
   pr: ReviewPrMeta;
   chapters: ReviewChapter[];
+  comments: ReviewIssueComment[];
   commits: ReviewCommit[];
 }) {
   const [tab, setTab] = useState<Tab>("chapters");
@@ -178,6 +183,13 @@ export function ReviewView({
               count={chapters.length}
             />
             <TabButton
+              active={tab === "activity"}
+              onClick={() => setTab("activity")}
+              icon={MessageSquare}
+              label="활동"
+              count={comments.length + commits.length}
+            />
+            <TabButton
               active={tab === "files"}
               onClick={() => setTab("files")}
               icon={FileText}
@@ -240,15 +252,9 @@ export function ReviewView({
           </div>
         ) : (
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 md:px-6">
-            {/* The differentiator: construction flow (commits) beside review flow (chapters). */}
-            <div className="grid gap-6 lg:grid-cols-2">
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.35fr)]">
               <section>
-                <h2 className="mb-3 font-medium text-muted-foreground text-xs uppercase tracking-wide">
-                  작업 흐름
-                </h2>
-                <div className="rounded-lg border bg-card p-2">
-                  <CommitGraph commits={commits} pr={pr} />
-                </div>
+                <ReviewPrologue pr={pr} comments={comments} />
               </section>
               <section>
                 <h2 className="mb-3 font-medium text-muted-foreground text-xs uppercase tracking-wide">
@@ -259,6 +265,22 @@ export function ReviewView({
             </div>
           </div>
         )
+      ) : tab === "activity" ? (
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 md:px-6">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]">
+            <section>
+              <h2 className="mb-3 font-medium text-muted-foreground text-xs uppercase tracking-wide">
+                작업 흐름
+              </h2>
+              <div className="rounded-lg border bg-card p-2">
+                <CommitGraph commits={commits} pr={pr} />
+              </div>
+            </section>
+            <section>
+              <ReviewPrologue pr={pr} comments={comments} />
+            </section>
+          </div>
+        </div>
       ) : (
         <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[24rem_minmax(0,1fr)]">
           <aside className="min-h-72 border-b bg-card/35 lg:min-h-0 lg:border-r lg:border-b-0">

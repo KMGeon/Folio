@@ -80,12 +80,21 @@ export interface ReviewPrMeta {
   repo: string;
   number: number;
   title: string;
+  body: string;
   status: PullRequestStatus;
   author: string;
   htmlUrl: string;
   headSha: string;
   baseBranch: string;
   headBranch: string;
+}
+
+export interface ReviewIssueComment {
+  id: number;
+  body: string;
+  author: string;
+  createdAt: string;
+  htmlUrl: string;
 }
 
 /** A PR commit, rendered as the construction-flow graph beside the chapters. */
@@ -101,6 +110,7 @@ export interface ReviewCommit {
 export interface ReviewPayload {
   pr: ReviewPrMeta;
   chapters: ReviewChapter[];
+  comments: ReviewIssueComment[];
   /** Oldest→newest PR commits; may be empty if GitHub was unreachable. */
   commits: ReviewCommit[];
 }

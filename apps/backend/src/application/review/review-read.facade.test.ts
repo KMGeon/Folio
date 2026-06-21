@@ -16,6 +16,7 @@ vi.mock("@folio/db", () => ({
     getByRepoAndNumber: vi.fn(async () => ({
       id: "pr1",
       title: "PR",
+      body: "## Summary\n\n- Body",
       headSha: "head123",
       baseRef: "main",
       headRef: "feat",
@@ -43,6 +44,21 @@ vi.mock("@folio/db", () => ({
   },
 }));
 
+vi.mock("@folio/github", () => ({
+  createInstallationOctokit: vi.fn(async () => ({ rest: {} })),
+  getRepositoryCommits: vi.fn(async () => []),
+  getPullRequestCommits: vi.fn(async () => []),
+  listIssueComments: vi.fn(async () => [
+    {
+      id: 101,
+      body: "Looks good\n\n<!-- folio:review-summary -->",
+      user: "alice",
+      createdAt: "2026-06-21T00:00:00Z",
+      htmlUrl: "https://github.com/acme/widget/pull/7#issuecomment-101",
+    },
+  ]),
+}));
+
 const { ReviewReadFacade } = await import("./review-read.facade.js");
 
 describe("ReviewReadFacade", () => {
@@ -51,6 +67,16 @@ describe("ReviewReadFacade", () => {
     const payload = await facade.getReview("acme", "widget", 7, "user1");
     expect(payload).not.toBeNull();
     expect(payload?.pr.title).toBe("PR");
+    expect(payload?.pr.body).toContain("Summary");
+    expect(payload?.comments).toEqual([
+      {
+        id: 101,
+        body: "Looks good",
+        author: "alice",
+        createdAt: "2026-06-21T00:00:00Z",
+        htmlUrl: "https://github.com/acme/widget/pull/7#issuecomment-101",
+      },
+    ]);
     expect(payload?.chapters).toHaveLength(1);
     expect(payload!.chapters[0]!.index).toBe(1);
     expect(payload!.chapters[0]!.diffLines.length).toBeGreaterThan(0);
