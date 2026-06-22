@@ -1,21 +1,42 @@
-import { Github, KeyRound, Link2, Server, UserCheck } from "lucide-react";
+import { Github, KeyRound, Link2, Search, Server, UserCheck } from "lucide-react";
 import { cookies } from "next/headers";
 
 import { AppLayout } from "@/components/app-layout";
 import { PendingUsersAdmin } from "@/components/pending-users-admin";
+import { RepositoryToggleForm } from "@/components/repository-toggle-form";
 import { Button } from "@/components/ui/button";
 import { getMe, getPendingUsers } from "@/lib/auth";
 import { webEnv } from "@/lib/env";
+import { fetchRepositories } from "@/lib/repositories-api";
 
 export const dynamic = "force-dynamic";
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ repo?: string; state?: string }>;
+}) {
   const cookieHeader = (await cookies())
     .getAll()
     .map((c) => `${c.name}=${c.value}`)
     .join("; ");
   const user = await getMe(cookieHeader);
   const pendingUsers = user?.login === "KMGeon" ? await getPendingUsers(cookieHeader) : [];
+  const params = await searchParams;
+  const repositoryPayload = await fetchRepositories({ cookie: cookieHeader });
+  const repoQuery = params.repo?.trim().toLowerCase() ?? "";
+  const repoState =
+    params.state === "enabled" || params.state === "disabled" ? params.state : "all";
+  const activeRepos = repositoryPayload.repositories.filter((repo) => repo.folioEnabled);
+  const inactiveRepos = repositoryPayload.repositories.filter((repo) => !repo.folioEnabled);
+  const visibleRepos = repositoryPayload.repositories.filter((repo) => {
+    const matchesQuery = repoQuery.length === 0 || repo.fullName.toLowerCase().includes(repoQuery);
+    const matchesState =
+      repoState === "all" ||
+      (repoState === "enabled" && repo.folioEnabled) ||
+      (repoState === "disabled" && !repo.folioEnabled);
+    return matchesQuery && matchesState;
+  });
 
   return (
     <AppLayout user={user}>
@@ -51,6 +72,57 @@ export default async function SettingsPage() {
               <Link2 className="size-4" />
               상태 확인
             </Button>
+          </SettingsSection>
+          <SettingsSection icon={Github} title="Repositories">
+            <div className="grid gap-2 text-sm">
+              <Row label="Active" value={String(activeRepos.length)} />
+              <Row label="Inactive" value={String(inactiveRepos.length)} />
+            </div>
+            <form className="mt-4 grid gap-2 md:grid-cols-[1fr_9rem_auto]">
+              <label className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  name="repo"
+                  defaultValue={params.repo ?? ""}
+                  placeholder="Repository search"
+                  className="h-9 w-full rounded-md border bg-background pl-9 pr-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                />
+              </label>
+              <select
+                name="state"
+                defaultValue={repoState}
+                className="h-9 rounded-md border bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              >
+                <option value="all">All</option>
+                <option value="enabled">Enabled</option>
+                <option value="disabled">Disabled</option>
+              </select>
+              <Button size="sm" variant="outline">
+                Filter
+              </Button>
+            </form>
+            <div className="mt-4 max-h-[28rem] space-y-2 overflow-y-auto pr-1">
+              {visibleRepos.length > 0 ? (
+                visibleRepos.map((repo) => (
+                  <div
+                    key={repo.id}
+                    className="flex items-center justify-between gap-3 rounded-md border bg-background/35 px-3 py-2"
+                  >
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium">{repo.fullName}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {repo.private ? "private" : "public"} · {repo.defaultBranch}
+                      </div>
+                    </div>
+                    <RepositoryToggleForm repositoryId={repo.id} enabled={repo.folioEnabled} />
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-md border border-dashed bg-background/35 px-3 py-6 text-center text-xs text-muted-foreground">
+                  조건에 맞는 repository가 없습니다.
+                </div>
+              )}
+            </div>
           </SettingsSection>
           {user?.login === "KMGeon" ? (
             <SettingsSection icon={UserCheck} title="가입 요청">
