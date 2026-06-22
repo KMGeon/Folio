@@ -7,5 +7,8 @@ describe("DashboardPage", () => {
     const source = await readFile(new URL("./page.tsx", import.meta.url), "utf8");
 
     expect(source).not.toContain("ContributionsSkyline");
+    expect(source).toContain("RepositoryToggleForm");
+    expect(source).toContain("activeRepos");
+    expect(source).toContain("folioEnabled");
   });
 });

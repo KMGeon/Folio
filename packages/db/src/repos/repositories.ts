@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { type Db, getDb } from "../client.js";
 import { type RepositoryInsert, type RepositoryRow, repositories } from "../schema/repositories.js";
 
@@ -38,6 +38,31 @@ export const repositoriesRepo = {
     return db.select().from(repositories).where(eq(repositories.installationId, installationId));
   },
 
+  async listEnabledByInstallation(
+    installationId: string,
+    db: Db = getDb(),
+  ): Promise<RepositoryRow[]> {
+    return db
+      .select()
+      .from(repositories)
+      .where(
+        and(eq(repositories.installationId, installationId), eq(repositories.folioEnabled, true)),
+      );
+  },
+
+  async listByInstallationIds(
+    installationIds: string[],
+    db: Db = getDb(),
+  ): Promise<RepositoryRow[]> {
+    if (installationIds.length === 0) {
+      return [];
+    }
+    return db
+      .select()
+      .from(repositories)
+      .where(inArray(repositories.installationId, installationIds));
+  },
+
   async upsertByGithubId(input: RepositoryInsert, db: Db = getDb()): Promise<RepositoryRow> {
     const [row] = await db
       .insert(repositories)
@@ -59,6 +84,27 @@ export const repositoriesRepo = {
       throw new Error("repositoriesRepo.upsertByGithubId: insert returned no row");
     }
     return row;
+  },
+
+  async setFolioEnabled(id: string, enabled: boolean, db: Db = getDb()): Promise<RepositoryRow> {
+    const [row] = await db
+      .update(repositories)
+      .set({ folioEnabled: enabled, updatedAt: new Date() })
+      .where(eq(repositories.id, id))
+      .returning();
+    if (!row) {
+      throw new Error("repositoriesRepo.setFolioEnabled: repository not found");
+    }
+    return row;
+  },
+
+  async isFolioEnabledByFullName(fullName: string, db: Db = getDb()): Promise<boolean> {
+    const [row] = await db
+      .select({ folioEnabled: repositories.folioEnabled })
+      .from(repositories)
+      .where(eq(repositories.fullName, fullName))
+      .limit(1);
+    return row?.folioEnabled ?? false;
   },
 
   async delete(id: string, db: Db = getDb()): Promise<void> {

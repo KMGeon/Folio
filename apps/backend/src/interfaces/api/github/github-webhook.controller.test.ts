@@ -1,9 +1,11 @@
 import { createHmac } from "node:crypto";
 import { Test } from "@nestjs/testing";
+import type { repositoriesRepo as DbRepositoriesRepo } from "@folio/db";
 import request from "supertest";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const SECRET = "test-webhook-secret";
+type FolioDbModule = { repositoriesRepo: typeof DbRepositoriesRepo } & Record<string, unknown>;
 
 function sign(rawBody: string, secret = SECRET): string {
   return `sha256=${createHmac("sha256", secret).update(rawBody).digest("hex")}`;
@@ -11,11 +13,25 @@ function sign(rawBody: string, secret = SECRET): string {
 
 // Stub the DB-backed side effects so the controller test stays hermetic.
 const enqueueReviewPull = vi.fn(async () => ({ id: "job-1" }));
+const isFolioEnabledByFullName = vi.hoisted(() => vi.fn(async () => true));
 const syncInstallation = vi.fn(async () => undefined);
+
+vi.mock("@folio/db", async (importOriginal) => {
+  const actual = (await importOriginal()) as FolioDbModule;
+  return {
+    ...actual,
+    repositoriesRepo: {
+      ...actual.repositoriesRepo,
+      isFolioEnabledByFullName,
+    },
+  };
+});
 
 async function createTestServer() {
   vi.resetModules();
   enqueueReviewPull.mockClear();
+  isFolioEnabledByFullName.mockResolvedValue(true);
+  isFolioEnabledByFullName.mockClear();
   syncInstallation.mockClear();
   process.env.GITHUB_APP_WEBHOOK_SECRET = SECRET;
   // Import tokens from the freshly reset module graph so overrideProvider matches

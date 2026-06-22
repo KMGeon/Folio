@@ -21,8 +21,10 @@ export interface DashboardPull {
 }
 
 export interface DashboardRepo {
+  id: string;
   fullName: string;
   openPrCount: number;
+  folioEnabled: boolean;
 }
 
 export interface ActivityDay {
@@ -31,7 +33,7 @@ export interface ActivityDay {
 }
 
 export interface DashboardPayload {
-  metrics: { ready: number; processing: number; installedRepos: number };
+  metrics: { ready: number; processing: number; installedRepos: number; activeRepos: number };
   repos: DashboardRepo[];
   pulls: DashboardPull[];
   activity: ActivityDay[];

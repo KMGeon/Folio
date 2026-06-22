@@ -52,6 +52,7 @@ describe("persistReview", () => {
       fullName: "acme/widget",
       private: false,
       defaultBranch: "main",
+      folioEnabled: true,
       createdAt: new Date(),
       updatedAt: new Date(),
     });

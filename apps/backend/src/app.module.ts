@@ -4,6 +4,7 @@ import { AuthModule } from "./application/auth/auth.module.js";
 import { DashboardModule } from "./application/dashboard/dashboard.module.js";
 import { GitHubWebhookFacade } from "./application/github/github-webhook.facade.js";
 import { InstallationSyncFacade } from "./application/github/installation-sync.facade.js";
+import { RepositoriesModule } from "./application/repositories/repositories.module.js";
 import { ReviewModule } from "./application/review/review.module.js";
 import { GitHubWebhookService } from "./domain/github/github-webhook.service.js";
 import { GitHubWebhookAdapter } from "./infrastructure/github/github-webhook.adapter.js";
@@ -16,7 +17,7 @@ import { CoreExceptionFilter } from "./support/error/core-exception.filter.js";
 
 @Module({
   // PullsController lives in ReviewModule; AuthModule owns the OAuth/session stack.
-  imports: [InternalModule, ReviewModule, AuthModule, DashboardModule],
+  imports: [InternalModule, ReviewModule, AuthModule, DashboardModule, RepositoriesModule],
   controllers: [HealthController, GitHubWebhookController],
   providers: [
     GitHubWebhookFacade,

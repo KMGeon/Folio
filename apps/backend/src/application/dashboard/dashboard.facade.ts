@@ -37,12 +37,14 @@ export interface DashboardPull {
 }
 
 export interface DashboardRepo {
+  id: string;
   fullName: string;
   openPrCount: number;
+  folioEnabled: boolean;
 }
 
 export interface DashboardPayload {
-  metrics: { ready: number; processing: number; installedRepos: number };
+  metrics: { ready: number; processing: number; installedRepos: number; activeRepos: number };
   repos: DashboardRepo[];
   pulls: DashboardPull[];
   /** Per-day chapter-view counts for the activity heatmap (days with activity only). */
@@ -85,6 +87,25 @@ export class DashboardFacade {
         continue;
       }
 
+      const enabledRepoRows: typeof repoRows = [];
+      for (const repo of repoRows) {
+        if (repo.folioEnabled) {
+          enabledRepoRows.push(repo);
+          continue;
+        }
+
+        repos.push({
+          id: repo.id,
+          fullName: repo.fullName,
+          openPrCount: 0,
+          folioEnabled: false,
+        });
+      }
+
+      if (enabledRepoRows.length === 0) {
+        continue;
+      }
+
       let octokit: Octokit;
       try {
         octokit = await makeOctokit(installation.githubInstallationId);
@@ -93,7 +114,7 @@ export class DashboardFacade {
         continue;
       }
 
-      for (const repo of repoRows) {
+      for (const repo of enabledRepoRows) {
         let openPrs: Awaited<ReturnType<Octokit["paginate"]>>;
         try {
           openPrs = await octokit.paginate(octokit.rest.pulls.list, {
@@ -103,11 +124,21 @@ export class DashboardFacade {
             per_page: 100,
           });
         } catch {
-          repos.push({ fullName: repo.fullName, openPrCount: 0 });
+          repos.push({
+            id: repo.id,
+            fullName: repo.fullName,
+            openPrCount: 0,
+            folioEnabled: true,
+          });
           continue;
         }
 
-        repos.push({ fullName: repo.fullName, openPrCount: openPrs.length });
+        repos.push({
+          id: repo.id,
+          fullName: repo.fullName,
+          openPrCount: openPrs.length,
+          folioEnabled: true,
+        });
 
         for (const pr of openPrs) {
           const status = await this.resolveStatus(user.id, repo.id, pr.number);
@@ -132,7 +163,12 @@ export class DashboardFacade {
     // Activity heatmap is the user's PUBLIC GitHub contributions, not Folio data.
     const activity = await fetchPublicContributions(user.login);
     return {
-      metrics: { ready, processing: pulls.length - ready, installedRepos: repos.length },
+      metrics: {
+        ready,
+        processing: pulls.length - ready,
+        installedRepos: repos.length,
+        activeRepos: repos.filter((repo) => repo.folioEnabled).length,
+      },
       repos,
       pulls,
       activity,
