@@ -90,11 +90,46 @@ jobs:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
         run: |
           set -euo pipefail
-          ssh folio-ec2 "cd '$DEPLOY_PATH' && test -f .env && docker compose up -d --build --remove-orphans && if sudo test -f /etc/letsencrypt/live/folio.ai.kr/fullchain.pem; then sudo cp nginx/folio.conf /etc/nginx/sites-available/folio; else sudo cp nginx/folio-http.conf /etc/nginx/sites-available/folio; fi && sudo ln -sf /etc/nginx/sites-available/folio /etc/nginx/sites-enabled/folio && sudo rm -f /etc/nginx/sites-enabled/default && sudo nginx -t && sudo systemctl reload nginx && docker image prune -f && docker compose ps"
+          ssh folio-ec2 "DEPLOY_PATH='$DEPLOY_PATH' bash -s" <<'REMOTE'
+          set -euo pipefail
+          cd "$DEPLOY_PATH"
+          test -f .env
+          docker compose build
+          docker compose run --rm --no-deps backend pnpm --filter @folio/db db:migrate
+          docker compose up -d --remove-orphans
+          if sudo test -f /etc/letsencrypt/live/folio.ai.kr/fullchain.pem; then
+            sudo cp nginx/folio.conf /etc/nginx/sites-available/folio
+          else
+            sudo cp nginx/folio-http.conf /etc/nginx/sites-available/folio
+          fi
+          sudo ln -sf /etc/nginx/sites-available/folio /etc/nginx/sites-enabled/folio
+          sudo rm -f /etc/nginx/sites-enabled/default
+          sudo nginx -t
+          sudo systemctl reload nginx
+          docker image prune -f
+          docker compose ps
+          REMOTE
 
       - name: Smoke test deployment
         env:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
         run: |
           set -euo pipefail
-          ssh folio-ec2 "for i in \$(seq 1 30); do if sudo ss -ltn | grep -q ':80 ' && sudo ss -ltn | grep -q ':443 ' && curl -fsS http://127.0.0.1:8080/health >/dev/null && curl -fsS https://folio.ai.kr/health >/dev/null; then exit 0; fi; sleep 2; done; sudo ss -ltnp; docker compose -f '$DEPLOY_PATH/docker-compose.yml' --project-directory '$DEPLOY_PATH' ps; exit 1"
+          ssh folio-ec2 "DEPLOY_PATH='$DEPLOY_PATH' bash -s" <<'REMOTE'
+          set -euo pipefail
+          for i in $(seq 1 30); do
+            dashboard_status=$(curl -ksS -o /dev/null -w '%{http_code}' https://folio.ai.kr/api/v1/dashboard || true)
+            if sudo ss -ltn | grep -q ':80 ' &&
+              sudo ss -ltn | grep -q ':443 ' &&
+              curl -fsS http://127.0.0.1:8080/health >/dev/null &&
+              curl -fsS https://folio.ai.kr/health >/dev/null &&
+              { test "$dashboard_status" = 200 || test "$dashboard_status" = 401; }; then
+              exit 0
+            fi
+            sleep 2
+          done
+          sudo ss -ltnp
+          docker compose -f "$DEPLOY_PATH/docker-compose.yml" --project-directory "$DEPLOY_PATH" ps
+          curl -ksS -D - https://folio.ai.kr/api/v1/dashboard || true
+          exit 1
+          REMOTE
