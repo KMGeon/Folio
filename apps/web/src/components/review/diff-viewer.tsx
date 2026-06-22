@@ -10,8 +10,9 @@ import {
   MessageSquarePlus,
   X,
 } from "lucide-react";
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 
+import { langFromPath } from "@/lib/code-language";
 import { highlightMarkdownLine } from "@/lib/highlight";
 import {
   createReviewComment,
@@ -19,6 +20,7 @@ import {
   type ReviewChapter,
   type ReviewDiffLine,
 } from "@/lib/review-api";
+import { type TokenizedLines, tokenizeDiffLines } from "@/lib/syntax-highlight";
 import { cn } from "@/lib/utils";
 
 // overallSummary, focusAreas, risks, and REVIEW_COMMENT are not in ReviewPayload;
@@ -57,6 +59,46 @@ export function DiffViewer({
   const diffFile = commentContext?.path ?? chapter.files[0]?.path ?? "unknown";
   const additions = chapter.files.reduce((sum, file) => sum + file.additions, 0);
   const canComment = Boolean(commentContext && diffFile !== "unknown");
+
+  // Syntax highlighting: diff lines carry no language, so derive it from the
+  // file path and tokenize the whole chapter as one block (keeps multi-line
+  // strings/comments correct). Null lang → fall back to the markdown highlighter.
+  const lang = langFromPath(diffFile);
+  const [tokens, setTokens] = useState<TokenizedLines | null>(null);
+
+  useEffect(() => {
+    if (!lang) {
+      setTokens(null);
+      return;
+    }
+    let cancelled = false;
+    setTokens(null);
+    void tokenizeDiffLines(
+      chapter.diffLines.map((line) => line.text),
+      lang,
+    ).then((result) => {
+      if (!cancelled) {
+        setTokens(result);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [lang, chapter.diffLines]);
+
+  function renderLine(line: ReviewDiffLine, index: number) {
+    const row = tokens?.[index];
+    if (!row) {
+      // Prose/unknown files keep markdown highlighting; code shows plain text
+      // until Shiki tokens arrive.
+      return lang ? line.text : highlightMarkdownLine(line.text, `l${index}`);
+    }
+    return row.map((token, t) => (
+      <span key={`${index}-${t}`} style={token.color ? { color: token.color } : undefined}>
+        {token.content}
+      </span>
+    ));
+  }
 
   async function submitComment() {
     const text = body.trim();
@@ -159,7 +201,7 @@ export function DiffViewer({
                         ) : null}
                       </td>
                       <td className="whitespace-pre-wrap break-words py-px pr-4 align-top text-foreground/90">
-                        {highlightMarkdownLine(line.text, `l${i}`)}
+                        {renderLine(line, i)}
                       </td>
                     </tr>
                     {isActive ? (
