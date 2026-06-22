@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Inject, Param, Patch, UseGuards } from "@nestjs/common";
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Inject,
+  Param,
+  Patch,
+  UseGuards,
+} from "@nestjs/common";
 import { z } from "zod";
 import { RepositoriesFacade } from "../../../application/repositories/repositories.facade.js";
 import { CurrentUser } from "../common/current-user.decorator.js";
@@ -26,11 +35,14 @@ export class RepositoriesController {
     @Param("id") id: string,
     @Body() body: unknown,
   ) {
-    const parsed = ToggleRepositoryBodySchema.parse(body);
+    const parsed = ToggleRepositoryBodySchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException("Repository enabled must be a boolean");
+    }
     return this.repositoriesFacade.setEnabled({
       user: { login: user.login },
       repositoryId: id,
-      enabled: parsed.enabled,
+      enabled: parsed.data.enabled,
     });
   }
 }
