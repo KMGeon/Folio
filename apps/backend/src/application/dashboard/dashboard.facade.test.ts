@@ -94,7 +94,25 @@ describe("DashboardFacade", () => {
     expect(processing).toMatchObject({ status: "processing", chapterCount: 0, changedFiles: 0 });
   });
 
-  it("skips installations whose token cannot be minted", async () => {
+  it("keeps disabled repositories visible when installation tokens cannot be minted", async () => {
+    listByInstallation.mockResolvedValueOnce([
+      {
+        id: "enabled-repo-id",
+        owner: "KMGeon",
+        name: "Folio",
+        fullName: "KMGeon/Folio",
+        defaultBranch: "main",
+        folioEnabled: true,
+      },
+      {
+        id: "disabled-repo-id",
+        owner: "KMGeon",
+        name: "disabled",
+        fullName: "KMGeon/disabled",
+        defaultBranch: "main",
+        folioEnabled: false,
+      },
+    ]);
     const facade = new DashboardFacade({
       octokitFactory: async () => {
         throw new Error("stale installation");
@@ -102,7 +120,15 @@ describe("DashboardFacade", () => {
     });
     const payload = await facade.getForUser({ id: "u1", login: "KMGeon" });
     expect(payload.pulls).toEqual([]);
-    expect(payload.metrics.installedRepos).toBe(0);
+    expect(payload.repos).toEqual([
+      {
+        id: "disabled-repo-id",
+        fullName: "KMGeon/disabled",
+        openPrCount: 0,
+        folioEnabled: false,
+      },
+    ]);
+    expect(payload.metrics).toMatchObject({ installedRepos: 1, activeRepos: 0 });
   });
 
   it("keeps disabled repositories visible without fetching their pull requests", async () => {

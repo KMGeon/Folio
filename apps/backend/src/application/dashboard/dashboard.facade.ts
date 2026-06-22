@@ -87,6 +87,25 @@ export class DashboardFacade {
         continue;
       }
 
+      const enabledRepoRows: typeof repoRows = [];
+      for (const repo of repoRows) {
+        if (repo.folioEnabled) {
+          enabledRepoRows.push(repo);
+          continue;
+        }
+
+        repos.push({
+          id: repo.id,
+          fullName: repo.fullName,
+          openPrCount: 0,
+          folioEnabled: false,
+        });
+      }
+
+      if (enabledRepoRows.length === 0) {
+        continue;
+      }
+
       let octokit: Octokit;
       try {
         octokit = await makeOctokit(installation.githubInstallationId);
@@ -95,17 +114,7 @@ export class DashboardFacade {
         continue;
       }
 
-      for (const repo of repoRows) {
-        if (!repo.folioEnabled) {
-          repos.push({
-            id: repo.id,
-            fullName: repo.fullName,
-            openPrCount: 0,
-            folioEnabled: false,
-          });
-          continue;
-        }
-
+      for (const repo of enabledRepoRows) {
         let openPrs: Awaited<ReturnType<Octokit["paginate"]>>;
         try {
           openPrs = await octokit.paginate(octokit.rest.pulls.list, {
