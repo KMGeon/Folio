@@ -4,6 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { AppLayout } from "@/components/app-layout";
+import { RepositoryToggleForm } from "@/components/repository-toggle-form";
 import { RiskPill, StatusPill } from "@/components/status-pill";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api-client";
@@ -48,8 +49,8 @@ export default async function DashboardPage() {
             <Metric label="리뷰 준비" value={String(data.metrics.ready)} icon={CheckCircle2} />
             <Metric label="처리 중" value={String(data.metrics.processing)} icon={Clock3} />
             <Metric
-              label="설치된 repo"
-              value={String(data.metrics.installedRepos)}
+              label="활성 repo"
+              value={`${data.metrics.activeRepos}/${data.metrics.installedRepos}`}
               icon={GitBranch}
             />
           </div>
@@ -95,7 +96,13 @@ export default async function DashboardPage() {
             {data.repos.length > 0 ? (
               <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
                 {data.repos.map((repo) => (
-                  <RepoLine key={repo.fullName} name={repo.fullName} count={repo.openPrCount} />
+                  <RepoLine
+                    key={repo.fullName}
+                    id={repo.id}
+                    name={repo.fullName}
+                    count={repo.openPrCount}
+                    enabled={repo.folioEnabled}
+                  />
                 ))}
               </div>
             ) : (
@@ -182,11 +189,26 @@ function PullRow({ pull }: { pull: DashboardPull }) {
   );
 }
 
-function RepoLine({ name, count }: { name: string; count: number }) {
+function RepoLine({
+  id,
+  name,
+  count,
+  enabled,
+}: {
+  id: string;
+  name: string;
+  count: number;
+  enabled: boolean;
+}) {
   return (
-    <div className="flex items-center justify-between rounded-md border bg-background/35 px-3 py-2">
-      <span>{name}</span>
-      <span className="text-xs text-muted-foreground">{count} PR</span>
+    <div className="flex items-center justify-between gap-3 rounded-md border bg-background/35 px-3 py-2">
+      <div className="min-w-0">
+        <span className="block truncate text-sm">{name}</span>
+        <span className="text-xs text-muted-foreground">
+          {enabled ? `${count} PR` : "inactive"}
+        </span>
+      </div>
+      <RepositoryToggleForm repositoryId={id} enabled={enabled} />
     </div>
   );
 }
