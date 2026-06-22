@@ -250,11 +250,14 @@ function PricingCard({
         <div className="font-semibold text-4xl tracking-tight">{price}</div>
         <div className="mt-3 font-mono text-muted-foreground text-xs">{detail}</div>
       </div>
-      <Button asChild className="mt-8 w-full" variant={featured ? "default" : "outline"}>
-        <a href={loginUrl("/")}>
-          <Github className="size-4" />
-          {action}
-        </a>
+      <Button
+        className="mt-8 w-full"
+        disabled
+        type="button"
+        variant={featured ? "default" : "outline"}
+      >
+        <Github className="size-4" />
+        {action}
       </Button>
       <div className="mt-8 grid gap-3 text-sm">
         {items.map((item) => (

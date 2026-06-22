@@ -18,5 +18,6 @@ describe("HomepagePage", () => {
     expect(source).toContain("오픈베타 기간에는 모든 팀이 무료로 사용할 수 있습니다.");
     expect(source).toContain("Team");
     expect(source).toContain("$30");
+    expect(source).toMatch(/<Button\s+className="mt-8 w-full"\s+disabled\s+type="button"/);
   });
 });
