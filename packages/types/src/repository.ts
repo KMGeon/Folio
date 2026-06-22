@@ -9,5 +9,6 @@ export const RepositorySchema = z.object({
   fullName: z.string(),
   private: z.boolean(),
   defaultBranch: z.string(),
+  folioEnabled: z.boolean(),
 });
 export type Repository = z.infer<typeof RepositorySchema>;

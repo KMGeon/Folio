@@ -3,6 +3,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import type { Db } from "../src/client.js";
 import { closeDb } from "../src/client.js";
 import { chaptersRepo, pullRequestsRepo, revisionsRepo } from "../src/repos/index.js";
+import { repositoriesRepo } from "../src/repos/index.js";
 import { HAS_DB, getTestDb, nonNull, resetDb } from "./helpers/db.js";
 import { type BaseFixture, seedBase } from "./helpers/fixtures.js";
 
@@ -65,6 +66,68 @@ d("repositories (e2e)", () => {
     );
     const list = await chaptersRepo.listByRevision(base.revisionId, db);
     expect(list.map((c) => c.externalId)).toEqual(["new-a", "new-b"]);
+  });
+
+  it("creates newly discovered repositories as inactive by default", async () => {
+    const repo = await repositoriesRepo.create(
+      {
+        installationId: base.installationId,
+        githubRepoId: 987654,
+        owner: "KMGeon",
+        name: "inactive-by-default",
+        fullName: "KMGeon/inactive-by-default",
+        private: false,
+        defaultBranch: "main",
+      },
+      db,
+    );
+
+    expect(repo.folioEnabled).toBe(false);
+  });
+
+  it("preserves repository activation when syncing an existing repository", async () => {
+    const enabled = await repositoriesRepo.setFolioEnabled(base.repoId, true, db);
+
+    const synced = await repositoriesRepo.upsertByGithubId(
+      {
+        installationId: enabled.installationId,
+        githubRepoId: enabled.githubRepoId,
+        owner: enabled.owner,
+        name: enabled.name,
+        fullName: enabled.fullName,
+        private: enabled.private,
+        defaultBranch: "trunk",
+      },
+      db,
+    );
+
+    expect(synced.id).toBe(base.repoId);
+    expect(synced.defaultBranch).toBe("trunk");
+    expect(synced.folioEnabled).toBe(true);
+  });
+
+  it("updates repository activation and lists enabled repositories", async () => {
+    const disabled = await repositoriesRepo.create(
+      {
+        installationId: base.installationId,
+        githubRepoId: 987655,
+        owner: "KMGeon",
+        name: "still-disabled",
+        fullName: "KMGeon/still-disabled",
+        private: false,
+        defaultBranch: "main",
+      },
+      db,
+    );
+    await repositoriesRepo.setFolioEnabled(base.repoId, true, db);
+
+    const enabled = await repositoriesRepo.getById(base.repoId, db);
+    const enabledRepos = await repositoriesRepo.listEnabledByInstallation(base.installationId, db);
+    const enabledRepoIds = enabledRepos.map((repo) => repo.id);
+
+    expect(enabled?.folioEnabled).toBe(true);
+    expect(enabledRepoIds).toContain(base.repoId);
+    expect(enabledRepoIds).not.toContain(disabled.id);
   });
 
   it("upserts a pull request by (repo, number)", async () => {

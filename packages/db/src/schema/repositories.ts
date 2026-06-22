@@ -13,6 +13,7 @@ export const repositories = pgTable("repositories", {
   fullName: text("full_name").notNull(),
   private: boolean("private").notNull().default(false),
   defaultBranch: text("default_branch").notNull(),
+  folioEnabled: boolean("folio_enabled").notNull().default(false),
 });
 
 export type RepositoryRow = typeof repositories.$inferSelect;
