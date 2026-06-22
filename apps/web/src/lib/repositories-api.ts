@@ -1,7 +1,8 @@
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
-import { apiRequest } from "./api-client";
+import { ApiError, apiRequest } from "./api-client";
 
 export interface RepositorySummary {
   id: string;
@@ -60,7 +61,15 @@ export async function toggleRepositoryEnabled(formData: FormData) {
     .map((c) => `${c.name}=${c.value}`)
     .join("; ");
 
-  await setRepositoryEnabled(repositoryId, enabled, cookieHeader);
+  try {
+    await setRepositoryEnabled(repositoryId, enabled, cookieHeader);
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 401) {
+      redirect("/login?redirect=/settings");
+    }
+    throw err;
+  }
+
   revalidatePath("/");
   revalidatePath("/settings");
 }
