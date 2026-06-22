@@ -1,4 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { repositoriesRepo } from "@folio/db";
 import type { AccountType } from "@folio/types";
 import { InstallationSyncFacade } from "../../application/github/installation-sync.facade.js";
 import { config } from "../../config.js";
@@ -124,6 +125,14 @@ export class GitHubWebhookService {
       if (event.name === "pull_request" && REVIEWABLE_PR_ACTIONS.has(event.action)) {
         const repository = event.payload.repository;
         if (!repository) {
+          return;
+        }
+        const enabled = await repositoriesRepo.isFolioEnabledByFullName(repository.full_name);
+        if (!enabled) {
+          this.logger.info("[folio] skipped disabled repository webhook", {
+            repository: repository.full_name,
+            action: event.action,
+          });
           return;
         }
         await this.reviewJobQueue.enqueueReviewPull({
