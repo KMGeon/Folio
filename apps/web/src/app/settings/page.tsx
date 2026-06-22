@@ -1,20 +1,22 @@
 import { Github, KeyRound, Link2, Search, Server, UserCheck } from "lucide-react";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
 import { AppLayout } from "@/components/app-layout";
 import { PendingUsersAdmin } from "@/components/pending-users-admin";
 import { RepositoryToggleForm } from "@/components/repository-toggle-form";
 import { Button } from "@/components/ui/button";
+import { ApiError } from "@/lib/api-client";
 import { getMe, getPendingUsers } from "@/lib/auth";
 import { webEnv } from "@/lib/env";
-import { fetchRepositories } from "@/lib/repositories-api";
+import { type RepositoryListPayload, fetchRepositories } from "@/lib/repositories-api";
 
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ repo?: string; state?: string }>;
+  searchParams: Promise<{ repo?: string | string[]; state?: string | string[] }>;
 }) {
   const cookieHeader = (await cookies())
     .getAll()
@@ -23,10 +25,19 @@ export default async function SettingsPage({
   const user = await getMe(cookieHeader);
   const pendingUsers = user?.login === "KMGeon" ? await getPendingUsers(cookieHeader) : [];
   const params = await searchParams;
-  const repositoryPayload = await fetchRepositories({ cookie: cookieHeader });
-  const repoQuery = params.repo?.trim().toLowerCase() ?? "";
-  const repoState =
-    params.state === "enabled" || params.state === "disabled" ? params.state : "all";
+  const repoParam = firstSearchParam(params.repo);
+  const stateParam = firstSearchParam(params.state);
+  let repositoryPayload: RepositoryListPayload;
+  try {
+    repositoryPayload = await fetchRepositories({ cookie: cookieHeader });
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 401) {
+      redirect("/login?redirect=/settings");
+    }
+    throw err;
+  }
+  const repoQuery = repoParam?.trim().toLowerCase() ?? "";
+  const repoState = stateParam === "enabled" || stateParam === "disabled" ? stateParam : "all";
   const activeRepos = repositoryPayload.repositories.filter((repo) => repo.folioEnabled);
   const inactiveRepos = repositoryPayload.repositories.filter((repo) => !repo.folioEnabled);
   const visibleRepos = repositoryPayload.repositories.filter((repo) => {
@@ -78,12 +89,13 @@ export default async function SettingsPage({
               <Row label="Active" value={String(activeRepos.length)} />
               <Row label="Inactive" value={String(inactiveRepos.length)} />
             </div>
-            <form className="mt-4 grid gap-2 md:grid-cols-[1fr_9rem_auto]">
+            <form method="get" className="mt-4 grid gap-2 md:grid-cols-[1fr_9rem_auto]">
               <label className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <input
                   name="repo"
-                  defaultValue={params.repo ?? ""}
+                  defaultValue={repoParam ?? ""}
+                  aria-label="Repository search"
                   placeholder="Repository search"
                   className="h-9 w-full rounded-md border bg-background pl-9 pr-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                 />
@@ -91,6 +103,7 @@ export default async function SettingsPage({
               <select
                 name="state"
                 defaultValue={repoState}
+                aria-label="Repository state"
                 className="h-9 rounded-md border bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
               >
                 <option value="all">All</option>
@@ -110,11 +123,17 @@ export default async function SettingsPage({
                   >
                     <div className="min-w-0">
                       <div className="truncate text-sm font-medium">{repo.fullName}</div>
-                      <div className="text-xs text-muted-foreground">
+                      <div className="truncate text-xs text-muted-foreground">
                         {repo.private ? "private" : "public"} · {repo.defaultBranch}
                       </div>
                     </div>
-                    <RepositoryToggleForm repositoryId={repo.id} enabled={repo.folioEnabled} />
+                    <div className="shrink-0">
+                      <RepositoryToggleForm
+                        repositoryId={repo.id}
+                        repositoryName={repo.fullName}
+                        enabled={repo.folioEnabled}
+                      />
+                    </div>
                   </div>
                 ))
               ) : (
@@ -133,6 +152,10 @@ export default async function SettingsPage({
       </div>
     </AppLayout>
   );
+}
+
+function firstSearchParam(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
 }
 
 function SettingsSection({

@@ -208,7 +208,9 @@ function RepoLine({
           {enabled ? `${count} PR` : "inactive"}
         </span>
       </div>
-      <RepositoryToggleForm repositoryId={id} enabled={enabled} />
+      <div className="shrink-0">
+        <RepositoryToggleForm repositoryId={id} repositoryName={name} enabled={enabled} />
+      </div>
     </div>
   );
 }
