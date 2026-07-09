@@ -9,10 +9,10 @@ codex_home="${CODEX_HOME:-}"
 auth_check_scope="visibility_only"
 auth_health_verified="NOT_VERIFIED"
 
-printf "HOME:%s\n" "${HOME:-MISSING}"
-printf "CODEX_HOME:%s\n" "${codex_home:-MISSING}"
 printf "auth_check_scope:%s\n" "$auth_check_scope"
 printf "auth_health_verified:%s\n" "$auth_health_verified"
+printf "HOME:%s\n" "${HOME:-MISSING}"
+printf "CODEX_HOME:%s\n" "${codex_home:-MISSING}"
 
 if [ -z "$codex_home" ]; then
   echo "codex_home_visible:MISSING"

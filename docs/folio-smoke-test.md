@@ -38,10 +38,10 @@ config.toml:VISIBLE
 codex_bin:<version>
 ```
 
-If `codex_bin:MISSING` appears but `codex_sdk:SET` appears, the SDK is installed
-and can still spawn its bundled runtime.
+If `codex_bin:MISSING` appears but `codex_sdk:SET` appears, the SDK package is
+available inside the container.
 
-This check only verifies container visibility (runtime/runtime-path and files), not
+This check only verifies container visibility (runtime path and files), not
 an authenticated Codex operation.
 
 To verify end-to-end auth behavior:
