@@ -20,7 +20,7 @@ export function ReviewPrologue({
   return (
     <section className="min-w-0">
       <div className="mb-3 flex items-center gap-2">
-        <span className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+        <span className="font-mono text-muted-foreground text-[0.7rem] uppercase tracking-[0.18em]">
           Prologue
         </span>
         <div className="flex rounded-md bg-muted/60 p-0.5">
@@ -151,21 +151,21 @@ function MarkdownText({ text }: { text: string }) {
         const line = block.lines[0] ?? "";
         if (line.startsWith("### ")) {
           return (
-            <h4 key={key} className="pt-2 font-semibold text-base">
+            <h4 key={key} className="pt-2 font-serif text-lg text-foreground">
               {line.slice(4)}
             </h4>
           );
         }
         if (line.startsWith("## ")) {
           return (
-            <h3 key={key} className="border-b pb-2 font-semibold text-xl">
+            <h3 key={key} className="border-b pb-2 font-serif text-xl text-foreground">
               {line.slice(3)}
             </h3>
           );
         }
         if (line.startsWith("# ")) {
           return (
-            <h2 key={key} className="border-b pb-2 font-semibold text-xl">
+            <h2 key={key} className="border-b pb-2 font-serif text-2xl text-foreground">
               {line.slice(2)}
             </h2>
           );

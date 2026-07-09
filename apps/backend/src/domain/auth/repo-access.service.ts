@@ -1,4 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { config } from "../../config.js";
 import { GitHubOAuthAdapter } from "../../infrastructure/github/github-oauth.adapter.js";
 
 const CACHE_TTL_MS = 60_000;
@@ -18,6 +19,10 @@ export class RepoAccessService {
     repo: string;
     username: string;
   }): Promise<boolean> {
+    if (config.APP_PROFILE === "dev") {
+      // Dev mode uses local fixture identity, so live GitHub repo checks would block local review UX.
+      return true;
+    }
     const key = `${input.username}:${input.owner}/${input.repo}`;
     const cachedUntil = this.allowCache.get(key);
     if (cachedUntil && cachedUntil > Date.now()) {

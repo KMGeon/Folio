@@ -29,7 +29,7 @@ export function ChapterCards({
               {chapter.viewed ? <CheckCircle2 className="size-3.5 text-primary" /> : chapter.index}
             </span>
             <div className="min-w-0 flex-1">
-              <div className="truncate font-semibold text-base group-hover:text-primary">
+              <div className="truncate font-serif text-lg leading-snug text-foreground/95 transition-colors group-hover:text-primary">
                 {chapter.title}
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-2.5 font-mono text-sm tabular-nums">
@@ -102,9 +102,9 @@ function chapterRisk(chapter: ReviewChapter): ChapterRisk {
 
 function RiskPill({ risk }: { risk: ChapterRisk }) {
   const meta = {
-    low: "bg-primary/15 text-primary",
-    medium: "bg-warning/15 text-warning",
-    high: "bg-destructive/15 text-destructive",
+    low: "border-primary/40 bg-primary/10 text-primary",
+    medium: "border-warning/40 bg-warning/10 text-warning",
+    high: "border-destructive/40 bg-destructive/10 text-destructive",
   } satisfies Record<ChapterRisk, string>;
   const label = {
     low: "Low risk",
@@ -113,7 +113,12 @@ function RiskPill({ risk }: { risk: ChapterRisk }) {
   } satisfies Record<ChapterRisk, string>;
 
   return (
-    <span className={cn("rounded-full px-2 py-0.5 font-medium text-xs", meta[risk])}>
+    <span
+      className={cn(
+        "rounded-full border px-2 py-0.5 font-mono text-[0.65rem] uppercase tracking-wider",
+        meta[risk],
+      )}
+    >
       {label[risk]}
     </span>
   );

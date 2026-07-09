@@ -1,56 +1,60 @@
 @import "tailwindcss";
 
 /*
- * Folio is dark-mode only: warm near-black surfaces, an OKLCH green primary,
- * and hairline white-alpha borders. Brand state colors follow GitHub (Merged =
- * purple). Fonts come from next/font (Geist), exposed as --font-geist-sans /
- * --font-geist-mono.
+ * Folio is dark-mode only — an "editorial codex": a cool near-black ground with
+ * vivid semantic colors so review state (risk, additions/deletions, ready) reads
+ * at a glance. Base tones derive from Astryx's gothic theme; the accents are
+ * pushed vivid. Brand state colors follow GitHub (Merged = violet). Fonts come
+ * from next/font — Newsreader (serif), Fustat (sans), JetBrains Mono — exposed as
+ * --font-serif-app / --font-sans-app / --font-mono-app.
+ * See docs/superpowers/specs/2026-07-09-astryx-gothic-reskin-design.md.
  */
 :root {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.903 0.014 60.6);
-  --card: oklch(0.192 0.002 17.3);
-  --card-foreground: oklch(0.903 0.014 60.6);
-  --popover: oklch(0.192 0.002 17.3);
-  --popover-foreground: oklch(0.903 0.014 60.6);
-  --primary: oklch(0.58 0.13 145);
-  --primary-foreground: oklch(0.98 0 0);
-  --secondary: oklch(0.22 0.002 17.3);
-  --secondary-foreground: oklch(0.903 0.014 60.6);
-  --muted: oklch(0.22 0.002 17.3);
-  --muted-foreground: oklch(0.726 0.004 67.8);
-  --accent: oklch(0.22 0.002 17.3);
-  --accent-foreground: oklch(0.903 0.014 60.6);
-  --destructive: oklch(0.65 0.2 25);
-  --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(1 0 0 / 0.06);
-  --input: oklch(0.98 0 0 / 0.15);
-  --ring: oklch(0.58 0.13 145);
-  --radius: 0.625rem;
+  --background: oklch(0.167 0.005 248.1);
+  --foreground: oklch(0.953 0.012 231.7);
+  --card: oklch(0.212 0.008 248.2);
+  --card-foreground: oklch(0.953 0.012 231.7);
+  --popover: oklch(0.255 0.013 258.4);
+  --popover-foreground: oklch(0.953 0.012 231.7);
+  /* Vivid green primary; dark text so neon fills read like the CTA. */
+  --primary: oklch(0.785 0.181 152.7);
+  --primary-foreground: oklch(0.167 0.005 248.1);
+  --secondary: oklch(0.255 0.013 258.4);
+  --secondary-foreground: oklch(0.953 0.012 231.7);
+  --muted: oklch(0.255 0.013 258.4);
+  --muted-foreground: oklch(0.666 0.021 252.9);
+  --accent: oklch(0.255 0.013 258.4);
+  --accent-foreground: oklch(0.953 0.012 231.7);
+  --destructive: oklch(0.692 0.198 21.9);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(0.953 0.012 231.7 / 0.09);
+  --input: oklch(0.953 0.012 231.7 / 0.14);
+  --ring: oklch(0.785 0.181 152.7);
+  --radius: 0.5rem;
 
-  /* Semantic accents: blue = info, amber = warning (red = destructive above). */
-  --info: oklch(0.7 0.13 250);
-  --warning: oklch(0.8 0.12 75);
+  /* Vivid semantic accents: blue = info, amber = warning, red = destructive. */
+  --info: oklch(0.745 0.141 245.2);
+  --warning: oklch(0.854 0.157 84.1);
 
-  --sidebar: oklch(0.192 0.002 17.3);
-  --sidebar-foreground: oklch(0.903 0.014 60.6);
-  --sidebar-primary: oklch(0.58 0.13 145);
-  --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.22 0.002 17.3);
-  --sidebar-accent-foreground: oklch(0.903 0.014 60.6);
-  --sidebar-border: oklch(1 0 0 / 0.04);
-  --sidebar-ring: oklch(0.58 0.13 145);
+  --sidebar: oklch(0.212 0.008 248.2);
+  --sidebar-foreground: oklch(0.953 0.012 231.7);
+  --sidebar-primary: oklch(0.785 0.181 152.7);
+  --sidebar-primary-foreground: oklch(0.167 0.005 248.1);
+  --sidebar-accent: oklch(0.255 0.013 258.4);
+  --sidebar-accent-foreground: oklch(0.953 0.012 231.7);
+  --sidebar-border: oklch(0.953 0.012 231.7 / 0.05);
+  --sidebar-ring: oklch(0.785 0.181 152.7);
 
-  /* Diff + syntax (Folio code panel). Diff add/del keep the universal green/red. */
-  --diff-add-fg: oklch(0.78 0.13 150);
-  --diff-add-bg: oklch(0.78 0.13 150 / 0.08);
-  --diff-del-fg: oklch(0.7 0.16 25);
-  --diff-del-bg: oklch(0.65 0.2 25 / 0.08);
-  --syntax-heading: oklch(0.78 0.13 150);
-  --syntax-link: oklch(0.75 0.11 230);
-  --syntax-code: oklch(0.78 0.11 60);
-  --syntax-emphasis: oklch(0.8 0.12 300);
-  --gutter-fg: oklch(0.55 0.004 67.8);
+  /* Diff + syntax (Folio code panel). Add/del share the vivid green/red. */
+  --diff-add-fg: oklch(0.785 0.181 152.7);
+  --diff-add-bg: oklch(0.785 0.181 152.7 / 0.12);
+  --diff-del-fg: oklch(0.692 0.198 21.9);
+  --diff-del-bg: oklch(0.692 0.198 21.9 / 0.12);
+  --syntax-heading: oklch(0.785 0.181 152.7);
+  --syntax-link: oklch(0.744 0.131 264.3);
+  --syntax-code: oklch(0.869 0.128 81.1);
+  --syntax-emphasis: oklch(0.738 0.17 305.3);
+  --gutter-fg: oklch(0.524 0.021 253.5);
 }
 
 @theme inline {
@@ -76,9 +80,9 @@
   --color-info: var(--info);
   --color-warning: var(--warning);
   --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 4px);
+  --radius-xl: calc(var(--radius) + 8px);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -99,11 +103,12 @@
   --color-gutter: var(--gutter-fg);
 
   --font-sans:
-    var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    var(--font-sans-app), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
   --font-mono:
-    var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono",
+    var(--font-mono-app), ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono",
     monospace;
+  --font-serif: var(--font-serif-app), ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
 }
 
 @layer base {
@@ -127,13 +132,13 @@
     height: 10px;
   }
   ::-webkit-scrollbar-thumb {
-    background: oklch(1 0 0 / 0.12);
+    background: oklch(0.953 0.012 231.7 / 0.12);
     border-radius: 9999px;
     border: 2px solid transparent;
     background-clip: padding-box;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: oklch(1 0 0 / 0.2);
+    background: oklch(0.953 0.012 231.7 / 0.2);
     background-clip: padding-box;
   }
 }

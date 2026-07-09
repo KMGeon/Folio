@@ -61,8 +61,8 @@ export function DashboardFilterPanel({ open, filters, onChange }: DashboardFilte
   };
 
   return (
-    <aside className="absolute right-0 top-12 z-30 w-full max-w-[352px] rounded-lg border bg-card shadow-xs md:right-6">
-      <FilterRow icon={<Grid2X2 className="size-4" />} label="Layout">
+    <aside className="absolute right-0 top-12 z-30 w-full max-w-[352px] overflow-hidden rounded-lg border bg-card shadow-lg md:right-6">
+      <FilterRow icon={<Grid2X2 className="size-3.5" />} label="Layout">
         <div className="flex rounded-md bg-background/50 p-1">
           <SegmentButton
             active={filters.layout === "board"}
@@ -79,24 +79,24 @@ export function DashboardFilterPanel({ open, filters, onChange }: DashboardFilte
           </SegmentButton>
         </div>
       </FilterRow>
-      <FilterRow icon={<Layers3 className="size-4" />} label="Grouping">
+      <FilterRow icon={<Layers3 className="size-3.5" />} label="Grouping">
         <select
           value={filters.grouping}
           onChange={(event) => patch({ grouping: event.target.value as DashboardGrouping })}
           aria-label="Grouping"
-          className="h-8 rounded-md border bg-background px-3 text-sm"
+          className="h-8 rounded-md border bg-background px-2.5 text-sm text-foreground outline-none transition-colors focus-visible:border-ring"
         >
           <option value="responsibility">Responsibility</option>
           <option value="repository">Repository</option>
         </select>
       </FilterRow>
-      <FilterRow icon={<SlidersHorizontal className="size-4" />} label="Ordering">
+      <FilterRow icon={<SlidersHorizontal className="size-3.5" />} label="Ordering">
         <div className="flex gap-2">
           <select
             value={filters.ordering}
             onChange={(event) => patch({ ordering: event.target.value as DashboardOrdering })}
             aria-label="Ordering"
-            className="h-8 rounded-md border bg-background px-3 text-sm"
+            className="h-8 rounded-md border bg-background px-2.5 text-sm text-foreground outline-none transition-colors focus-visible:border-ring"
           >
             <option value="updated">Updated</option>
             <option value="lines">Lines changed</option>
@@ -117,7 +117,7 @@ export function DashboardFilterPanel({ open, filters, onChange }: DashboardFilte
           value={filters.closedRange}
           onChange={(event) => patch({ closedRange: event.target.value as DashboardClosedRange })}
           aria-label="Closed reviews"
-          className="h-8 rounded-md border bg-background px-3 text-sm"
+          className="h-8 rounded-md border bg-background px-2.5 text-sm text-foreground outline-none transition-colors focus-visible:border-ring"
         >
           <option value="all">All time</option>
           <option value="1d">Last 24 hours</option>
@@ -142,7 +142,9 @@ export function DashboardFilterPanel({ open, filters, onChange }: DashboardFilte
         onChange={(highlightMyPrs) => patch({ highlightMyPrs })}
       />
       <div className="border-t p-4">
-        <div className="mb-3 text-sm text-muted-foreground">Display properties</div>
+        <div className="mb-3 font-mono text-[0.7rem] uppercase tracking-[0.16em] text-muted-foreground">
+          Display properties
+        </div>
         <div className="flex flex-wrap gap-2">
           {propertyOptions.map((property) => (
             <button
@@ -151,10 +153,10 @@ export function DashboardFilterPanel({ open, filters, onChange }: DashboardFilte
               onClick={() => toggleProperty(property)}
               aria-pressed={filters.visibleProperties.includes(property)}
               className={cn(
-                "rounded-full px-2.5 py-1 text-xs transition-colors",
+                "rounded-full border px-2.5 py-1 font-mono text-[0.7rem] transition-colors",
                 filters.visibleProperties.includes(property)
-                  ? "bg-muted text-foreground"
-                  : "border text-muted-foreground",
+                  ? "border-border bg-muted text-foreground"
+                  : "border-border/60 text-muted-foreground hover:border-border hover:text-foreground",
               )}
             >
               {property}
@@ -177,9 +179,9 @@ function FilterRow({
 }) {
   return (
     <div className="flex items-center justify-between gap-4 border-b p-4">
-      <div className="flex items-center gap-3 text-sm text-muted-foreground">
+      <div className="flex items-center gap-2.5 text-muted-foreground">
         {icon}
-        <span>{label}</span>
+        <span className="font-mono text-[0.7rem] uppercase tracking-[0.16em]">{label}</span>
       </div>
       {children}
     </div>
@@ -201,8 +203,8 @@ function SegmentButton({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "flex h-7 items-center gap-1.5 rounded px-3 text-xs",
-        active ? "bg-card text-foreground" : "text-muted-foreground",
+        "flex h-7 items-center gap-1.5 rounded px-3 text-xs transition-colors",
+        active ? "bg-card text-foreground" : "text-muted-foreground hover:text-foreground",
       )}
     >
       {children}
@@ -220,12 +222,15 @@ function ToggleRow({
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <label className="flex items-center justify-between gap-4 border-b p-4 text-sm text-muted-foreground">
-      <span>{label}</span>
+    <label className="flex cursor-pointer items-center justify-between gap-4 border-b p-4">
+      <span className="font-mono text-[0.7rem] uppercase tracking-[0.16em] text-muted-foreground">
+        {label}
+      </span>
       <input
         type="checkbox"
         checked={checked}
         onChange={(event) => onChange(event.target.checked)}
+        className="size-4 accent-primary"
       />
     </label>
   );

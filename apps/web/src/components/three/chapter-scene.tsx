@@ -5,12 +5,12 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { useRef } from "react";
 import type { Group } from "three";
 
-// R3F materials can't read CSS tokens, so mirror the Folio palette here.
-// Keep these in sync with globals.css if the tokens change.
-const BG = "#121212"; // --background oklch(0.145 0 0)
-const SLAB = "#1f1f22"; // --card
-const GREEN = "#46c07c"; // --primary oklch(0.58 0.13 145)
-const AMBER = "#c79a4a"; // --warning / medium risk
+// R3F materials can't read CSS tokens, so mirror the Folio (Astryx gothic)
+// palette here. Keep these in sync with globals.css if the tokens change.
+const BG = "#0d0f11"; // --background
+const SLAB = "#16191c"; // --card
+const GREEN = "#3fd97e"; // --primary / vivid green (action, ready)
+const AMBER = "#ffc53d"; // --warning / medium risk
 
 const CHAPTERS = [GREEN, AMBER, GREEN, GREEN, AMBER];
 
@@ -65,7 +65,7 @@ export function ChapterScene() {
           context under Next dev StrictMode double-mount (1s-then-black). */}
       <ambientLight intensity={0.55} />
       <directionalLight position={[6, 8, 4]} intensity={1.4} />
-      <directionalLight position={[-4, 2, -3]} intensity={0.5} color="#9fb8ff" />
+      <directionalLight position={[-4, 2, -3]} intensity={0.5} color="#a3b5d6" />
       {/* single green key light gives the dark slabs their rim glow */}
       <pointLight position={[-5, 2, 3]} intensity={45} color={GREEN} distance={22} />
 

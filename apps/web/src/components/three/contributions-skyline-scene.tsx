@@ -7,12 +7,12 @@ import type { Group } from "three";
 
 import type { ActivityDay } from "@/lib/dashboard-api";
 
-// R3F materials can't read CSS tokens, so mirror the Folio palette here.
-const BG = "#121212"; // --background
-const GREEN = "#46c07c"; // --primary
-const LABEL = "#7d8590"; // muted month labels
-// Level 0–4 bar colors (0 = inactive tile, 4 = brightest).
-const COLORS = ["#26262b", "#1f7a44", "#2ea043", "#46c07c", "#6fe39b"];
+// R3F materials can't read CSS tokens, so mirror the Folio (Astryx gothic) palette.
+const BG = "#0d0f11"; // --background
+const GREEN = "#3fd97e"; // --primary / vivid green
+const LABEL = "#8b95a1"; // muted month labels
+// Level 0–4 bar colors (0 = inactive tile, 4 = brightest) — vivid green ramp.
+const COLORS = ["#1f2329", "#1c6b3f", "#2a9d5c", "#3fd97e", "#7defa8"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 const WEEKS = 53;
@@ -181,7 +181,7 @@ export function ContributionsSkylineScene({ activity }: { activity: ActivityDay[
 
       <ambientLight intensity={0.65} />
       <directionalLight position={[8, 14, 6]} intensity={1.3} />
-      <directionalLight position={[-6, 4, -4]} intensity={0.4} color="#9fb8ff" />
+      <directionalLight position={[-6, 4, -4]} intensity={0.4} color="#a3b5d6" />
       <pointLight position={[-8, 7, 5]} intensity={45} color={GREEN} distance={48} />
 
       <Skyline grid={grid} reduced={reduced} />

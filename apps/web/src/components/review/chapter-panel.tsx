@@ -77,7 +77,7 @@ export function ChapterPanel({
       </div>
 
       <div className="px-4 pt-3">
-        <h2 className="text-lg font-semibold tracking-tight">{chapter.title}</h2>
+        <h2 className="font-serif text-xl leading-snug tracking-tight">{chapter.title}</h2>
         <div className="mt-2 flex items-center gap-2">
           <span className="font-mono text-xs text-diff-add-fg">+ {additions}</span>
         </div>
@@ -86,7 +86,9 @@ export function ChapterPanel({
       </div>
 
       <div className="border-t px-4 py-4">
-        <h3 className="text-xs font-medium text-muted-foreground uppercase">검토할 사항</h3>
+        <h3 className="font-mono text-[0.7rem] uppercase tracking-[0.16em] text-muted-foreground">
+          검토할 사항
+        </h3>
         <div className="mt-3 space-y-2">
           {keyChanges.length > 0 ? (
             keyChanges.map((item) => (
@@ -137,8 +139,8 @@ export function ChapterPanel({
       </div>
 
       <div className="border-t px-4 py-4">
-        <h3 className="text-xs font-medium text-muted-foreground">
-          파일 ( {chapter.files.length} )
+        <h3 className="font-mono text-[0.7rem] uppercase tracking-[0.16em] text-muted-foreground">
+          파일 · {chapter.files.length}
         </h3>
 
         <div className="relative mt-3">
@@ -176,7 +178,9 @@ export function ChapterPanel({
       </div>
 
       <div className="border-t px-4 py-4">
-        <h3 className="text-xs font-medium text-muted-foreground">전체 챕터</h3>
+        <h3 className="font-mono text-[0.7rem] uppercase tracking-[0.16em] text-muted-foreground">
+          전체 챕터
+        </h3>
         <div className="mt-3 space-y-1">
           {chapters.map((item) => (
             <Link

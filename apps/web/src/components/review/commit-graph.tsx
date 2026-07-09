@@ -73,7 +73,7 @@ export function CommitGraph({
 
   return (
     <div className="overflow-hidden rounded-md border bg-background/40">
-      <div className="grid grid-cols-[minmax(11rem,0.58fr)_minmax(13rem,0.74fr)_minmax(0,1.7fr)] border-b bg-muted/35 px-3 py-2 font-medium text-muted-foreground text-xs uppercase tracking-wide">
+      <div className="grid grid-cols-[minmax(11rem,0.58fr)_minmax(13rem,0.74fr)_minmax(0,1.7fr)] border-b bg-muted/35 px-3 py-2 font-mono text-[0.7rem] uppercase tracking-[0.16em] text-muted-foreground">
         <span>Branch / Tag</span>
         <span>Graph</span>
         <span>Commit message</span>
@@ -146,7 +146,7 @@ export function CommitGraph({
                 <div className="truncate font-medium text-sm text-foreground">
                   {commit.message.split("\n")[0]}
                 </div>
-                <div className="mt-1 flex flex-wrap items-center gap-2 text-muted-foreground text-xs">
+                <div className="mt-1 flex flex-wrap items-center gap-2 font-mono text-muted-foreground text-xs tabular-nums">
                   <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">
                     {commit.sha.slice(0, 7)}
                   </code>
@@ -154,7 +154,7 @@ export function CommitGraph({
                   <span className="text-muted-foreground/50">·</span>
                   <span>{relativeTime(commit.authoredAt)}</span>
                   {isMerge ? (
-                    <span className="rounded bg-syntax-emphasis/10 px-1.5 py-px text-[10px] text-syntax-emphasis">
+                    <span className="rounded bg-syntax-emphasis/10 px-1.5 py-px font-mono text-[10px] uppercase tracking-[0.12em] text-syntax-emphasis">
                       merge
                     </span>
                   ) : null}

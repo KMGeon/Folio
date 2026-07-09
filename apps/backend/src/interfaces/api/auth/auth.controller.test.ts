@@ -2,6 +2,8 @@ import { Test } from "@nestjs/testing";
 import request from "supertest";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const originalEnv = { ...process.env };
+
 const upsertByGithubId = vi.fn();
 const getById = vi.fn();
 const listPending = vi.fn();
@@ -52,8 +54,28 @@ vi.mock("@folio/github", async () => {
   };
 });
 
-async function createServer() {
+function configureProfile(profile: "dev" | "prd") {
+  process.env = { ...originalEnv };
+  process.env.APP_PROFILE = profile;
+  process.env.NODE_ENV = profile === "prd" ? "production" : "development";
+  process.env.WEB_ORIGIN = "http://localhost:5173";
+  process.env.PUBLIC_API_BASE_URL = "http://localhost:8080";
+  if (profile === "prd") {
+    process.env.SUPABASE_DATABASE_URL = "postgresql://postgres:secret@localhost:5432/folio";
+    process.env.GITHUB_APP_ID = "123456";
+    process.env.GITHUB_APP_PRIVATE_KEY =
+      "-----BEGIN RSA PRIVATE KEY-----\nfake\n-----END RSA PRIVATE KEY-----";
+    process.env.GITHUB_APP_WEBHOOK_SECRET = "webhook-secret";
+    process.env.GITHUB_APP_SLUG = "folio-dev";
+    process.env.GITHUB_APP_CLIENT_ID = "Iv1.test";
+    process.env.GITHUB_APP_CLIENT_SECRET = "client-secret";
+    process.env.FOLIO_WEB_BASE_URL = "http://localhost:5173";
+  }
+}
+
+async function createServer(profile: "dev" | "prd" = "prd") {
   vi.resetModules();
+  configureProfile(profile);
   const cookieParser = (await import("cookie-parser")).default;
   const { AppModule } = await import("../../../app.module.js");
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
@@ -67,6 +89,7 @@ describe("auth routes", () => {
   afterEach(() => {
     sessionStore.clear();
     vi.clearAllMocks();
+    process.env = { ...originalEnv };
   });
 
   it("login redirects to GitHub and sets a state cookie", async () => {
@@ -77,6 +100,30 @@ describe("auth routes", () => {
     expect((res.headers["set-cookie"] as unknown as string[]).join()).toContain(
       "folio_oauth_state",
     );
+    await app.close();
+  });
+
+  it("dev login signs in as KMGeon without redirecting through GitHub", async () => {
+    upsertByGithubId.mockResolvedValue({
+      id: "admin",
+      login: "KMGeon",
+      avatarUrl: "https://github.com/KMGeon.png",
+      status: "approved",
+    });
+    const app = await createServer("dev");
+    const res = await request(app.getHttpServer()).get(
+      "/api/v1/auth/github/login?redirect=/settings",
+    );
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toBe("http://localhost:5173/settings");
+    expect((res.headers["set-cookie"] as unknown as string[]).join()).toContain("folio_session");
+    expect(upsertByGithubId).toHaveBeenCalledWith({
+      githubUserId: expect.any(Number),
+      login: "KMGeon",
+      avatarUrl: "https://github.com/KMGeon.png?size=96",
+      email: null,
+      status: "approved",
+    });
     await app.close();
   });
 

@@ -139,9 +139,11 @@ export function ReviewView({
                 <ChevronLeft className="size-4" />
                 개요
               </Button>
-              <span className="truncate font-medium text-sm">
-                <span className="text-muted-foreground">제{openChapter.index}장 · </span>
-                {openChapter.title}
+              <span className="truncate">
+                <span className="font-mono text-xs text-muted-foreground">
+                  제{openChapter.index}장 ·{" "}
+                </span>
+                <span className="font-serif text-base text-foreground">{openChapter.title}</span>
               </span>
               <div className="ml-auto flex items-center gap-1">
                 <Button

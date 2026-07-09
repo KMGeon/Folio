@@ -14,8 +14,8 @@ const Scene = dynamic(
   },
 );
 
-// Mirrors the scene's level palette for the small 2D legend.
-const LEGEND = ["#26262b", "#1f7a44", "#2ea043", "#46c07c", "#6fe39b"];
+// Mirrors the scene's level palette for the small 2D legend (vivid green ramp).
+const LEGEND = ["#1f2329", "#1c6b3f", "#2a9d5c", "#3fd97e", "#7defa8"];
 
 /** 3D "skyline" of the user's daily review activity over the last year. */
 export function ContributionsSkyline({ activity }: { activity: ActivityDay[] }) {
@@ -24,7 +24,7 @@ export function ContributionsSkyline({ activity }: { activity: ActivityDay[] }) 
   return (
     <section className="rounded-lg border bg-card p-4">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-semibold">활동</h2>
+        <h2 className="font-serif text-base italic leading-none">활동</h2>
         <span className="text-xs text-muted-foreground">최근 1년 · 기여 {total}개</span>
       </div>
 

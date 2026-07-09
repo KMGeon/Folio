@@ -92,10 +92,12 @@ function DashboardColumn({
 }) {
   return (
     <section className="min-w-0">
-      <div className="mb-3 flex items-center gap-2">
-        <h2 className="text-sm font-semibold text-muted-foreground">{column.title}</h2>
-        <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-          {column.count}
+      <div className="mb-4 flex items-baseline justify-between gap-3 border-b border-border pb-2">
+        <h2 className="font-serif text-base italic leading-none text-foreground/90">
+          {column.title}
+        </h2>
+        <span className="font-mono text-[0.7rem] tabular-nums text-muted-foreground">
+          {String(column.count).padStart(2, "0")}
         </span>
       </div>
       <div className="grid gap-3">
@@ -241,16 +243,18 @@ function CardHeader({
   return (
     <div className="flex items-start justify-between gap-3">
       <div className="min-w-0">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <div className="flex items-center gap-2 font-mono text-[0.7rem] tracking-wide text-muted-foreground">
           {icon}
           {identity ? <span className="truncate">{identity}</span> : null}
           {trailing}
         </div>
-        <h3 className="mt-3 line-clamp-2 text-sm font-semibold leading-5 group-hover:text-primary">
+        <h3 className="mt-2.5 line-clamp-2 font-serif text-[1.05rem] leading-snug text-foreground/95 transition-colors group-hover:text-primary">
           {title}
         </h3>
       </div>
-      {updatedDate ? <span className="shrink-0 text-xs text-muted-foreground">{time}</span> : null}
+      {updatedDate ? (
+        <span className="shrink-0 font-mono text-[0.7rem] text-muted-foreground">{time}</span>
+      ) : null}
     </div>
   );
 }
@@ -287,9 +291,7 @@ function CardFooter({
           </>
         ) : null}
         {showChapters ? (
-          <span className="text-muted-foreground">
-            {pull.viewedChapters ?? 0}/{pull.chapterCount} chapters
-          </span>
+          <ReadingSpine total={pull.chapterCount ?? 0} viewed={pull.viewedChapters ?? 0} />
         ) : null}
       </div>
     </>
@@ -324,6 +326,35 @@ export function dashboardVisibleCardSections(visibleProperties: DashboardCardPro
     chapters: visibleProperties.includes("Chapters"),
     updatedDate: visibleProperties.includes("Updated date"),
   };
+}
+
+/**
+ * Signature "reading spine": one hairline tick per chapter, filled once viewed —
+ * the PR shown as a book you read down. Chapter order is real, so the sequence
+ * carries meaning rather than decorating.
+ */
+function ReadingSpine({ total, viewed }: { total: number; viewed: number }) {
+  if (total <= 0) {
+    return null;
+  }
+  const shown = Math.min(total, 14);
+  return (
+    <span
+      className="flex items-center gap-[3px]"
+      title={`${viewed}/${total} chapters read`}
+      aria-label={`${total}개 챕터 중 ${viewed}개 읽음`}
+    >
+      {Array.from({ length: shown }).map((_, i) => (
+        <span
+          key={i}
+          className={cn("h-3.5 w-[2px] rounded-full", i < viewed ? "bg-primary" : "bg-border")}
+        />
+      ))}
+      <span className="ml-1.5 font-mono text-[0.7rem] tabular-nums text-muted-foreground">
+        {viewed}/{total}
+      </span>
+    </span>
+  );
 }
 
 function SizePill({ meta }: { meta: SizeMeta }) {

@@ -37,9 +37,21 @@ export class AuthController {
   ) {}
 
   @Get("github/login")
-  login(@Query("redirect") redirect: string | undefined, @Res() res: Response): void {
-    const state = randomBytes(16).toString("hex");
+  async login(
+    @Query("redirect") redirect: string | undefined,
+    @Res() res: Response,
+  ): Promise<void> {
     const redirectPath = safeRedirectPath(redirect);
+    if (config.APP_PROFILE === "dev") {
+      // Local development should not depend on a public OAuth callback URL.
+      const session = await this.auth.completeDevLogin();
+      this.setSessionCookie(session, res);
+      res.clearCookie(STATE_COOKIE, { path: "/" });
+      res.redirect(`${config.WEB_ORIGIN}${redirectPath}`);
+      return;
+    }
+
+    const state = randomBytes(16).toString("hex");
     res.cookie(STATE_COOKIE, `${state}|${redirectPath}`, {
       httpOnly: true,
       sameSite: "lax",
@@ -85,14 +97,18 @@ export class AuthController {
       res.redirect(`${config.WEB_ORIGIN}/login?status=pending`);
       return;
     }
-    res.cookie(SESSION_COOKIE, completion.token, {
+    this.setSessionCookie(completion, res);
+    res.redirect(`${config.WEB_ORIGIN}${safeRedirectPath(redirectPath)}`);
+  }
+
+  private setSessionCookie(session: { token: string; expiresAt: Date }, res: Response): void {
+    res.cookie(SESSION_COOKIE, session.token, {
       httpOnly: true,
       sameSite: "lax",
       secure: cookieIsSecure(),
-      expires: completion.expiresAt,
+      expires: session.expiresAt,
       path: "/",
     });
-    res.redirect(`${config.WEB_ORIGIN}${safeRedirectPath(redirectPath)}`);
   }
 
   @Get("me")

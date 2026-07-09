@@ -103,9 +103,9 @@ export function FileTree({
     <div className="min-h-0 overflow-y-auto p-3">
       {[...groups.entries()].map(([dir, dirFiles]) => (
         <div key={dir} className="mb-3 last:mb-0">
-          <div className="mb-1 flex items-center gap-2 px-2 py-1 text-muted-foreground text-sm">
+          <div className="mb-1 flex items-center gap-2 px-2 py-1 text-muted-foreground">
             <Folder className="size-4" />
-            <span className="min-w-0 truncate">{dir}</span>
+            <span className="min-w-0 truncate font-mono text-xs tracking-tight">{dir}</span>
           </div>
           <div className="space-y-1">
             {dirFiles.map((file) => {
@@ -118,9 +118,7 @@ export function FileTree({
                   onClick={() => onSelect(file.path)}
                   className={cn(
                     "flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors",
-                    active
-                      ? "bg-primary/10 text-foreground"
-                      : "text-muted-foreground hover:bg-accent",
+                    active ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent",
                   )}
                 >
                   <FileStatusMarker status={file.status} active={active} />

@@ -75,13 +75,15 @@ export function AppSearch() {
           onChange={(event) => setQuery(event.target.value)}
           onFocus={() => setOpen(true)}
           placeholder="PR, repo 검색"
-          className="h-8 w-44 rounded-md border bg-background/40 pr-2 pl-8 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring sm:w-56"
+          className="h-8 w-44 rounded-md border bg-muted/40 pr-2 pl-8 text-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring sm:w-56"
         />
       </div>
       {open ? (
-        <div className="absolute right-0 z-50 mt-1 max-h-80 w-72 overflow-y-auto rounded-md border bg-card p-1 shadow-md">
+        <div className="absolute right-0 z-50 mt-2 max-h-80 w-72 overflow-y-auto rounded-lg border bg-popover p-1 shadow-lg">
           {filtered.length === 0 ? (
-            <div className="px-2 py-3 text-center text-xs text-muted-foreground">결과 없음</div>
+            <div className="px-2 py-6 text-center font-mono text-[0.7rem] uppercase tracking-[0.16em] text-muted-foreground">
+              결과 없음
+            </div>
           ) : (
             filtered.map((item) => (
               <button
@@ -92,12 +94,12 @@ export function AppSearch() {
                   event.preventDefault();
                   go(item.href);
                 }}
-                className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
+                className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent"
               >
-                <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-[0.6rem] uppercase tracking-[0.12em] text-muted-foreground">
                   {item.group}
                 </span>
-                <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                <span className="min-w-0 flex-1 truncate text-foreground/90">{item.label}</span>
               </button>
             ))
           )}
