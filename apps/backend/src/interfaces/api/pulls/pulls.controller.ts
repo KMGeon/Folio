@@ -29,6 +29,11 @@ interface SetViewedBody {
   viewed: boolean;
 }
 
+interface SetFileViewedBody {
+  path: string;
+  viewed: boolean;
+}
+
 interface CreateInlineCommentBody {
   chapterIndex: number;
   path: string;
@@ -93,6 +98,63 @@ export class PullsController {
     });
     if (!result) {
       throw new NotFoundException(`No chapter ${index} for ${owner}/${repo}#${number}`);
+    }
+    return result;
+  }
+
+  /** Toggle a file's viewed mark for the current user; returns file progress. */
+  @Patch(":owner/:repo/:number/files/viewed")
+  @UseGuards(RepoAccessGuard)
+  async setFileViewed(
+    @Param("owner") owner: string,
+    @Param("repo") repo: string,
+    @Param("number", ParseIntPipe) number: string | number,
+    @Body() body: SetFileViewedBody,
+    @CurrentUser() user: AuthedUser,
+  ) {
+    const path = body.path?.trim();
+    if (!path) {
+      throw new BadRequestException("File path is required");
+    }
+    const result = await this.reviewState.setFileViewed({
+      owner,
+      repo,
+      number: Number(number),
+      path,
+      viewed: body.viewed,
+      userId: user.id,
+    });
+    if (!result) {
+      throw new NotFoundException(`No file ${path} for ${owner}/${repo}#${number}`);
+    }
+    return result;
+  }
+
+  /** Toggle one generated review question for the current user. */
+  @Patch(":owner/:repo/:number/chapters/:index/key-changes/:keyChangeId/viewed")
+  @UseGuards(RepoAccessGuard)
+  async setKeyChangeViewed(
+    @Param("owner") owner: string,
+    @Param("repo") repo: string,
+    @Param("number", ParseIntPipe) number: string | number,
+    @Param("index", ParseIntPipe) index: string | number,
+    @Param("keyChangeId") keyChangeId: string,
+    @Body() body: SetViewedBody,
+    @CurrentUser() user: AuthedUser,
+  ) {
+    const result = await this.reviewState.setKeyChangeViewed({
+      owner,
+      repo,
+      number: Number(number),
+      index: Number(index),
+      keyChangeId,
+      viewed: body.viewed,
+      userId: user.id,
+    });
+    if (!result) {
+      throw new NotFoundException(
+        `No review question ${keyChangeId} for ${owner}/${repo}#${number}`,
+      );
     }
     return result;
   }

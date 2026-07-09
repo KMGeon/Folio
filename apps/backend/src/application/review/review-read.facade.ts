@@ -48,16 +48,31 @@ export class ReviewReadFacade {
 
     const rawDiff = revision.rawDiff ?? "";
     const rows = await chaptersRepo.listByRevision(revision.id);
-    const { chapterIds } = await reviewStateRepo.viewedForRevision(userId, revision.id);
-    const viewedIds = new Set(chapterIds);
+    const viewed = await reviewStateRepo.viewedForRevision(userId, revision.id);
+    const keyChangesByChapter = await reviewStateRepo.keyChangesViewedForChapters(
+      userId,
+      rows.map((row) => row.id),
+    );
+    const viewedFilePaths = new Set(viewed.filePaths);
+    const viewedIds = new Set(viewed.chapterIds);
     const chapters: ReviewChapter[] = rows.map((row, i) => {
       const code = sliceChapterCode(rawDiff, row.hunkRefs);
+      const viewedKeyChanges = keyChangesByChapter.get(row.id) ?? new Set<string>();
       return {
         index: i + 1,
         title: row.title,
         summary: row.summary,
-        files: code.files,
+        files: code.files.map((file) => ({
+          ...file,
+          viewed: viewedFilePaths.has(file.path),
+        })),
         diffLines: code.diffLines,
+        keyChanges: row.keyChanges.map((keyChange) => ({
+          id: keyChange.id,
+          content: keyChange.content,
+          lineRefs: keyChange.lineRefs,
+          viewed: viewedKeyChanges.has(keyChange.id),
+        })),
         viewed: viewedIds.has(row.id),
       };
     });

@@ -1,4 +1,4 @@
-import type { FileStatus } from "@folio/types";
+import type { FileStatus, LineRef } from "@folio/types";
 
 /** Web-facing diff line: file identity plus display line data for comments. */
 export interface WebDiffLine {
@@ -10,7 +10,7 @@ export interface WebDiffLine {
   newLineNumber?: number;
 }
 
-export interface WebChapterFile {
+export interface ChapterCodeFile {
   path: string;
   status: FileStatus;
   additions: number;
@@ -19,8 +19,19 @@ export interface WebChapterFile {
 
 /** A chapter's sliced code: which files it touches + its diff lines. */
 export interface ChapterCode {
-  files: WebChapterFile[];
+  files: ChapterCodeFile[];
   diffLines: WebDiffLine[];
+}
+
+export interface WebChapterFile extends ChapterCodeFile {
+  viewed: boolean;
+}
+
+export interface ReviewKeyChange {
+  id: string;
+  content: string;
+  lineRefs: LineRef[];
+  viewed: boolean;
 }
 
 export type PullRequestStatus = "open" | "merged" | "closed" | "draft";
@@ -54,6 +65,7 @@ export interface ReviewChapter {
   summary: string;
   files: WebChapterFile[];
   diffLines: WebDiffLine[];
+  keyChanges: ReviewKeyChange[];
   /** Whether the current user has marked this chapter viewed. */
   viewed: boolean;
 }

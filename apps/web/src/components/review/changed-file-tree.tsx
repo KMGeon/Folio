@@ -1,4 +1,11 @@
-import { FileMinus2, FilePenLine, FilePlus2, FileSymlink, Folder } from "lucide-react";
+import {
+  CheckCircle2,
+  FileMinus2,
+  FilePenLine,
+  FilePlus2,
+  FileSymlink,
+  Folder,
+} from "lucide-react";
 
 import type { ChangedFile } from "@/components/review/changed-file-summary";
 import type { ReviewFileStatus } from "@/lib/review-api";
@@ -117,6 +124,7 @@ export function FileTree({
                   )}
                 >
                   <FileStatusMarker status={file.status} active={active} />
+                  {file.viewed ? <CheckCircle2 className="size-4 shrink-0 text-primary" /> : null}
                   <span className="min-w-0 flex-1 truncate font-mono text-[13px]">{name}</span>
                   <span className="font-mono text-diff-add-fg text-xs">+{file.additions}</span>
                   {file.deletions > 0 ? (

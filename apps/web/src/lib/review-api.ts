@@ -16,6 +16,21 @@ export interface ReviewChapterFile {
   status: ReviewFileStatus;
   additions: number;
   deletions: number;
+  viewed: boolean;
+}
+
+export interface ReviewLineRef {
+  filePath: string;
+  side: "additions" | "deletions";
+  startLine: number;
+  endLine: number;
+}
+
+export interface ReviewKeyChange {
+  id: string;
+  content: string;
+  lineRefs: ReviewLineRef[];
+  viewed: boolean;
 }
 
 export interface ReviewChapter {
@@ -24,6 +39,7 @@ export interface ReviewChapter {
   summary: string;
   files: ReviewChapterFile[];
   diffLines: ReviewDiffLine[];
+  keyChanges: ReviewKeyChange[];
   viewed: boolean;
 }
 
@@ -31,6 +47,17 @@ export interface ChapterViewedResult {
   index: number;
   viewed: boolean;
   progress: { viewed: number; total: number };
+}
+
+export interface FileViewedResult {
+  path: string;
+  viewed: boolean;
+  progress: { viewed: number; total: number };
+}
+
+export interface KeyChangeViewedResult {
+  id: string;
+  viewed: boolean;
 }
 
 export interface CreateReviewCommentInput {
@@ -57,6 +84,40 @@ export function setChapterViewed(
 ): Promise<ChapterViewedResult> {
   return apiRequest<ChapterViewedResult>(
     `/api/v1/pulls/${org}/${repo}/${number}/chapters/${index}/viewed`,
+    {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ viewed }),
+    },
+  );
+}
+
+/** Toggle a file's viewed mark for the current user. */
+export function setFileViewed(
+  org: string,
+  repo: string,
+  number: number,
+  path: string,
+  viewed: boolean,
+): Promise<FileViewedResult> {
+  return apiRequest<FileViewedResult>(`/api/v1/pulls/${org}/${repo}/${number}/files/viewed`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ path, viewed }),
+  });
+}
+
+/** Toggle one generated review question's viewed mark for the current user. */
+export function setKeyChangeViewed(
+  org: string,
+  repo: string,
+  number: number,
+  chapterIndex: number,
+  keyChangeId: string,
+  viewed: boolean,
+): Promise<KeyChangeViewedResult> {
+  return apiRequest<KeyChangeViewedResult>(
+    `/api/v1/pulls/${org}/${repo}/${number}/chapters/${chapterIndex}/key-changes/${keyChangeId}/viewed`,
     {
       method: "PATCH",
       headers: { "content-type": "application/json" },

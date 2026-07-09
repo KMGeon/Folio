@@ -5,6 +5,7 @@ export interface ChangedFile {
   status: ReviewFileStatus;
   additions: number;
   deletions: number;
+  viewed: boolean;
   chapterIndex: number;
   chapterTitle: string;
 }
@@ -24,9 +25,13 @@ export function aggregateChangedFiles(chapters: ReviewChapter[]): ChangedFile[] 
           status: file.status,
           additions: file.additions,
           deletions: file.deletions,
+          viewed: file.viewed,
           chapterIndex: chapter.index,
           chapterTitle: chapter.title,
         });
+      }
+      if (existing) {
+        existing.viewed = existing.viewed || file.viewed;
       }
     }
   }

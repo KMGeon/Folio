@@ -1,62 +1,27 @@
 "use client";
 
-import {
-  BookOpen,
-  ChevronLeft,
-  ChevronRight,
-  FileText,
-  GitMerge,
-  GitPullRequest,
-  Github,
-  Search,
-} from "lucide-react";
-import { useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight, ChevronsUp, FileText, Search } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 
 import { ChapterCards } from "@/components/review/chapter-cards";
 import { aggregateChangedFiles } from "@/components/review/changed-file-summary";
 import { buildFileScopedChapter } from "@/components/review/chapter-file-diff";
+import { ChapterPanel } from "@/components/review/chapter-panel";
 import { FileStatusMarker, FileTree } from "@/components/review/changed-file-tree";
 import { CommitGraph } from "@/components/review/commit-graph";
 import { DiffViewer } from "@/components/review/diff-viewer";
+import { fileProgress } from "@/components/review/review-file-state";
 import { ReviewPrologue } from "@/components/review/review-prologue";
-import { PanelTabButton, TabButton } from "@/components/review/review-tab-buttons";
+import { PanelTabButton, type ReviewTab, ReviewTopBar } from "@/components/review/review-top-bar";
 import { Button } from "@/components/ui/button";
 import type {
-  PullRequestStatus,
   ReviewChapter,
   ReviewCommit,
   ReviewIssueComment,
   ReviewPrMeta,
 } from "@/lib/review-api";
-import { cn } from "@/lib/utils";
+import { setFileViewed } from "@/lib/review-api";
 
-const STATUS_META: Record<
-  PullRequestStatus,
-  { label: string; className: string; icon: typeof GitPullRequest }
-> = {
-  open: {
-    label: "열려 있는",
-    className: "border-primary/30 bg-primary/10 text-primary",
-    icon: GitPullRequest,
-  },
-  merged: {
-    label: "병합됨",
-    className: "border-syntax-emphasis/30 bg-syntax-emphasis/10 text-syntax-emphasis",
-    icon: GitMerge,
-  },
-  closed: {
-    label: "닫힘",
-    className: "border-destructive/30 bg-destructive/10 text-destructive",
-    icon: GitPullRequest,
-  },
-  draft: {
-    label: "초안",
-    className: "border-border bg-muted text-muted-foreground",
-    icon: GitPullRequest,
-  },
-};
-
-type Tab = "chapters" | "files";
 type ChapterPanelTab = "chapters" | "activity";
 
 export function ReviewView({
@@ -72,21 +37,27 @@ export function ReviewView({
   commits: ReviewCommit[];
   commitsTruncated: boolean;
 }) {
-  const [tab, setTab] = useState<Tab>("chapters");
+  const [tab, setTab] = useState<ReviewTab>("chapters");
   const [chapterPanelTab, setChapterPanelTab] = useState<ChapterPanelTab>("chapters");
+  const [reviewChapters, setReviewChapters] = useState(chapters);
   // null = the graph+cards overview; a number = that chapter's in-place diff review.
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
+  // Keep file diffs open on first entry; only the toolbar action should emit a collapse signal.
+  const [collapseSignal, setCollapseSignal] = useState<number | undefined>();
 
-  const status = STATUS_META[pr.status];
-  const StatusIcon = status.icon;
-  const files = aggregateChangedFiles(chapters);
+  useEffect(() => {
+    setReviewChapters(chapters);
+  }, [chapters]);
+
+  const files = aggregateChangedFiles(reviewChapters);
+  const fileProgressValue = fileProgress(files);
   const selectedFile = useMemo(
     () => files.find((file) => file.path === selectedFilePath) ?? files[0] ?? null,
     [files, selectedFilePath],
   );
   const selectedFileChapter = selectedFile
-    ? chapters.find((chapter) => chapter.index === selectedFile.chapterIndex)
+    ? reviewChapters.find((chapter) => chapter.index === selectedFile.chapterIndex)
     : null;
   const selectedFileScopedChapter =
     selectedFile && selectedFileChapter
@@ -95,99 +66,68 @@ export function ReviewView({
   const totalAdditions = files.reduce((sum, file) => sum + file.additions, 0);
   const totalDeletions = files.reduce((sum, file) => sum + file.deletions, 0);
 
-  const openChapter = openIndex === null ? null : chapters.find((c) => c.index === openIndex);
+  const openChapter = openIndex === null ? null : reviewChapters.find((c) => c.index === openIndex);
   const nextChapter = openChapter
-    ? chapters.find((c) => c.index === openChapter.index + 1)
+    ? reviewChapters.find((c) => c.index === openChapter.index + 1)
     : undefined;
   const prevChapter = openChapter
-    ? chapters.find((c) => c.index === openChapter.index - 1)
+    ? reviewChapters.find((c) => c.index === openChapter.index - 1)
     : undefined;
+  const prPath = `/${pr.org}/${pr.repo}/pull/${pr.number}`;
+
+  async function updateFileViewed(path: string, viewed: boolean) {
+    setReviewChapters((prev) =>
+      prev.map((chapter) => ({
+        ...chapter,
+        files: chapter.files.map((file) => (file.path === path ? { ...file, viewed } : file)),
+      })),
+    );
+    try {
+      await setFileViewed(pr.org, pr.repo, pr.number, path, viewed);
+    } catch {
+      setReviewChapters((prev) =>
+        prev.map((chapter) => ({
+          ...chapter,
+          files: chapter.files.map((file) =>
+            file.path === path ? { ...file, viewed: !viewed } : file,
+          ),
+        })),
+      );
+    }
+  }
+
+  function updateKeyChangeViewed(chapterIndex: number, keyChangeId: string, viewed: boolean) {
+    setReviewChapters((prev) =>
+      prev.map((chapter) =>
+        chapter.index === chapterIndex
+          ? {
+              ...chapter,
+              keyChanges: chapter.keyChanges.map((item) =>
+                item.id === keyChangeId ? { ...item, viewed } : item,
+              ),
+            }
+          : chapter,
+      ),
+    );
+  }
 
   return (
     <>
-      <div className="shrink-0 px-4 pt-5 md:px-6">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
-            <span
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 font-medium text-xs",
-                status.className,
-              )}
-            >
-              <StatusIcon className="size-3.5" />
-              {status.label}
-            </span>
-            <h1 className="min-w-0 font-semibold text-2xl tracking-tight">
-              {pr.title}
-              <span className="ml-2 font-normal text-muted-foreground">#{pr.number}</span>
-            </h1>
-          </div>
-          <Button
-            asChild
-            size="icon"
-            variant="outline"
-            className="size-8 shrink-0"
-            aria-label="GitHub에서 보기"
-          >
-            <a href={pr.htmlUrl} target="_blank" rel="noreferrer">
-              <Github className="size-4" />
-            </a>
-          </Button>
-        </div>
-
-        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-muted-foreground text-sm">
-          <span className="flex items-center gap-1.5">
-            <GitMerge className="size-3.5" />
-            <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-foreground text-xs">
-              {pr.headBranch}
-            </code>
-            <span className="text-muted-foreground/60">-&gt;</span>
-            <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-foreground text-xs">
-              {pr.baseBranch}
-            </code>
-          </span>
-          <span className="font-mono text-xs">{pr.headSha.slice(0, 12)}</span>
-          <span className="flex items-center gap-1.5">
-            <img
-              src={`https://github.com/${pr.author}.png?size=40`}
-              alt={pr.author}
-              width={20}
-              height={20}
-              referrerPolicy="no-referrer"
-              className="size-5 rounded-full border"
-            />
-            <span className="text-foreground/80">{pr.author}</span>
-          </span>
-        </div>
-
-        <div className="mt-4 flex items-center justify-between gap-2 border-b">
-          <nav className="flex items-center gap-1 overflow-x-auto">
-            <TabButton
-              active={tab === "chapters"}
-              onClick={() => setTab("chapters")}
-              icon={BookOpen}
-              label="챕터"
-              count={chapters.length}
-            />
-            <TabButton
-              active={tab === "files"}
-              onClick={() => setTab("files")}
-              icon={FileText}
-              label="파일이 변경되었습니다"
-              count={files.length}
-            />
-          </nav>
-          <span className="flex shrink-0 items-center gap-2 font-mono text-xs tabular-nums">
-            <span className="text-diff-add-fg">+{totalAdditions}</span>
-            <span className="text-diff-del-fg">-{totalDeletions}</span>
-          </span>
-        </div>
-      </div>
+      <ReviewTopBar
+        pr={pr}
+        activeTab={tab}
+        onTabChange={setTab}
+        chapterCount={reviewChapters.length}
+        fileCount={files.length}
+        viewedFiles={fileProgressValue.viewed}
+        totalFiles={fileProgressValue.total}
+        totalAdditions={totalAdditions}
+        totalDeletions={totalDeletions}
+      />
 
       {tab === "chapters" ? (
         openChapter ? (
           <div className="flex min-h-0 flex-1 flex-col">
-            {/* Drill-in: chapter diff with a back link + prev/next, no route change. */}
             <div className="flex shrink-0 items-center gap-2 px-4 py-2.5 md:px-6">
               <Button variant="ghost" size="sm" onClick={() => setOpenIndex(null)}>
                 <ChevronLeft className="size-4" />
@@ -198,6 +138,14 @@ export function ReviewView({
                 {openChapter.title}
               </span>
               <div className="ml-auto flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCollapseSignal((v) => (v ?? 0) + 1)}
+                >
+                  <ChevronsUp className="size-4" />
+                  모두 접기
+                </Button>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -220,15 +168,28 @@ export function ReviewView({
                 </Button>
               </div>
             </div>
-            <DiffViewer
-              chapter={openChapter}
-              commentContext={{
-                org: pr.org,
-                repo: pr.repo,
-                number: pr.number,
-                chapterIndex: openChapter.index,
-              }}
-            />
+            <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_380px]">
+              <DiffViewer
+                chapter={openChapter}
+                collapseSignal={collapseSignal}
+                onFileViewedChange={updateFileViewed}
+                commentContext={{
+                  org: pr.org,
+                  repo: pr.repo,
+                  number: pr.number,
+                  chapterIndex: openChapter.index,
+                }}
+              />
+              <ChapterPanel
+                chapters={reviewChapters}
+                activeIndex={openChapter.index}
+                prPath={prPath}
+                org={pr.org}
+                repo={pr.repo}
+                number={pr.number}
+                onKeyChangeViewedChange={updateKeyChangeViewed}
+              />
+            </div>
           </div>
         ) : (
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 md:px-6">
@@ -244,7 +205,7 @@ export function ReviewView({
                   <div className="flex rounded-md bg-muted/60 p-0.5">
                     <PanelTabButton
                       active={chapterPanelTab === "chapters"}
-                      label={`챕터 ${chapters.length}`}
+                      label={`챕터 ${reviewChapters.length}`}
                       onClick={() => setChapterPanelTab("chapters")}
                     />
                     <PanelTabButton
@@ -255,7 +216,7 @@ export function ReviewView({
                   </div>
                 </div>
                 {chapterPanelTab === "chapters" ? (
-                  <ChapterCards chapters={chapters} onSelect={setOpenIndex} />
+                  <ChapterCards chapters={reviewChapters} onSelect={setOpenIndex} />
                 ) : (
                   <div className="rounded-lg border bg-card p-2">
                     <CommitGraph commits={commits} pr={pr} />
@@ -313,6 +274,7 @@ export function ReviewView({
                 <DiffViewer
                   chapter={selectedFileScopedChapter}
                   compact
+                  onFileViewedChange={updateFileViewed}
                   commentContext={{
                     org: pr.org,
                     repo: pr.repo,

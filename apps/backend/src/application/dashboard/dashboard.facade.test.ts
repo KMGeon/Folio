@@ -1,4 +1,11 @@
+import { type ExecutionContext } from "@nestjs/common";
+import { APP_FILTER, APP_INTERCEPTOR } from "@nestjs/core";
+import { Test } from "@nestjs/testing";
+import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ApiResponseInterceptor } from "../../interfaces/api/common/api-response.interceptor.js";
+import { LOGGER_PORT } from "../../internal/logger/logger.port.js";
+import { CoreExceptionFilter } from "../../support/error/core-exception.filter.js";
 
 const listByAccountLogin = vi.fn(async () => [{ id: "i1", githubInstallationId: 111 }]);
 const listByInstallation = vi.fn(async () => [
@@ -35,6 +42,17 @@ vi.mock("../../infrastructure/github/github-contributions.js", () => ({
 }));
 
 const { DashboardFacade } = await import("./dashboard.facade.js");
+const { DashboardController } =
+  await import("../../interfaces/api/dashboard/dashboard.controller.js");
+const { SessionAuthGuard } = await import("../../interfaces/api/common/session-auth.guard.js");
+
+const dashboardUser = { id: "u1", login: "KMGeon", avatarUrl: "https://a/u1" };
+const dashboardAllowGuard = {
+  canActivate: (context: ExecutionContext) => {
+    context.switchToHttp().getRequest().user = dashboardUser;
+    return true;
+  },
+};
 
 interface PullFixture {
   number: number;
@@ -43,6 +61,7 @@ interface PullFixture {
   head: { ref: string };
   base: { ref: string };
   updated_at: string;
+  draft?: boolean;
   closed_at?: string | null;
   merged_at?: string | null;
 }
@@ -66,18 +85,25 @@ function openPr({
   number,
   title = `PR ${number}`,
   head = "feat",
+  user = "KMGeon",
+  draft = false,
+  updatedAt = "2026-06-20T00:00:00Z",
 }: {
   number: number;
   title?: string;
   head?: string;
+  user?: string;
+  draft?: boolean;
+  updatedAt?: string;
 }): PullFixture {
   return {
     number,
     title,
-    user: { login: "KMGeon" },
+    user: { login: user },
     head: { ref: head },
     base: { ref: "main" },
-    updated_at: "2026-06-20T00:00:00Z",
+    updated_at: updatedAt,
+    draft,
   };
 }
 
@@ -104,13 +130,30 @@ function closedPr({
   };
 }
 
+function repoRow(id: string, name: string) {
+  return {
+    id,
+    owner: "KMGeon",
+    name,
+    fullName: `KMGeon/${name}`,
+    defaultBranch: "main",
+    folioEnabled: true,
+  };
+}
+
 function pullsFor(
   pulls: PullFixture[] | Record<string, PullFixture[]>,
   repo: string | undefined,
 ): PullFixture[] {
   return Array.isArray(pulls) ? pulls : (pulls[repo ?? ""] ?? []);
 }
-
+type PullListOptions = {
+  repo?: string;
+  state?: "open" | "closed";
+  page?: number;
+  per_page?: number;
+  direction?: "asc" | "desc";
+};
 function octokitWith({
   open,
   closed,
@@ -120,12 +163,16 @@ function octokitWith({
   failOpenListForRepos,
 }: OctokitFixture) {
   const pulls = {
-    list: vi.fn(async (options: { repo?: string; state?: "open" | "closed" }) => {
+    list: vi.fn(async (options: PullListOptions) => {
       if (options.state === "closed") {
         if (failClosedList) {
           throw new Error("closed list failed");
         }
-        return { data: pullsFor(closed, options.repo) };
+        const perPage = options.per_page ?? 20;
+        const start = ((options.page ?? 1) - 1) * perPage;
+        const data = pullsFor(closed, options.repo);
+        const ordered = options.direction === "asc" ? [...data].reverse() : data;
+        return { data: ordered.slice(start, start + perPage) };
       }
       return { data: pullsFor(open, options.repo) };
     }),
@@ -287,24 +334,7 @@ describe("DashboardFacade", () => {
   });
 
   it("globally sorts completed pulls from multiple repos newest first and caps them at 20", async () => {
-    listByInstallation.mockResolvedValueOnce([
-      {
-        id: "r1",
-        owner: "KMGeon",
-        name: "Folio",
-        fullName: "KMGeon/Folio",
-        defaultBranch: "main",
-        folioEnabled: true,
-      },
-      {
-        id: "r2",
-        owner: "KMGeon",
-        name: "Amberjack",
-        fullName: "KMGeon/Amberjack",
-        defaultBranch: "main",
-        folioEnabled: true,
-      },
-    ]);
+    listByInstallation.mockResolvedValueOnce([repoRow("r1", "Folio"), repoRow("r2", "Amberjack")]);
     const closedByRepo = Array.from({ length: 25 }, (_, index) => index + 1).reduce<
       Record<string, PullFixture[]>
     >(
@@ -371,22 +401,8 @@ describe("DashboardFacade", () => {
 
   it("keeps reachable completed pulls when one repo open pull fetching fails", async () => {
     listByInstallation.mockResolvedValueOnce([
-      {
-        id: "broken-repo-id",
-        owner: "KMGeon",
-        name: "broken",
-        fullName: "KMGeon/broken",
-        defaultBranch: "main",
-        folioEnabled: true,
-      },
-      {
-        id: "reachable-repo-id",
-        owner: "KMGeon",
-        name: "reachable",
-        fullName: "KMGeon/reachable",
-        defaultBranch: "main",
-        folioEnabled: true,
-      },
+      repoRow("broken-repo-id", "broken"),
+      repoRow("reachable-repo-id", "reachable"),
     ]);
     const octokit = octokitWith({
       open: { broken: [], reachable: [] },
@@ -495,5 +511,362 @@ describe("DashboardFacade", () => {
     expect(payload.metrics).toMatchObject({ installedRepos: 1, activeRepos: 0 });
     expect(payload.metrics.completed).toBe(0);
     expect(payload.completedPulls).toEqual([]);
+  });
+
+  it("returns summary without card arrays", async () => {
+    const octokit = octokitWith({
+      open: [openPr({ number: 1, title: "Ready PR" })],
+      closed: [closedPr({ number: 69, mergedAt: "2026-07-08T10:00:00Z" })],
+      details: { 1: { additions: 10, deletions: 2, changed_files: 3 } },
+    });
+    const facade = new DashboardFacade({ octokitFactory: async () => octokit as never });
+
+    const payload = await facade.getSummaryForUser({ id: "u1", login: "KMGeon" });
+
+    expect(payload).toEqual({
+      metrics: {
+        ready: 0,
+        processing: 0,
+        installedRepos: 1,
+        activeRepos: 1,
+        completed: 0,
+      },
+      repos: [{ id: "r1", fullName: "KMGeon/Folio", openPrCount: 0, folioEnabled: true }],
+      activity: [{ date: "2026-06-20", count: 3 }],
+    });
+    expect("pulls" in payload).toBe(false);
+    expect("completedPulls" in payload).toBe(false);
+    expect(octokit.paginate).not.toHaveBeenCalled();
+    expect(octokit.rest.pulls.list).not.toHaveBeenCalled();
+  });
+
+  it("returns the first ready pull page and next cursor", async () => {
+    getByRepoAndNumber.mockImplementation(async (_repoId: string, n: number) =>
+      n <= 2 ? { id: `pr${n}` } : null,
+    );
+    const octokit = octokitWith({
+      open: [
+        openPr({ number: 1, title: "Ready one" }),
+        openPr({ number: 2, title: "Ready two" }),
+        openPr({ number: 3, title: "Processing" }),
+      ],
+      closed: [],
+      details: {
+        1: { additions: 10, deletions: 2, changed_files: 3 },
+        2: { additions: 20, deletions: 4, changed_files: 4 },
+      },
+    });
+    const facade = new DashboardFacade({ octokitFactory: async () => octokit as never });
+
+    const page = await facade.getPullPageForUser(
+      { id: "u1", login: "someone-else" },
+      { bucket: "ready", limit: 1, ordering: "updated", direction: "desc", showDrafts: true },
+    );
+
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0]).toMatchObject({ number: 1, title: "Ready one", status: "ready" });
+    expect(page.nextCursor).toBeTypeOf("string");
+    expect(page.count).toBe(2);
+    expect(octokit.rest.pulls.get).toHaveBeenCalledTimes(1);
+  });
+
+  it("continues pull pages from an opaque cursor", async () => {
+    getByRepoAndNumber.mockImplementation(async (_repoId: string, n: number) =>
+      n <= 2 ? { id: `pr${n}` } : null,
+    );
+    const octokit = octokitWith({
+      open: [openPr({ number: 1, title: "Ready one" }), openPr({ number: 2, title: "Ready two" })],
+      closed: [],
+      details: {
+        1: { additions: 10, deletions: 2, changed_files: 3 },
+        2: { additions: 20, deletions: 4, changed_files: 4 },
+      },
+    });
+    const facade = new DashboardFacade({ octokitFactory: async () => octokit as never });
+
+    const first = await facade.getPullPageForUser(
+      { id: "u1", login: "someone-else" },
+      { bucket: "ready", limit: 1, ordering: "updated", direction: "desc", showDrafts: true },
+    );
+    const second = await facade.getPullPageForUser(
+      { id: "u1", login: "someone-else" },
+      {
+        bucket: "ready",
+        limit: 1,
+        cursor: first.nextCursor ?? undefined,
+        ordering: "updated",
+        direction: "desc",
+        showDrafts: true,
+      },
+    );
+
+    expect(second.items.map((pull) => pull.number)).toEqual([2]);
+    expect(second.nextCursor).toBeNull();
+  });
+
+  it("filters completed pull pages by query and closed range", async () => {
+    const octokit = octokitWith({
+      open: [],
+      closed: [
+        closedPr({ number: 69, title: "Keep smoke", mergedAt: "2026-07-08T10:00:00Z" }),
+        closedPr({ number: 68, title: "Ignore docs", mergedAt: "2026-05-08T10:00:00Z" }),
+      ],
+      details: { 69: { additions: 81, deletions: 32, changed_files: 4 } },
+    });
+    const facade = new DashboardFacade({ octokitFactory: async () => octokit as never });
+
+    const page = await facade.getPullPageForUser(
+      { id: "u1", login: "KMGeon" },
+      {
+        bucket: "completed",
+        limit: 20,
+        q: "smoke",
+        ordering: "updated",
+        direction: "desc",
+        closedRange: "90d",
+        showDrafts: true,
+      },
+    );
+
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0]).toMatchObject({ number: 69, title: "Keep smoke" });
+    expect(page.count).toBe(1);
+    expect(octokit.rest.pulls.get).toHaveBeenCalledTimes(1);
+  });
+
+  it("excludes draft pull pages when showDrafts is false", async () => {
+    getByRepoAndNumber.mockResolvedValue({ id: "pr" });
+    const octokit = octokitWith({
+      open: [
+        openPr({ number: 1, title: "Visible" }),
+        openPr({ number: 2, title: "Draft", draft: true }),
+      ],
+      closed: [],
+      details: { 1: { additions: 10, deletions: 2, changed_files: 3 } },
+    });
+    const facade = new DashboardFacade({ octokitFactory: async () => octokit as never });
+
+    const page = await facade.getPullPageForUser(
+      { id: "u1", login: "someone-else" },
+      { bucket: "ready", showDrafts: false },
+    );
+
+    expect(page.items.map((pull) => pull.title)).toEqual(["Visible"]);
+    expect(octokit.rest.pulls.get).toHaveBeenCalledTimes(1);
+  });
+
+  it("sorts open pull pages by line count", async () => {
+    getByRepoAndNumber.mockResolvedValue({ id: "pr" });
+    const octokit = octokitWith({
+      open: [openPr({ number: 1, title: "Small" }), openPr({ number: 2, title: "Large" })],
+      closed: [],
+      details: {
+        1: { additions: 3, deletions: 2, changed_files: 1 },
+        2: { additions: 20, deletions: 5, changed_files: 2 },
+      },
+    });
+    const facade = new DashboardFacade({ octokitFactory: async () => octokit as never });
+
+    const page = await facade.getPullPageForUser(
+      { id: "u1", login: "someone-else" },
+      { bucket: "ready", ordering: "lines", direction: "desc" },
+    );
+
+    expect(page.items.map((pull) => pull.title)).toEqual(["Large", "Small"]);
+  });
+
+  it("separates yours and other pull buckets", async () => {
+    getByRepoAndNumber.mockImplementation(async (_repoId: string, n: number) =>
+      n === 1 ? { id: "pr1" } : null,
+    );
+    const octokit = octokitWith({
+      open: [
+        openPr({ number: 1, title: "Mine", user: "KMGeon" }),
+        openPr({ number: 2, title: "Processing", user: "someone-else" }),
+      ],
+      closed: [],
+      details: {
+        1: { additions: 10, deletions: 2, changed_files: 3 },
+        2: { additions: 4, deletions: 1, changed_files: 1 },
+      },
+    });
+    const facade = new DashboardFacade({ octokitFactory: async () => octokit as never });
+
+    const yours = await facade.getPullPageForUser(
+      { id: "u1", login: "KMGeon" },
+      { bucket: "yours" },
+    );
+    const other = await facade.getPullPageForUser(
+      { id: "u1", login: "KMGeon" },
+      { bucket: "other" },
+    );
+
+    expect(yours.items.map((pull) => pull.title)).toEqual(["Mine"]);
+    expect(other.items.map((pull) => pull.title)).toEqual(["Processing"]);
+  });
+
+  it("keeps reachable pull page results when one repository fails", async () => {
+    listByInstallation.mockResolvedValueOnce([
+      repoRow("broken-repo-id", "broken"),
+      repoRow("reachable-repo-id", "reachable"),
+    ]);
+    getByRepoAndNumber.mockResolvedValue({ id: "pr" });
+    const octokit = octokitWith({
+      open: {
+        broken: [openPr({ number: 1, title: "Broken" })],
+        reachable: [openPr({ number: 2, title: "Reachable" })],
+      },
+      closed: [],
+      details: { 2: { additions: 10, deletions: 2, changed_files: 3 } },
+      failOpenListForRepos: new Set(["broken"]),
+    });
+    const facade = new DashboardFacade({ octokitFactory: async () => octokit as never });
+
+    const page = await facade.getPullPageForUser(
+      { id: "u1", login: "someone-else" },
+      { bucket: "ready" },
+    );
+
+    expect(page.items.map((pull) => pull.title)).toEqual(["Reachable"]);
+  });
+
+  it("continues completed pull pages beyond the first bounded GitHub window ascending", async () => {
+    const closed = Array.from({ length: 25 }, (_, index) =>
+      closedPr({
+        number: 25 - index,
+        closedAt: `2026-07-${String(25 - index).padStart(2, "0")}T10:00:00Z`,
+        mergedAt: `2026-07-${String(25 - index).padStart(2, "0")}T10:00:00Z`,
+      }),
+    );
+    const octokit = octokitWith({ open: [], closed, details: {} });
+    const facade = new DashboardFacade({ octokitFactory: async () => octokit as never });
+    const user = { id: "u1", login: "KMGeon" };
+    const query = {
+      bucket: "completed",
+      limit: 20,
+      ordering: "updated",
+      direction: "asc",
+    } as const;
+
+    const first = await facade.getPullPageForUser(user, query);
+    const second = await facade.getPullPageForUser(user, {
+      ...query,
+      cursor: first.nextCursor ?? undefined,
+    });
+    expect(first.items.map((pull) => pull.number)).toEqual(
+      Array.from({ length: 20 }, (_, index) => index + 1),
+    );
+    expect(second.items.map((pull) => pull.number)).toEqual([21, 22, 23, 24, 25]);
+    expect(octokit.rest.pulls.list).toHaveBeenCalledWith(
+      expect.objectContaining({ state: "closed", per_page: 20, direction: "asc", page: 2 }),
+    );
+    expect(octokit.paginate).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ state: "closed" }),
+    );
+  });
+
+  it("does not duplicate completed pulls after one repo is exhausted while another continues", async () => {
+    listByInstallation.mockResolvedValue([
+      repoRow("short-repo-id", "short"),
+      repoRow("long-repo-id", "long"),
+    ]);
+    const closedByRepo = {
+      short: [closedPr({ number: 100, mergedAt: "2026-07-26T10:00:00Z" })],
+      long: Array.from({ length: 25 }, (_, index) =>
+        closedPr({
+          number: 25 - index,
+          mergedAt: `2026-07-${String(25 - index).padStart(2, "0")}T10:00:00Z`,
+        }),
+      ),
+    };
+    const octokit = octokitWith({ open: [], closed: closedByRepo, details: {} });
+    const facade = new DashboardFacade({ octokitFactory: async () => octokit as never });
+
+    const first = await facade.getPullPageForUser(
+      { id: "u1", login: "KMGeon" },
+      { bucket: "completed", limit: 2, ordering: "updated", direction: "desc" },
+    );
+    const second = await facade.getPullPageForUser(
+      { id: "u1", login: "KMGeon" },
+      { bucket: "completed", limit: 2, cursor: first.nextCursor ?? undefined },
+    );
+    const third = await facade.getPullPageForUser(
+      { id: "u1", login: "KMGeon" },
+      { bucket: "completed", limit: 2, cursor: second.nextCursor ?? undefined },
+    );
+
+    const seen = [...first.items, ...second.items, ...third.items].map((pull) => pull.id);
+    expect(seen).toEqual([
+      "KMGeon-short-100",
+      "KMGeon-long-25",
+      "KMGeon-long-24",
+      "KMGeon-long-23",
+      "KMGeon-long-22",
+      "KMGeon-long-21",
+    ]);
+  });
+
+  it("continues completed line-ordered pages without duplicates", async () => {
+    const octokit = octokitWith({
+      open: [],
+      closed: [
+        closedPr({ number: 1, title: "Small", mergedAt: "2026-07-03T10:00:00Z" }),
+        closedPr({ number: 2, title: "Large", mergedAt: "2026-07-02T10:00:00Z" }),
+        closedPr({ number: 3, title: "Medium", mergedAt: "2026-07-01T10:00:00Z" }),
+      ],
+      details: {
+        1: { additions: 1, deletions: 0, changed_files: 1 },
+        2: { additions: 30, deletions: 0, changed_files: 1 },
+        3: { additions: 20, deletions: 0, changed_files: 1 },
+      },
+    });
+    const facade = new DashboardFacade({ octokitFactory: async () => octokit as never });
+
+    const first = await facade.getPullPageForUser(
+      { id: "u1", login: "KMGeon" },
+      { bucket: "completed", limit: 1, ordering: "lines", direction: "desc" },
+    );
+    const second = await facade.getPullPageForUser(
+      { id: "u1", login: "KMGeon" },
+      {
+        bucket: "completed",
+        limit: 1,
+        cursor: first.nextCursor ?? undefined,
+        ordering: "lines",
+        direction: "desc",
+      },
+    );
+
+    expect(first.items.map((pull) => pull.number)).toEqual([2]);
+    expect(second.items.map((pull) => pull.number)).toEqual([3]);
+  });
+
+  it("wraps invalid dashboard pull query errors in the common API envelope", async () => {
+    const moduleRef = await Test.createTestingModule({
+      controllers: [DashboardController],
+      providers: [
+        { provide: DashboardFacade, useValue: { getPullPageForUser: vi.fn() } },
+        { provide: LOGGER_PORT, useValue: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } },
+        { provide: APP_FILTER, useClass: CoreExceptionFilter },
+        { provide: APP_INTERCEPTOR, useClass: ApiResponseInterceptor },
+      ],
+    })
+      .overrideGuard(SessionAuthGuard)
+      .useValue(dashboardAllowGuard)
+      .compile();
+    const app = moduleRef.createNestApplication();
+    await app.init();
+
+    const res = await request(app.getHttpServer()).get("/api/v1/dashboard/pulls?bucket=bogus");
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({
+      success: false,
+      error: { code: "bad_request", message: "The request is invalid." },
+      path: "/api/v1/dashboard/pulls?bucket=bogus",
+    });
+    expect(res.body.timestamp).toEqual(expect.any(String));
+    await app.close();
   });
 });
