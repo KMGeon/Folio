@@ -26,11 +26,11 @@ export function LegalPage({ title, effectiveDate, intro, sections }: LegalPagePr
           className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <BrandMark className="size-7" imageClassName="size-5" />
-          <span className="font-semibold">Folio</span>
+          <span className="font-serif text-lg italic leading-none">Folio</span>
         </Link>
 
         <header className="mt-10 border-b pb-6">
-          <h1 className="font-semibold text-3xl tracking-tight">{title}</h1>
+          <h1 className="font-serif text-4xl font-normal leading-tight tracking-tight">{title}</h1>
           <p className="mt-2 font-mono text-muted-foreground text-xs">
             최종 업데이트 · {effectiveDate}
           </p>
@@ -40,8 +40,8 @@ export function LegalPage({ title, effectiveDate, intro, sections }: LegalPagePr
         <div className="mt-8 space-y-8">
           {sections.map((section, i) => (
             <section key={section.heading}>
-              <h2 className="font-semibold text-base tracking-tight">
-                <span className="mr-2 font-mono text-muted-foreground/60 text-xs tabular-nums">
+              <h2 className="font-serif text-xl font-normal tracking-tight">
+                <span className="mr-2.5 font-mono text-muted-foreground/60 text-xs tabular-nums">
                   {String(i + 1).padStart(2, "0")}
                 </span>
                 {section.heading}

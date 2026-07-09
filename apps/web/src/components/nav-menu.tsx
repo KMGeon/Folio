@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { BrandMark } from "@/components/brand-mark";
 
 const NAV = [
-  { href: "/", label: "대시보드", icon: SquareStack },
+  { href: "/dashboard", label: "대시보드", icon: SquareStack },
   { href: "/onboarding/install", label: "설치", icon: PlugZap },
   { href: "/settings", label: "설정", icon: Settings },
 ];

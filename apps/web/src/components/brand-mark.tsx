@@ -8,13 +8,7 @@ export interface BrandMarkProps {
 /** Shared Folio brand mark for headers and pre-auth pages. */
 export function BrandMark({ className, imageClassName }: BrandMarkProps) {
   return (
-    <span
-      aria-hidden
-      className={cn(
-        "flex size-8 items-center justify-center rounded-md border bg-primary/10",
-        className,
-      )}
-    >
+    <span aria-hidden className={cn("flex size-8 items-center justify-center", className)}>
       <img
         src="/folio-mark.png"
         alt=""

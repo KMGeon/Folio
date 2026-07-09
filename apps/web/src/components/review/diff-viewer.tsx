@@ -146,10 +146,14 @@ export function DiffViewer({
   return (
     <div className={cn("min-w-0 flex-1 overflow-y-auto", compact ? "p-0" : "p-4")}>
       {compact ? null : (
-        <section className="mb-4 rounded-lg border bg-card p-4">
-          <div className="text-xs font-medium text-muted-foreground">챕터 개요</div>
-          <h2 className="mt-2 text-lg font-semibold">{chapter.title}</h2>
-          <p className="mt-3 text-sm leading-6 text-muted-foreground">{chapter.summary}</p>
+        <section className="mb-4 rounded-lg border bg-card p-5">
+          <div className="font-mono text-[0.7rem] uppercase tracking-[0.18em] text-muted-foreground">
+            챕터 개요
+          </div>
+          <h2 className="mt-2.5 font-serif text-2xl font-normal leading-snug tracking-tight">
+            {chapter.title}
+          </h2>
+          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{chapter.summary}</p>
         </section>
       )}
 

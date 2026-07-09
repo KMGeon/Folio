@@ -16,12 +16,18 @@ export function RepositoryToggleForm({
     <form action={toggleRepositoryEnabled}>
       <input type="hidden" name="repositoryId" value={repositoryId} />
       <input type="hidden" name="enabled" value={String(!enabled)} />
+      {/* On/Off is a state label: mono, and the active state carries the vivid accent. */}
       <Button
         size="xs"
         variant={enabled ? "secondary" : "outline"}
         aria-label={enabled ? `Disable ${repositoryName}` : `Enable ${repositoryName}`}
+        className="font-mono text-[0.7rem] uppercase tracking-[0.12em]"
       >
-        {enabled ? <CheckCircle2 className="size-3.5" /> : <CircleOff className="size-3.5" />}
+        {enabled ? (
+          <CheckCircle2 className="size-3.5 text-primary" />
+        ) : (
+          <CircleOff className="size-3.5 text-muted-foreground" />
+        )}
         {enabled ? "On" : "Off"}
       </Button>
     </form>

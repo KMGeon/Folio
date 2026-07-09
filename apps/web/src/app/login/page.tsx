@@ -34,7 +34,8 @@ export default async function LoginPage({
 }) {
   const { redirect, status } = await searchParams;
   // Only honor a single in-app path; backend safeRedirectPath rejects anything else.
-  const redirectPath = typeof redirect === "string" && redirect.startsWith("/") ? redirect : "/";
+  const redirectPath =
+    typeof redirect === "string" && redirect.startsWith("/") ? redirect : "/dashboard";
   const isPending = status === "pending";
   return (
     <main className="grid min-h-svh lg:grid-cols-[1.05fr_minmax(0,460px)]">
@@ -59,37 +60,50 @@ function ChapterSpine() {
         className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-background via-background/55 to-transparent"
       />
 
-      <div className="relative flex h-full flex-col justify-center p-12 xl:p-16">
-        <div className="max-w-md">
-          <p className="font-mono text-muted-foreground text-xs tracking-widest">
-            PULL REQUEST&nbsp;&nbsp;#1284
-          </p>
-          <h1 className="mt-4 font-semibold text-3xl leading-tight tracking-tight xl:text-[2.5rem]">
-            이제 중요한 건
-            <br />
-            코드가 아니라 <span className="text-primary">리뷰</span>입니다.
-          </h1>
-          <p className="mt-3 text-muted-foreground text-sm">
-            AI가 코드를 쏟아내는 시대, 병목은 검토입니다. Folio는 PR을 순서가 있는 리뷰 챕터로 나눠
-            빠르게 이해하게 합니다.
-          </p>
+      <div className="relative flex h-full flex-col p-12 xl:p-16">
+        {/* editorial masthead: real brand mark + serif italic wordmark */}
+        <div className="flex items-center gap-2.5">
+          <BrandMark />
+          <span className="font-serif text-xl italic leading-none">Folio</span>
+        </div>
 
-          <ol className="mt-8 space-y-px">
-            {SAMPLE_CHAPTERS.map((c, i) => (
-              <ChapterRow key={c.title} index={i + 1} {...c} />
-            ))}
-          </ol>
+        <div className="flex flex-1 flex-col justify-center">
+          <div className="max-w-md">
+            <p className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-muted-foreground">
+              Pull Request&nbsp;·&nbsp;#1284
+            </p>
+            <h1 className="mt-5 font-serif text-4xl font-normal leading-[1.08] tracking-tight xl:text-5xl">
+              이제 중요한 건 코드가 아니라
+              <br />
+              <span className="italic">리뷰</span>입니다.
+            </h1>
+            <p className="mt-4 max-w-md text-sm leading-relaxed text-muted-foreground">
+              AI가 코드를 쏟아내는 시대, 진짜 병목은 검토입니다. Folio는 하나의 PR을 순서가 있는
+              리뷰 챕터로 나눠 한 편의 코덱스처럼 읽어 내려가게 합니다.
+            </p>
 
-          <div className="mt-5 flex items-center gap-4 border-t pt-4 font-mono text-xs">
-            <span className="text-muted-foreground">
-              {SAMPLE_CHAPTERS.length} chapters · ~9 min read
-            </span>
-            <span className="ml-auto text-diff-add-fg">+{totalAdd}</span>
-            <span className="text-diff-del-fg">−{totalDel}</span>
+            <div className="mt-9">
+              <p className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-muted-foreground">
+                Table of Contents
+              </p>
+              <ol className="mt-3 space-y-px">
+                {SAMPLE_CHAPTERS.map((c, i) => (
+                  <ChapterRow key={c.title} index={i + 1} {...c} />
+                ))}
+              </ol>
+            </div>
+
+            <div className="mt-5 flex items-center gap-4 border-t pt-4 font-mono text-xs">
+              <span className="text-muted-foreground">
+                {SAMPLE_CHAPTERS.length} chapters · ~9 min read
+              </span>
+              <span className="ml-auto text-diff-add-fg">+{totalAdd}</span>
+              <span className="text-diff-del-fg">−{totalDel}</span>
+            </div>
           </div>
         </div>
 
-        <p className="font-mono text-muted-foreground/70 text-xs">
+        <p className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-muted-foreground/70">
           GitHub-native PR review · chapter by chapter
         </p>
       </div>
@@ -141,21 +155,25 @@ function AuthPanel({ redirectPath, isPending }: { redirectPath: string; isPendin
     <section className="flex items-center justify-center p-6 sm:p-10">
       <div className="w-full max-w-sm">
         {/* brand shown here too — the 3D spine is hidden on small screens */}
-        <div className="flex items-center gap-3 lg:hidden">
+        <div className="flex items-center gap-2.5 lg:hidden">
           <BrandMark />
-          <span className="font-semibold text-sm">Folio</span>
+          <span className="font-serif text-xl italic leading-none">Folio</span>
         </div>
 
-        <div className="mt-8 lg:mt-0">
-          <p className="font-mono text-muted-foreground text-xs tracking-widest">로그인</p>
-          <h2 className="mt-2 font-semibold text-2xl tracking-tight">Folio 시작하기</h2>
-          <p className="mt-2 text-muted-foreground text-sm">
-            GitHub로 로그인하면 리뷰 진행 상황이 모든 기기에서 이어집니다.
+        <div className="mt-10 lg:mt-0">
+          <p className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-muted-foreground">
+            로그인
+          </p>
+          <h2 className="mt-3 font-serif text-3xl font-normal leading-[1.1] tracking-tight">
+            <span className="italic">Folio</span> 시작하기
+          </h2>
+          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+            GitHub 계정으로 로그인하면 리뷰 진행 상황이 모든 기기에서 그대로 이어집니다.
           </p>
         </div>
 
         {isPending ? (
-          <div className="mt-6 flex items-start gap-3 rounded-lg border bg-card p-3 text-sm">
+          <div className="mt-6 flex items-start gap-3 rounded-md border bg-card p-3.5 text-sm">
             <Clock3 className="mt-0.5 size-4 shrink-0 text-warning" />
             <div>
               <p className="font-medium">승인 대기 중입니다.</p>
@@ -174,14 +192,15 @@ function AuthPanel({ redirectPath, isPending }: { redirectPath: string; isPendin
           </a>
         </Button>
 
-        <div className="mt-3 flex items-start gap-2 text-muted-foreground text-xs">
+        <div className="mt-3 flex items-start gap-2 text-muted-foreground text-xs leading-relaxed">
           <ShieldCheck className="mt-px size-3.5 shrink-0 text-primary" />
           <span>
-            Folio는 코드를 저장하지 않습니다. 저장소 접근 권한은 별도로 안전하게 관리됩니다.
+            Folio는 코드를 저장하지 않습니다. 저장소 접근 권한은 필요한 범위에서만 안전하게
+            관리됩니다.
           </span>
         </div>
 
-        <p className="mt-10 text-center text-muted-foreground/60 text-xs leading-relaxed">
+        <p className="mt-10 border-t pt-6 text-center text-muted-foreground/60 text-xs leading-relaxed">
           계속하면 Folio{" "}
           <a href="/terms" className="underline underline-offset-2 hover:text-foreground">
             이용약관

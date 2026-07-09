@@ -20,7 +20,7 @@ export function TabButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "-mb-px flex items-center gap-2 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm transition-colors",
+        "-mb-px flex items-center gap-2 whitespace-nowrap border-b-2 px-3 py-2.5 font-mono text-xs uppercase tracking-[0.14em] transition-colors",
         active
           ? "border-primary font-medium text-foreground"
           : "border-transparent text-muted-foreground hover:text-foreground",
@@ -54,7 +54,7 @@ export function PanelTabButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "rounded px-2.5 py-1 font-medium text-xs transition-colors",
+        "rounded-sm px-2.5 py-1 font-mono text-[0.7rem] uppercase tracking-[0.12em] transition-colors",
         active ? "bg-card text-foreground" : "text-muted-foreground hover:text-foreground",
       )}
     >

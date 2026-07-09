@@ -59,19 +59,24 @@ export function ReviewTopBar({
   return (
     <div className="shrink-0 px-4 pt-5 md:px-6">
       <div className="flex items-start justify-between gap-4">
-        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
-          <span
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 font-medium text-xs",
-              status.className,
-            )}
-          >
-            <StatusIcon className="size-3.5" />
-            {status.label}
-          </span>
-          <h1 className="min-w-0 font-semibold text-2xl tracking-tight">
+        <div className="flex min-w-0 flex-col gap-2.5">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <span
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 font-medium text-xs",
+                status.className,
+              )}
+            >
+              <StatusIcon className="size-3.5" />
+              {status.label}
+            </span>
+            <span className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-muted-foreground">
+              Pull Request
+            </span>
+          </div>
+          <h1 className="min-w-0 font-serif text-[1.9rem] font-normal leading-tight tracking-tight md:text-[2.1rem]">
             {pr.title}
-            <span className="ml-2 font-normal text-muted-foreground">#{pr.number}</span>
+            <span className="ml-2.5 font-mono text-lg text-muted-foreground">#{pr.number}</span>
           </h1>
         </div>
         <Button

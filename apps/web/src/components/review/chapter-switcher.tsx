@@ -34,7 +34,7 @@ export function ChapterSwitcher({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1 rounded px-1.5 py-1 text-sm font-medium hover:bg-accent"
+        className="flex items-center gap-1 rounded-md px-1.5 py-1 font-mono text-sm font-medium hover:bg-accent"
         aria-expanded={open}
       >
         제 {activeIndex} 장
@@ -48,11 +48,13 @@ export function ChapterSwitcher({
               href={`${prPath}/chapters/${c.index}`}
               onClick={() => setOpen(false)}
               className={cn(
-                "flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-accent",
+                "flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent",
                 c.index === activeIndex && "bg-accent text-foreground",
               )}
             >
-              <span className="w-5 shrink-0 text-xs text-muted-foreground">{c.index}</span>
+              <span className="w-5 shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
+                {c.index}
+              </span>
               <span className="min-w-0 flex-1 truncate">{c.title}</span>
             </Link>
           ))}

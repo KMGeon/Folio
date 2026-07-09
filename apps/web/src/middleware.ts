@@ -1,8 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server";
 
-// Public paths: marketing/login screens and Next internals/assets.
+// Public paths: login, brand assets, and Next internals. The marketing home is
+// the site root ("/") — matched exactly below, because a "/" *prefix* would
+// match every path and disable the gate entirely.
 const PUBLIC_PREFIXES = [
-  "/homepage",
   "/login",
   "/_next",
   "/favicon",
@@ -15,11 +16,12 @@ const PUBLIC_PREFIXES = [
 /**
  * App-wide session gate: redirect to /login when the session cookie is absent.
  * Real authorization (and private-repo access) is enforced by the backend; this
- * is the coarse UX gate so unauthenticated users never see app chrome.
+ * is the coarse UX gate so unauthenticated users never see app chrome. The
+ * public marketing home ("/") and the login screen stay outside the gate.
  */
 export function middleware(req: NextRequest): NextResponse {
   const { pathname } = req.nextUrl;
-  if (PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))) {
+  if (pathname === "/" || PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))) {
     return NextResponse.next();
   }
   const hasSession = req.cookies.has("folio_session");

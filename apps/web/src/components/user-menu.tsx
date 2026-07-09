@@ -57,7 +57,7 @@ export function UserMenu({ user }: { user: SessionUser | null }) {
             className="size-8 rounded-full border"
           />
         ) : (
-          <span className="flex size-8 items-center justify-center rounded-full border bg-primary/10 text-sm font-semibold text-primary">
+          <span className="flex size-8 items-center justify-center rounded-full border bg-primary/10 font-serif text-base italic text-primary">
             F
           </span>
         )}
@@ -68,10 +68,15 @@ export function UserMenu({ user }: { user: SessionUser | null }) {
           role="menu"
           className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-lg border bg-popover shadow-lg"
         >
-          <div className="border-b px-3 py-2.5">
-            <div className="truncate text-sm font-semibold">{user?.login ?? "Folio"}</div>
+          <div className="border-b px-3 py-3">
+            <div className="font-mono text-[0.7rem] uppercase tracking-[0.16em] text-muted-foreground">
+              계정
+            </div>
+            <div className="mt-1.5 truncate text-sm font-medium text-foreground">
+              {user?.login ?? "Folio"}
+            </div>
             {user ? (
-              <div className="truncate text-xs text-muted-foreground">@{user.login}</div>
+              <div className="truncate font-mono text-xs text-muted-foreground">@{user.login}</div>
             ) : null}
           </div>
           <div className="p-1">

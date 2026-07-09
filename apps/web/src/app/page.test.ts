@@ -2,47 +2,22 @@ import { readFile } from "node:fs/promises";
 
 import { describe, expect, it } from "vitest";
 
-describe("DashboardPage", () => {
-  it("renders the lazy PR board dashboard instead of waiting for full card arrays", async () => {
-    const source = await readFile(new URL("./page.tsx", import.meta.url), "utf8");
+describe("HomePage (site root)", () => {
+  it("renders Folio's public product story and GitHub CTA at the site root", async () => {
+    const source = [
+      await readFile(new URL("./page.tsx", import.meta.url), "utf8"),
+      await readFile(new URL("./homepage/homepage-sections.tsx", import.meta.url), "utf8"),
+      await readFile(new URL("./homepage/live-review-board.tsx", import.meta.url), "utf8"),
+      await readFile(new URL("./homepage/homepage-data.ts", import.meta.url), "utf8"),
+    ].join("\n");
 
-    expect(source).toContain("DashboardBoardClient");
-    expect(source).toContain("getMe");
-    expect(source).toContain('redirect("/login?redirect=/")');
-    expect(source).not.toContain("fetchDashboardSummary");
-    expect(source).toContain("Ready to review");
-    expect(source).toContain("Your pull requests");
-    expect(source).toContain("Other");
-    expect(source).toContain("Recently completed");
-    expect(source).not.toContain("completedPulls={");
-    expect(source).not.toContain("RepositoryToggleForm");
-  });
-
-  it("keeps dashboard board components split by concrete responsibility", async () => {
-    const board = await readFile(
-      new URL("../components/dashboard/dashboard-board.tsx", import.meta.url),
-      "utf8",
-    );
-    const client = await readFile(
-      new URL("../components/dashboard/dashboard-board-client.tsx", import.meta.url),
-      "utf8",
-    );
-    const filters = await readFile(
-      new URL("../components/dashboard/dashboard-filter-panel.tsx", import.meta.url),
-      "utf8",
-    );
-    const skeleton = await readFile(
-      new URL("../components/dashboard/dashboard-skeleton.tsx", import.meta.url),
-      "utf8",
-    );
-
-    expect(board).toContain("export function DashboardBoard");
-    expect(board).toContain("function OpenPullCard");
-    expect(board).toContain("function CompletedPullCard");
-    expect(client).toContain("IntersectionObserver");
-    expect(client).toContain("fetchDashboardPullPage");
-    expect(filters).toContain("DashboardFilterPanel");
-    expect(filters).toContain("Closed reviews");
-    expect(skeleton).toContain("DashboardSkeletonCard");
+    expect(source).toContain("PR을 읽는 순서까지 설계하는 리뷰 워크스페이스");
+    expect(source).toContain("PR이 챕터로 정렬되는 과정");
+    expect(source).toContain("GitHub로 시작하기");
+    expect(source).toContain("챕터 기반 리뷰");
+    expect(source).toContain("오픈베타 기간에는 모든 팀이 무료로 사용할 수 있습니다.");
+    expect(source).toContain("Team");
+    expect(source).toContain("$30");
+    expect(source).toMatch(/<Button\s+className="mt-8 w-full"\s+disabled\s+type="button"/);
   });
 });
