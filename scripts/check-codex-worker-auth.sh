@@ -40,6 +40,6 @@ if command -v codex >/dev/null 2>&1; then
   codex --version
 else
   echo "codex_bin:MISSING"
-  node -e "import(\"@openai/codex-sdk\").then(() => console.log(\"codex_sdk:SET\"), () => process.exit(1))"
+  pnpm --filter @folio/decomposition exec node -e "import(\"@openai/codex-sdk\").then(() => console.log(\"codex_sdk:SET\"), () => process.exit(1))"
 fi
 '
