@@ -145,24 +145,6 @@ describe("decompose — tiny PR now takes the LLM path", () => {
     expect(spy).not.toHaveBeenCalled();
     expect(result.source).toBe("fallback");
   });
-
-  it("uses fallback when FOLIO_DECOMP_LLM=0 and no client factory given", async () => {
-    const original = process.env.FOLIO_DECOMP_LLM;
-    process.env.FOLIO_DECOMP_LLM = "0";
-    try {
-      const diff = readFixture("refactor-with-tests.diff");
-      const result = await decompose({ diff });
-      expect(result.source).toBe("fallback");
-      expect(result.modelUsed).toBe("");
-      expectFullCoverage(diff, result.chapters);
-    } finally {
-      if (original === undefined) {
-        delete process.env.FOLIO_DECOMP_LLM;
-      } else {
-        process.env.FOLIO_DECOMP_LLM = original;
-      }
-    }
-  });
 });
 
 describe("decomposeDeterministic", () => {

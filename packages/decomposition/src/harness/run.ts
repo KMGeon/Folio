@@ -6,8 +6,8 @@
 //
 //   folio-decompose-eval [--no-llm] [--fixtures <dir>]
 //
-// `--no-llm` (or `FOLIO_DECOMP_LLM=0`) exercises the deterministic fallback only,
-// so CI is fully reproducible without spawning Codex.
+// `--no-llm` exercises the deterministic evaluator path so CI is fully
+// reproducible without spawning Codex.
 
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";

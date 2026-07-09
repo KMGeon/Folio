@@ -3,7 +3,7 @@ import { getDb, runMigrations } from "../../src/client.js";
 import * as schema from "../../src/schema/index.js";
 
 /** True when an e2e DB is configured; tests skip themselves otherwise. */
-export const HAS_DB = Boolean(process.env.DATABASE_URL);
+export const HAS_DB = Boolean(process.env.SUPABASE_DATABASE_URL);
 
 let migrated = false;
 

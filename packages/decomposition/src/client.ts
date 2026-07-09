@@ -4,7 +4,7 @@
 //
 // The engine talks to Codex through the small `ChapterClient` interface so tests
 // inject a stub and never spawn the CLI. `createCodexClient` builds the real one
-// lazily (the SDK is only imported when used), so the deterministic fallback path
+// lazily (the SDK is only imported when used), so offline deterministic evaluation
 // works with no `@openai/codex-sdk` resolution at runtime.
 
 import type { ResolvedConfig } from "./config.js";
@@ -72,7 +72,7 @@ function renderInput(req: ChapterClientRequest): string {
   return parts.join("\n\n");
 }
 
-/** Extract the structured payload from a model final response (raw or fenced JSON). Shared by Codex + Ollama clients. */
+/** Extract the structured payload from a model final response (raw or fenced JSON). */
 export function parseStructuredPayload(text: string): unknown {
   const trimmed = text.trim();
   try {
@@ -94,9 +94,7 @@ export function parseStructuredPayload(text: string): unknown {
 
 /**
  * Build the production client. Lazily imports `@openai/codex-sdk` on first call so
- * importing this package never requires the SDK to be present. Auth defaults to the
- * local Codex CLI session (`~/.codex`) — a ChatGPT subscription — unless
- * `OPENAI_API_KEY` is set (carried in `config.apiKey`), which the SDK uses instead.
+ * importing this package never requires the SDK to be present.
  */
 export function createCodexClient(config: ResolvedConfig): ChapterClient {
   let codex: CodexLike | null = null;
@@ -106,8 +104,8 @@ export function createCodexClient(config: ResolvedConfig): ChapterClient {
       return codex;
     }
     const mod = await import("@openai/codex-sdk");
-    const Codex = (mod as { Codex: new (o?: { apiKey?: string }) => CodexLike }).Codex;
-    codex = new Codex(config.apiKey ? { apiKey: config.apiKey } : undefined);
+    const Codex = (mod as { Codex: new () => CodexLike }).Codex;
+    codex = new Codex();
     return codex;
   }
 

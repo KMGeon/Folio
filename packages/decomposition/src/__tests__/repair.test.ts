@@ -70,12 +70,12 @@ describe("repair loop (mocked Codex)", () => {
     expectFullCoverage(diff, result.chapters);
   });
 
-  it("falls back when the model throws a transport error", async () => {
+  it("propagates model transport errors", async () => {
     const diff = readFixture("refactor-with-tests.diff");
     const stub = new StubClient([new Error("503 overloaded")]);
-    const result = await decompose({ diff }, {}, { clientFactory: () => stub });
-    expect(result.source).toBe("fallback");
-    expectFullCoverage(diff, result.chapters);
+    await expect(decompose({ diff }, {}, { clientFactory: () => stub })).rejects.toThrow(
+      "503 overloaded",
+    );
   });
 
   it("repairs a schema-invalid first output", async () => {
