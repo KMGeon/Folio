@@ -1,6 +1,7 @@
-import { CheckCircle2, ChevronRight, FileText, Folder, Search } from "lucide-react";
+import { CheckCircle2, ChevronRight, Folder, Search } from "lucide-react";
 import Link from "next/link";
 
+import { FileStatusMarker } from "@/components/review/changed-file-tree";
 import { ChapterSwitcher } from "@/components/review/chapter-switcher";
 import { ChapterViewedToggle } from "@/components/review/chapter-viewed-toggle";
 import { Button } from "@/components/ui/button";
@@ -96,7 +97,7 @@ export function ChapterPanel({
               key={file.path}
               className="ml-3 flex items-center gap-1.5 rounded px-1.5 py-1 text-left hover:bg-accent"
             >
-              <FileText className="size-3.5 shrink-0 text-muted-foreground" />
+              <FileStatusMarker status={file.status} />
               <span className="min-w-0 flex-1 truncate">{file.path}</span>
               <span className="shrink-0 font-mono text-xs text-diff-add-fg">+{file.additions}</span>
             </button>

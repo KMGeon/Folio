@@ -15,7 +15,7 @@ import { useMemo, useState } from "react";
 import { ChapterCards } from "@/components/review/chapter-cards";
 import { aggregateChangedFiles } from "@/components/review/changed-file-summary";
 import { buildFileScopedChapter } from "@/components/review/chapter-file-diff";
-import { FileTree } from "@/components/review/changed-file-tree";
+import { FileStatusMarker, FileTree } from "@/components/review/changed-file-tree";
 import { CommitGraph } from "@/components/review/commit-graph";
 import { DiffViewer } from "@/components/review/diff-viewer";
 import { ReviewPrologue } from "@/components/review/review-prologue";
@@ -291,7 +291,7 @@ export function ReviewView({
             {selectedFile && selectedFileScopedChapter ? (
               <section className="overflow-hidden rounded-lg border bg-card">
                 <div className="flex items-center gap-3 border-b px-4 py-3">
-                  <FileText className="size-4 text-primary" />
+                  <FileStatusMarker status={selectedFile.status} active />
                   <span className="min-w-0 flex-1 truncate font-mono text-sm">
                     {selectedFile.path}
                   </span>
