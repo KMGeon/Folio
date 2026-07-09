@@ -12,6 +12,7 @@ export type ActivityDay = { date: string; count: number };
 import { createInstallationOctokit } from "@folio/github";
 import type { Octokit } from "octokit";
 import { fetchPublicContributions } from "../../infrastructure/github/github-contributions.js";
+import { pullLineCounts, relativeTime } from "./dashboard-pull-details.js";
 
 export type DashboardReviewStatus = "ready" | "processing";
 export type DashboardRisk = "low" | "medium" | "high";
@@ -58,8 +59,6 @@ type PullStatus = Record<"chapterCount" | "viewedChapters" | "changedFiles", num
   status: DashboardReviewStatus;
 };
 
-type PullLineCounts = Record<"additions" | "deletions" | "changedFiles", number>;
-
 type GitHubPullSummary = Record<"title" | "updated_at", string> & {
   number: number;
   user?: { login?: string } | null;
@@ -82,11 +81,6 @@ const PROCESSING: PullStatus = {
   changedFiles: 0,
 };
 
-const EMPTY_LINE_COUNTS: PullLineCounts = {
-  additions: 0,
-  deletions: 0,
-  changedFiles: 0,
-};
 const COMPLETED_PULL_LIMIT = 20;
 
 @Injectable()
@@ -149,7 +143,7 @@ export class DashboardFacade {
         repos.push(this.repoPayload(repo, openPrs.length, true));
 
         for (const pr of openPrs) {
-          const lineCounts = await this.pullLineCounts(octokit, repo.owner, repo.name, pr.number);
+          const lineCounts = await pullLineCounts(octokit, repo.owner, repo.name, pr.number);
           const status = await this.resolveStatus(user.id, repo.id, pr.number);
           pulls.push({
             id: `${repo.owner}-${repo.name}-${pr.number}`,
@@ -257,28 +251,6 @@ export class DashboardFacade {
     };
   }
 
-  private async pullLineCounts(
-    octokit: Octokit,
-    owner: string,
-    repo: string,
-    pullNumber: number,
-  ): Promise<PullLineCounts> {
-    try {
-      const { data } = await octokit.rest.pulls.get({
-        owner,
-        repo,
-        pull_number: pullNumber,
-      });
-      return {
-        additions: data.additions ?? 0,
-        deletions: data.deletions ?? 0,
-        changedFiles: data.changed_files ?? 0,
-      };
-    } catch {
-      return EMPTY_LINE_COUNTS;
-    }
-  }
-
   private completedCandidate(
     octokit: Octokit,
     owner: string,
@@ -307,7 +279,7 @@ export class DashboardFacade {
     for (const candidate of candidates
       .sort((a, b) => new Date(b.completedIso).getTime() - new Date(a.completedIso).getTime())
       .slice(0, COMPLETED_PULL_LIMIT)) {
-      const lineCounts = await this.pullLineCounts(
+      const lineCounts = await pullLineCounts(
         candidate.octokit,
         candidate.owner,
         candidate.repo,
@@ -331,16 +303,4 @@ export class DashboardFacade {
 
     return pulls;
   }
-}
-
-function relativeTime(iso: string): string {
-  const minutes = Math.floor((Date.now() - new Date(iso).getTime()) / 60_000);
-  if (minutes < 1) {
-    return "방금";
-  }
-  if (minutes < 60) {
-    return `${minutes}분 전`;
-  }
-  const hours = Math.floor(minutes / 60);
-  return hours < 24 ? `${hours}시간 전` : `${Math.floor(hours / 24)}일 전`;
 }
