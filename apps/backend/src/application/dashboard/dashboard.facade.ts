@@ -14,6 +14,11 @@ import type { Octokit } from "octokit";
 import { fetchPublicContributions } from "../../infrastructure/github/github-contributions.js";
 import { pullLineCounts, relativeTime } from "./dashboard-pull-details.js";
 import {
+  DASHBOARD_CLOSED_PULL_LIST_TTL_MS,
+  DASHBOARD_OPEN_PULL_LIST_TTL_MS,
+  cachedDashboardGithubRequest,
+} from "./dashboard-github-cache.js";
+import {
   COMPLETED_PULL_LIMIT,
   completedCandidate,
   completedPulls,
@@ -227,25 +232,30 @@ export class DashboardFacade {
     page?: number,
     direction?: DashboardDirection,
   ): Promise<GitHubPullSummary[]> {
-    if (state === "closed") {
-      const { data } = await octokit.rest.pulls.list({
+    const cacheKey = `pulls:list:${owner}/${repo}:${state}:${page ?? 1}:${direction ?? "desc"}`;
+    const ttlMs =
+      state === "closed" ? DASHBOARD_CLOSED_PULL_LIST_TTL_MS : DASHBOARD_OPEN_PULL_LIST_TTL_MS;
+    return cachedDashboardGithubRequest(cacheKey, ttlMs, async () => {
+      if (state === "closed") {
+        const { data } = await octokit.rest.pulls.list({
+          owner,
+          repo,
+          state,
+          sort: "updated",
+          direction: direction ?? "desc",
+          per_page: COMPLETED_PULL_LIMIT,
+          ...(page ? { page } : {}),
+        });
+        return data as GitHubPullSummary[];
+      }
+
+      return (await octokit.paginate(octokit.rest.pulls.list, {
         owner,
         repo,
         state,
-        sort: "updated",
-        direction: direction ?? "desc",
-        per_page: COMPLETED_PULL_LIMIT,
-        ...(page ? { page } : {}),
-      });
-      return data as GitHubPullSummary[];
-    }
-
-    return (await octokit.paginate(octokit.rest.pulls.list, {
-      owner,
-      repo,
-      state,
-      per_page: 100,
-    })) as GitHubPullSummary[];
+        per_page: 100,
+      })) as GitHubPullSummary[];
+    });
   }
 
   private async resolveStatus(

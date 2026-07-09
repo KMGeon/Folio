@@ -72,11 +72,17 @@ describe("DashboardBoardClient", () => {
 
   it("keeps filter panel controls aligned to the board requirements", async () => {
     const source = await readFile(new URL("./dashboard-filter-panel.tsx", import.meta.url), "utf8");
+    const boardClient = await readFile(
+      new URL("./dashboard-board-client.tsx", import.meta.url),
+      "utf8",
+    );
 
+    expect(boardClient).toContain('closedRange: "1d"');
     expect(source).toContain("Layout");
     expect(source).toContain("Grouping");
     expect(source).toContain("Ordering");
     expect(source).toContain("Closed reviews");
+    expect(source).toContain("Last 24 hours");
     expect(source).toContain("Show drafts");
     expect(source).toContain("Show empty columns");
     expect(source).toContain("Highlight my PRs");

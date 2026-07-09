@@ -53,7 +53,7 @@ const initialFilters: DashboardFilterState = {
   grouping: "responsibility",
   ordering: "updated",
   direction: "desc",
-  closedRange: "all",
+  closedRange: "1d",
   showDrafts: true,
   showEmptyColumns: true,
   highlightMyPrs: true,

@@ -5,7 +5,7 @@ import { AppLayout } from "@/components/app-layout";
 import { ReviewView } from "@/components/review/review-view";
 import { ApiError } from "@/lib/api-client";
 import { getMe } from "@/lib/auth";
-import { type ReviewPayload, fetchReview } from "@/lib/review-api";
+import { type ReviewPayload, fetchReviewOrCreate } from "@/lib/review-api";
 
 // The backend is unavailable at build time, so never statically prerender this.
 export const dynamic = "force-dynamic";
@@ -24,7 +24,7 @@ export default async function PrOverviewPage({
 
   let review: ReviewPayload;
   try {
-    review = await fetchReview(org, repo, Number(number), { cookie: cookieHeader });
+    review = await fetchReviewOrCreate(org, repo, Number(number), { cookie: cookieHeader });
   } catch (err) {
     if (err instanceof ApiError && err.status === 401) {
       redirect(`/login?redirect=/${org}/${repo}/pull/${number}`);

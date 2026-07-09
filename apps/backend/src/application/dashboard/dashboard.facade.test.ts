@@ -42,10 +42,10 @@ vi.mock("../../infrastructure/github/github-contributions.js", () => ({
 }));
 
 const { DashboardFacade } = await import("./dashboard.facade.js");
+const { clearDashboardGithubCache } = await import("./dashboard-github-cache.js");
 const { DashboardController } =
   await import("../../interfaces/api/dashboard/dashboard.controller.js");
 const { SessionAuthGuard } = await import("../../interfaces/api/common/session-auth.guard.js");
-
 const dashboardUser = { id: "u1", login: "KMGeon", avatarUrl: "https://a/u1" };
 const dashboardAllowGuard = {
   canActivate: (context: ExecutionContext) => {
@@ -208,6 +208,7 @@ function octokitWith({
 
 describe("DashboardFacade", () => {
   beforeEach(() => {
+    clearDashboardGithubCache();
     vi.clearAllMocks();
     listByAccountLogin.mockResolvedValue([{ id: "i1", githubInstallationId: 111 }]);
     listByInstallation.mockResolvedValue([
@@ -258,7 +259,6 @@ describe("DashboardFacade", () => {
     expect(payload.repos).toEqual([
       { id: "r1", fullName: "KMGeon/Folio", openPrCount: 2, folioEnabled: true },
     ]);
-    // Activity comes from the user's public GitHub contributions.
     expect(payload.activity).toEqual([{ date: "2026-06-20", count: 3 }]);
 
     const ready = payload.pulls.find((p) => p.number === 1);

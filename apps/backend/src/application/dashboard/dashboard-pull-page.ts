@@ -2,55 +2,30 @@ import { installationsRepo, repositoriesRepo } from "@folio/db";
 import { createInstallationOctokit } from "@folio/github";
 import type { Octokit } from "octokit";
 import {
-  COMPLETED_PULL_LIMIT,
   type CompletedCursor,
-  completedCandidate,
   completedCursorFrom,
   pageCompleted,
   pageCompletedByLines,
 } from "./dashboard-completed-pull-window.js";
 import { pullLineCounts, relativeTime } from "./dashboard-pull-details.js";
-import type {
-  DashboardCompletedPull,
-  DashboardPull,
-  DashboardReviewStatus,
-} from "./dashboard.facade.js";
+import type { DashboardCompletedPull, DashboardPull } from "./dashboard.facade.js";
 import type {
   CompletedCandidate,
-  DashboardBucket,
-  DashboardClosedRange,
-  DashboardDirection,
   DashboardPullPage,
   DashboardPullPageQuery,
-  GitHubPullSummary,
 } from "./dashboard-pull-page-types.js";
-
-type PullStatus = Record<"chapterCount" | "viewedChapters" | "changedFiles", number> & {
-  status: DashboardReviewStatus;
-};
-type OpenCandidate = { octokit: Octokit; repo: RepoRow; pr: GitHubPullSummary; status: PullStatus };
-type RepoRow = { id: string; owner: string; name: string; fullName: string; folioEnabled: boolean };
-type NormalizedQuery = Required<Omit<DashboardPullPageQuery, "cursor" | "q">> & {
-  cursor?: string;
-  q?: string;
-};
-type DashboardCursor = { offset: number; completed?: CompletedCursor };
-type PullPageDeps = {
-  octokitFactory?: (githubInstallationId: number) => Promise<Octokit>;
-  listPulls: (
-    octokit: Octokit,
-    owner: string,
-    repo: string,
-    state: "open" | "closed",
-    page?: number,
-    direction?: DashboardDirection,
-  ) => Promise<GitHubPullSummary[]>;
-  resolveStatus: (userId: string, repoId: string, prNumber: number) => Promise<PullStatus>;
-};
+import {
+  collectRepoCandidatesForRepos,
+  type DashboardCursor,
+  type NormalizedQuery,
+  type OpenCandidate,
+  type PullPageDeps,
+  type RepoRow,
+} from "./dashboard-repo-pull-candidates.js";
 
 const DEFAULT_PULL_PAGE_LIMIT = 20;
 const MAX_PULL_PAGE_LIMIT = 50;
-const DAY_MS = 24 * 60 * 60 * 1000;
+const REPO_FETCH_CONCURRENCY = 4;
 
 export async function getDashboardPullPageForUser(
   user: { id: string; login: string },
@@ -82,64 +57,18 @@ export async function getDashboardPullPageForUser(
       continue;
     }
 
-    for (const repo of repoRows) {
-      const repoKey = `${repo.owner}/${repo.name}`;
-      if (query.bucket === "completed") {
-        for (const candidate of cursor.completed?.remaining ?? []) {
-          if (`${candidate.owner}/${candidate.repo}` === repoKey) {
-            completedCandidates.push({ ...candidate, octokit });
-          }
-        }
-      }
-
-      let pulls: GitHubPullSummary[];
-      try {
-        const page =
-          cursor.completed && Object.hasOwn(cursor.completed.repoPages, repoKey)
-            ? cursor.completed.repoPages[repoKey]
-            : 1;
-        if (query.bucket === "completed" && page == null) {
-          continue;
-        }
-        pulls = await deps.listPulls(
-          octokit,
-          repo.owner,
-          repo.name,
-          query.bucket === "completed" ? "closed" : "open",
-          query.bucket === "completed" ? (page ?? undefined) : undefined,
-          query.bucket === "completed" ? query.direction : undefined,
-        );
-        if (query.bucket === "completed") {
-          nextCompletedCursor.repoPages[repoKey] =
-            pulls.length === COMPLETED_PULL_LIMIT ? (page ?? 1) + 1 : null;
-        }
-      } catch {
-        continue;
-      }
-
-      for (const pr of pulls) {
-        if (query.bucket === "completed") {
-          const candidate = completedCandidate(octokit, repo.owner, repo.name, pr);
-          if (
-            candidate &&
-            matchesClosedRange(candidate.completedIso, query.closedRange) &&
-            matchesPullQuery(query.q, repo.name, pr.number, pr.title, pr.user?.login)
-          ) {
-            completedCandidates.push(candidate);
-          }
-          continue;
-        }
-
-        if (!query.showDrafts && pr.draft === true) {
-          continue;
-        }
-        if (!matchesPullQuery(query.q, repo.name, pr.number, pr.title, pr.user?.login)) {
-          continue;
-        }
-        const status = await deps.resolveStatus(user.id, repo.id, pr.number);
-        if (matchesOpenBucket(query.bucket, user.login, pr.user?.login, status.status)) {
-          openCandidates.push({ octokit, repo, pr, status });
-        }
+    const repoResults = await collectRepoCandidatesForRepos(repoRows, REPO_FETCH_CONCURRENCY, {
+      octokit,
+      user,
+      query,
+      cursor,
+      deps,
+    });
+    for (const result of repoResults) {
+      openCandidates.push(...result.openCandidates);
+      completedCandidates.push(...result.completedCandidates);
+      if (result.completedPage) {
+        nextCompletedCursor.repoPages[result.completedPage.repoKey] = result.completedPage.nextPage;
       }
     }
   }
@@ -241,42 +170,6 @@ function decodeCursor(cursor: string | undefined): DashboardCursor {
   } catch {
     return { offset: 0 };
   }
-}
-
-function matchesOpenBucket(
-  bucket: DashboardBucket,
-  userLogin: string,
-  authorLogin: string | undefined,
-  status: DashboardReviewStatus,
-): boolean {
-  return (
-    (bucket === "yours" && authorLogin === userLogin) ||
-    (bucket === "ready" && authorLogin !== userLogin && status === "ready") ||
-    (bucket === "other" && authorLogin !== userLogin && status !== "ready")
-  );
-}
-
-function matchesPullQuery(
-  q: string | undefined,
-  repo: string,
-  number: number,
-  title: string,
-  author: string | undefined,
-): boolean {
-  const needle = q?.toLowerCase();
-  return needle
-    ? [repo, String(number), title, author ?? "unknown"].some((value) =>
-        value.toLowerCase().includes(needle),
-      )
-    : true;
-}
-
-function matchesClosedRange(completedIso: string, range: DashboardClosedRange): boolean {
-  if (range === "all") {
-    return true;
-  }
-  const days = range === "7d" ? 7 : range === "30d" ? 30 : 90;
-  return Date.now() - new Date(completedIso).getTime() <= days * DAY_MS;
 }
 
 function dateDelta(a: string, b: string, query: NormalizedQuery): number {
