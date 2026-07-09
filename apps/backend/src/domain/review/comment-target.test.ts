@@ -3,7 +3,7 @@ import { isCommentTargetInChapter } from "./comment-target.js";
 import type { ChapterCode } from "./review-read-model.js";
 
 const code: ChapterCode = {
-  files: [{ path: "a.ts", additions: 1, deletions: 1 }],
+  files: [{ path: "a.ts", status: "modified", additions: 1, deletions: 1 }],
   diffLines: [
     {
       path: "a.ts",

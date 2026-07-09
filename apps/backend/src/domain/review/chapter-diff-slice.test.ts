@@ -29,7 +29,7 @@ diff --git a/b.ts b/b.ts
 describe("sliceChapterCode", () => {
   it("returns only the hunks named by the refs, with mapped line kinds", () => {
     const code = sliceChapterCode(DIFF, [{ filePath: "a.ts", oldStart: 1 }]);
-    expect(code.files).toEqual([{ path: "a.ts", additions: 1, deletions: 0 }]);
+    expect(code.files).toEqual([{ path: "a.ts", status: "modified", additions: 1, deletions: 0 }]);
     expect(code.diffLines).toEqual([
       {
         path: "a.ts",
@@ -63,6 +63,10 @@ describe("sliceChapterCode", () => {
       { filePath: "b.ts", oldStart: 10 },
     ]);
 
+    expect(code.files).toEqual([
+      { path: "a.ts", status: "modified", additions: 1, deletions: 0 },
+      { path: "b.ts", status: "modified", additions: 0, deletions: 1 },
+    ]);
     expect(code.diffLines).toEqual([
       {
         path: "a.ts",
@@ -117,5 +121,21 @@ describe("sliceChapterCode", () => {
     const code = sliceChapterCode(DIFF, [{ filePath: "missing.ts", oldStart: 99 }]);
     expect(code.files).toEqual([]);
     expect(code.diffLines).toEqual([]);
+  });
+
+  it("preserves parsed file status on rendered chapter files", () => {
+    const deletedDiff = `diff --git a/old.ts b/old.ts
+deleted file mode 100644
+index 3b18e51..0000000
+--- a/old.ts
++++ /dev/null
+@@ -1,2 +0,0 @@
+-const old = true;
+-export { old };
+`;
+
+    const code = sliceChapterCode(deletedDiff, [{ filePath: "old.ts", oldStart: 1 }]);
+
+    expect(code.files).toEqual([{ path: "old.ts", status: "deleted", additions: 0, deletions: 2 }]);
   });
 });

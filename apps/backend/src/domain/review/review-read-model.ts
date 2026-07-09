@@ -1,3 +1,5 @@
+import type { FileStatus } from "@folio/types";
+
 /** Web-facing diff line: file identity plus display line data for comments. */
 export interface WebDiffLine {
   path: string;
@@ -10,6 +12,7 @@ export interface WebDiffLine {
 
 export interface WebChapterFile {
   path: string;
+  status: FileStatus;
   additions: number;
   deletions: number;
 }
