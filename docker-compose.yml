@@ -1,8 +1,6 @@
 services:
   backend:
-    build:
-      context: .
-      dockerfile: apps/backend/Dockerfile
+    image: ${ECR_REGISTRY}/${ECR_REPOSITORY}:backend-${IMAGE_TAG}
     env_file:
       - .env
     environment:
@@ -14,9 +12,7 @@ services:
       - "127.0.0.1:8080:8080"
 
   worker:
-    build:
-      context: .
-      dockerfile: apps/backend/Dockerfile
+    image: ${ECR_REGISTRY}/${ECR_REPOSITORY}:worker-${IMAGE_TAG}
     command: ["pnpm", "--filter", "@folio/backend", "exec", "tsx", "src/worker.ts"]
     env_file:
       - .env
@@ -26,11 +22,7 @@ services:
     restart: unless-stopped
 
   web:
-    build:
-      context: .
-      dockerfile: apps/web/Dockerfile
-      args:
-        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
+    image: ${ECR_REGISTRY}/${ECR_REPOSITORY}:web-${IMAGE_TAG}
     env_file:
       - .env
     environment:
