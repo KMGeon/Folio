@@ -48,7 +48,7 @@ export function ChapterPanel({
   const nextChapter = chapters.find((c) => c.index > chapter.index);
 
   return (
-    <aside className="flex w-full shrink-0 flex-col border-b lg:h-auto lg:w-[380px] lg:overflow-y-auto lg:border-b-0 lg:border-l">
+    <aside className="flex w-full shrink-0 flex-col border-b lg:h-auto lg:w-[460px] lg:overflow-y-auto lg:border-b-0 lg:border-l">
       <div className="flex items-center gap-1 px-4 pt-4">
         <ChapterViewedToggle
           org={org}
@@ -113,7 +113,7 @@ export function ChapterPanel({
                   }
                 }}
                 className={cn(
-                  "flex w-full items-start gap-2 rounded-md border px-2.5 py-2 text-left text-sm transition-colors",
+                  "flex w-full items-start gap-2.5 rounded-md border px-3.5 py-3 text-left text-sm leading-relaxed transition-colors",
                   item.viewed
                     ? "border-primary/25 bg-primary/10 text-muted-foreground line-through"
                     : "border-border bg-background/35 hover:bg-accent",

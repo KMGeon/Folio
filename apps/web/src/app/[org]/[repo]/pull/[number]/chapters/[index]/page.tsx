@@ -5,7 +5,7 @@ import { AppLayout } from "@/components/app-layout";
 import { ReviewView } from "@/components/review/review-view";
 import { ApiError } from "@/lib/api-client";
 import { getMe } from "@/lib/auth";
-import { type ReviewPayload, fetchReview } from "@/lib/review-api";
+import { type ReviewPayload, fetchReviewOrCreate } from "@/lib/review-api";
 
 // Prevent Next.js from attempting a static fetch at build time — the backend is not available then.
 export const dynamic = "force-dynamic";
@@ -25,7 +25,7 @@ export default async function ChapterReviewPage({
 
   let review: ReviewPayload;
   try {
-    review = await fetchReview(org, repo, Number(number), { cookie: cookieHeader });
+    review = await fetchReviewOrCreate(org, repo, Number(number), { cookie: cookieHeader });
   } catch (err) {
     if (err instanceof ApiError && err.status === 401) {
       redirect(`/login?redirect=/${org}/${repo}/pull/${number}/chapters/${index}`);
@@ -33,7 +33,8 @@ export default async function ChapterReviewPage({
     throw err;
   }
   const user = await getMe(cookieHeader);
-  if (!review.chapters.some((c) => c.index === Number(index))) {
+  const chapterIndex = Number(index);
+  if (!review.chapters.some((c) => c.index === chapterIndex)) {
     notFound();
   }
 
@@ -46,6 +47,7 @@ export default async function ChapterReviewPage({
         comments={review.comments}
         commits={review.commits}
         commitsTruncated={review.commitsTruncated}
+        initialChapterIndex={chapterIndex}
       />
     </AppLayout>
   );

@@ -41,7 +41,7 @@ export interface DashboardCompletedPull {
 export type DashboardBucket = "ready" | "yours" | "other" | "completed";
 export type DashboardOrdering = "updated" | "lines";
 export type DashboardDirection = "desc" | "asc";
-export type DashboardClosedRange = "all" | "7d" | "30d" | "90d";
+export type DashboardClosedRange = "all" | "1d" | "7d" | "30d" | "90d";
 export type DashboardLayoutMode = "board" | "list";
 export type DashboardGrouping = "responsibility" | "repository";
 export type DashboardCardProperty =

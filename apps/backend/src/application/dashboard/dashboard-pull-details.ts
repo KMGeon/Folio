@@ -1,4 +1,8 @@
 import type { Octokit } from "octokit";
+import {
+  DASHBOARD_OPEN_PULL_DETAIL_TTL_MS,
+  cachedDashboardGithubRequest,
+} from "./dashboard-github-cache.js";
 
 export type PullLineCounts = Record<"additions" | "deletions" | "changedFiles", number>;
 
@@ -13,13 +17,19 @@ export async function pullLineCounts(
   owner: string,
   repo: string,
   pullNumber: number,
+  opts?: { ttlMs?: number },
 ): Promise<PullLineCounts> {
   try {
-    const { data } = await octokit.rest.pulls.get({
-      owner,
-      repo,
-      pull_number: pullNumber,
-    });
+    const { data } = await cachedDashboardGithubRequest(
+      `pulls:get:${owner}/${repo}#${pullNumber}`,
+      opts?.ttlMs ?? DASHBOARD_OPEN_PULL_DETAIL_TTL_MS,
+      () =>
+        octokit.rest.pulls.get({
+          owner,
+          repo,
+          pull_number: pullNumber,
+        }),
+    );
     return {
       additions: data.additions ?? 0,
       deletions: data.deletions ?? 0,
