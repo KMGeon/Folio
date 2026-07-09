@@ -1,11 +1,16 @@
-import { CheckCircle2, ChevronRight, FileText, Folder, Search } from "lucide-react";
+"use client";
+
+import { Check, CheckCircle2, ChevronRight, FileText, Folder, Search } from "lucide-react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
 import { ChapterSwitcher } from "@/components/review/chapter-switcher";
 import { ChapterViewedToggle } from "@/components/review/chapter-viewed-toggle";
 import { Button } from "@/components/ui/button";
-import type { ReviewChapter } from "@/lib/review-api";
+import { setKeyChangeViewed, type ReviewChapter } from "@/lib/review-api";
 import { cn } from "@/lib/utils";
+
+import { filePanelId } from "./review-file-state";
 
 // risk/reviewHints are not in ReviewPayload; those sub-sections are omitted.
 
@@ -16,6 +21,7 @@ export function ChapterPanel({
   org,
   repo,
   number,
+  onKeyChangeViewedChange,
 }: {
   chapters: ReviewChapter[];
   activeIndex: number;
@@ -24,8 +30,15 @@ export function ChapterPanel({
   org: string;
   repo: string;
   number: number;
+  onKeyChangeViewedChange?: (chapterIndex: number, keyChangeId: string, viewed: boolean) => void;
 }) {
   const chapter = chapters.find((c) => c.index === activeIndex) ?? chapters[0];
+  const [keyChanges, setKeyChanges] = useState(chapter?.keyChanges ?? []);
+
+  useEffect(() => {
+    setKeyChanges(chapter?.keyChanges ?? []);
+  }, [chapter]);
+
   if (!chapter) {
     return null;
   }
@@ -34,7 +47,7 @@ export function ChapterPanel({
   const nextChapter = chapters.find((c) => c.index > chapter.index);
 
   return (
-    <aside className="flex w-full shrink-0 flex-col border-b lg:h-auto lg:w-[380px] lg:overflow-y-auto lg:border-r lg:border-b-0">
+    <aside className="flex w-full shrink-0 flex-col border-b lg:h-auto lg:w-[380px] lg:overflow-y-auto lg:border-b-0 lg:border-l">
       <div className="flex items-center gap-1 px-4 pt-4">
         <ChapterViewedToggle
           org={org}
@@ -72,6 +85,57 @@ export function ChapterPanel({
       </div>
 
       <div className="border-t px-4 py-4">
+        <h3 className="text-xs font-medium text-muted-foreground uppercase">검토할 사항</h3>
+        <div className="mt-3 space-y-2">
+          {keyChanges.length > 0 ? (
+            keyChanges.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={async () => {
+                  const next = !item.viewed;
+                  setKeyChanges((prev) =>
+                    prev.map((keyChange) =>
+                      keyChange.id === item.id ? { ...keyChange, viewed: next } : keyChange,
+                    ),
+                  );
+                  onKeyChangeViewedChange?.(chapter.index, item.id, next);
+                  try {
+                    await setKeyChangeViewed(org, repo, number, chapter.index, item.id, next);
+                  } catch {
+                    onKeyChangeViewedChange?.(chapter.index, item.id, !next);
+                    setKeyChanges((prev) =>
+                      prev.map((keyChange) =>
+                        keyChange.id === item.id ? { ...keyChange, viewed: !next } : keyChange,
+                      ),
+                    );
+                  }
+                }}
+                className={cn(
+                  "flex w-full items-start gap-2 rounded-md border px-2.5 py-2 text-left text-sm transition-colors",
+                  item.viewed
+                    ? "border-primary/25 bg-primary/10 text-muted-foreground line-through"
+                    : "border-border bg-background/35 hover:bg-accent",
+                )}
+              >
+                <span
+                  className={cn(
+                    "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded border",
+                    item.viewed && "border-primary bg-primary text-primary-foreground",
+                  )}
+                >
+                  {item.viewed ? <Check className="size-3" /> : null}
+                </span>
+                <span>{item.content}</span>
+              </button>
+            ))
+          ) : (
+            <p className="text-muted-foreground text-sm">검토할 사항이 없습니다.</p>
+          )}
+        </div>
+      </div>
+
+      <div className="border-t px-4 py-4">
         <h3 className="text-xs font-medium text-muted-foreground">
           파일 ( {chapter.files.length} )
         </h3>
@@ -94,9 +158,18 @@ export function ChapterPanel({
             <button
               type="button"
               key={file.path}
+              onClick={() => {
+                document
+                  .getElementById(filePanelId(chapter.index, file.path))
+                  ?.scrollIntoView({ block: "start", behavior: "smooth" });
+              }}
               className="ml-3 flex items-center gap-1.5 rounded px-1.5 py-1 text-left hover:bg-accent"
             >
-              <FileText className="size-3.5 shrink-0 text-muted-foreground" />
+              {file.viewed ? (
+                <CheckCircle2 className="size-3.5 shrink-0 text-primary" />
+              ) : (
+                <FileText className="size-3.5 shrink-0 text-muted-foreground" />
+              )}
               <span className="min-w-0 flex-1 truncate">{file.path}</span>
               <span className="shrink-0 font-mono text-xs text-diff-add-fg">+{file.additions}</span>
             </button>

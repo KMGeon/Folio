@@ -18,3 +18,7 @@ export function groupLinesByFile(chapter: ReviewChapter): FileDiffGroup[] {
     lines: chapter.diffLines.filter((line) => line.path === file.path),
   }));
 }
+
+export function filePanelId(chapterIndex: number, path: string): string {
+  return `chapter-${chapterIndex}-file-${encodeURIComponent(path).replaceAll("%", "-")}`;
+}
