@@ -44,6 +44,8 @@ jobs:
           docker buildx build \
             --platform linux/amd64 \
             --file apps/backend/Dockerfile \
+            --cache-from type=gha,scope=folio-backend \
+            --cache-to type=gha,scope=folio-backend,mode=max \
             --tag "$ECR_REGISTRY/$ECR_REPOSITORY:backend-$IMAGE_TAG" \
             --tag "$ECR_REGISTRY/$ECR_REPOSITORY:worker-$IMAGE_TAG" \
             --push \
@@ -56,6 +58,8 @@ jobs:
             --platform linux/amd64 \
             --file apps/web/Dockerfile \
             --build-arg NEXT_PUBLIC_API_BASE_URL="$NEXT_PUBLIC_API_BASE_URL" \
+            --cache-from type=gha,scope=folio-web \
+            --cache-to type=gha,scope=folio-web,mode=max \
             --tag "$ECR_REGISTRY/$ECR_REPOSITORY:web-$IMAGE_TAG" \
             --push \
             .
