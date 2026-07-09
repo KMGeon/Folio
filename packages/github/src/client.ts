@@ -5,7 +5,6 @@ import { getInstallationToken } from "./auth/installation-token.js";
 import type { GitHubConfig } from "./config.js";
 
 let appConfig: Pick<GitHubConfig, "appId" | "privateKey"> | null = null;
-const installationClients = new Map<number, Octokit>();
 
 /**
  * Bind the client factory to App credentials. Call once at startup (typically
@@ -13,13 +12,11 @@ const installationClients = new Map<number, Octokit>();
  */
 export function configureClients(cfg: Pick<GitHubConfig, "appId" | "privateKey">): void {
   appConfig = cfg;
-  installationClients.clear();
 }
 
-/** Reset memoized clients (test helper). */
+/** Reset configured client state (test helper). */
 export function resetClients(): void {
   appConfig = null;
-  installationClients.clear();
 }
 
 function requireConfig(): Pick<GitHubConfig, "appId" | "privateKey"> {
@@ -43,21 +40,13 @@ export function createAppOctokit(): Octokit {
 }
 
 /**
- * Memoized Octokit scoped to one installation. The underlying installation token
- * is fetched/refreshed via {@link getInstallationToken}; the client is created
- * lazily and cached per installation so we don't re-handshake on every call.
+ * Octokit scoped to one installation. Fetch the current installation token for
+ * each client so long-lived workers don't keep using a client whose token expired.
  */
 export async function createInstallationOctokit(installationId: number): Promise<Octokit> {
   requireConfig();
-  const existing = installationClients.get(installationId);
-  if (existing) {
-    return existing;
-  }
-
   const { token } = await getInstallationToken(installationId);
-  const client = new Octokit({ auth: token });
-  installationClients.set(installationId, client);
-  return client;
+  return new Octokit({ auth: token });
 }
 
 /** Mint a bare App JWT (e.g. for manual diagnostics). */
