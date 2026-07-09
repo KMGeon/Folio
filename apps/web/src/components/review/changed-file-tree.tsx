@@ -1,4 +1,4 @@
-import { FileText, Folder } from "lucide-react";
+import { CheckCircle2, FileText, Folder } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -6,6 +6,7 @@ export interface ChangedFile {
   path: string;
   additions: number;
   deletions: number;
+  viewed: boolean;
   chapterIndex: number;
   chapterTitle: string;
 }
@@ -50,7 +51,11 @@ export function FileTree({
                       : "text-muted-foreground hover:bg-accent",
                   )}
                 >
-                  <FileText className={cn("size-4 shrink-0", active && "text-primary")} />
+                  {file.viewed ? (
+                    <CheckCircle2 className="size-4 shrink-0 text-primary" />
+                  ) : (
+                    <FileText className={cn("size-4 shrink-0", active && "text-primary")} />
+                  )}
                   <span className="min-w-0 flex-1 truncate font-mono text-[13px]">{name}</span>
                   <span className="font-mono text-diff-add-fg text-xs">+{file.additions}</span>
                   {file.deletions > 0 ? (

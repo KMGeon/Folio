@@ -36,11 +36,20 @@ vi.mock("@folio/db", () => ({
         summary: "s",
         order: "0|a:",
         hunkRefs: [{ filePath: "a.ts", oldStart: 1 }],
+        keyChanges: [
+          {
+            id: "chapter-1-kc-1",
+            externalId: "chapter-1-kc-1",
+            content: "이 변경이 API 계약을 깨지 않는지 확인해야 할까요?",
+            lineRefs: [{ filePath: "a.ts", side: "additions", startLine: 2, endLine: 2 }],
+          },
+        ],
       },
     ]),
   },
   reviewStateRepo: {
-    viewedForRevision: vi.fn(async () => ({ filePaths: [], chapterIds: ["ch1"] })),
+    viewedForRevision: vi.fn(async () => ({ filePaths: ["a.ts"], chapterIds: ["ch1"] })),
+    keyChangesViewedForChapters: vi.fn(async () => new Map([["ch1", new Set(["chapter-1-kc-1"])]])),
   },
 }));
 
@@ -83,6 +92,15 @@ describe("ReviewReadFacade", () => {
     expect(payload!.chapters[0]!.index).toBe(1);
     expect(payload!.chapters[0]!.diffLines.length).toBeGreaterThan(0);
     expect(payload!.chapters[0]!.viewed).toBe(true);
+    expect(payload!.chapters[0]!.files[0]).toMatchObject({ path: "a.ts", viewed: true });
+    expect(payload!.chapters[0]!.keyChanges).toEqual([
+      {
+        id: "chapter-1-kc-1",
+        content: "이 변경이 API 계약을 깨지 않는지 확인해야 할까요?",
+        lineRefs: [{ filePath: "a.ts", side: "additions", startLine: 2, endLine: 2 }],
+        viewed: true,
+      },
+    ]);
     expect(payload!.commitsTruncated).toBe(true);
   });
 

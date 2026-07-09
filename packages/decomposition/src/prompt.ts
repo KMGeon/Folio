@@ -42,9 +42,13 @@ NARRATION:
 - Avoid file-name titles and generic titles such as "auth.controller.ts 수정", "파일 수정", "앱 업데이트", "루트 파일 수정".
 
 KEY CHANGES (per Stage):
-- ONLY judgment-call QUESTIONS a human reviewer must answer (product context, team conventions, author intent). Skip anything a linter, type checker, or CI catches. Ignore auto-generated files.
-- Return an EMPTY array when nothing needs human input. Do not invent items.
-- Frame each as a Korean question. Each needs >=1 lineRef.
+- These become the right-side "검토할 사항" checklist in Folio's review UI.
+- For every reviewable implementation chapter, produce 1-3 keyChanges.
+- Return an EMPTY array only for docs-only, generated-only, dependency-only, or catch-all "Other changes" chapters.
+- ONLY judgment-call QUESTIONS a human reviewer must answer after inspecting the chapter. Skip anything a linter, type checker, or CI catches.
+- Focus questions on product behavior, correctness risk, concurrency, persistence, API contracts, security, performance, or test coverage.
+- Frame each as a concise Korean question that can fit in a narrow right-side panel.
+- Each question needs >=1 lineRef pointing to the strongest supporting diff line.
 - lineRefs read line numbers from the formatted columns: side "deletions" → LEFT (old) column; side "additions" → RIGHT (new) column. Read the numbers; never count lines. Keep ranges tight; startLine and endLine are positive integers with endLine >= startLine.
 
 PROLOGUE (optional top-level object):

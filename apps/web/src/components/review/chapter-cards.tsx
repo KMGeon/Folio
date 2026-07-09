@@ -40,6 +40,13 @@ export function ChapterCards({
                   <FileText className="size-3" />
                   {chapter.files.length}
                 </span>
+                {chapter.keyChanges.length > 0 ? (
+                  <span className="flex items-center gap-1 text-muted-foreground">
+                    <CheckCircle2 className="size-3" />
+                    {chapter.keyChanges.filter((item) => item.viewed).length}/
+                    {chapter.keyChanges.length}
+                  </span>
+                ) : null}
               </div>
             </div>
             {chapter.index === 1 ? (

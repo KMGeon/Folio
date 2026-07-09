@@ -1,6 +1,6 @@
 import { parseUnifiedDiff } from "@folio/diff";
 import type { DiffLine, Hunk, HunkReference, PullRequestFile } from "@folio/types";
-import type { ChapterCode, WebChapterFile, WebDiffLine } from "./review-read-model.js";
+import type { ChapterCode, ChapterCodeFile, WebDiffLine } from "./review-read-model.js";
 
 function lineKind(line: DiffLine): WebDiffLine["kind"] {
   if (line.type === "addition") {
@@ -32,7 +32,7 @@ export function sliceChapterCode(rawDiff: string, hunkRefs: HunkReference[]): Ch
   const files: PullRequestFile[] = parseUnifiedDiff(rawDiff);
   const byPath = new Map(files.map((f) => [f.path, f]));
 
-  const touched = new Map<string, WebChapterFile>();
+  const touched = new Map<string, ChapterCodeFile>();
   const diffLines: WebDiffLine[] = [];
 
   for (const ref of hunkRefs) {

@@ -1,7 +1,11 @@
-import { and, eq, gte, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, sql } from "drizzle-orm";
 import { type Db, getDb } from "../client.js";
 import { chapters } from "../schema/chapters.js";
-import { chapterReviewState, fileReviewState } from "../schema/review-state.js";
+import {
+  chapterReviewState,
+  fileReviewState,
+  keyChangeReviewState,
+} from "../schema/review-state.js";
 
 export const reviewStateRepo = {
   /** Mark a file viewed for (user, revision, filePath). Idempotent. */
@@ -122,5 +126,84 @@ export const reviewStateRepo = {
       .from(chapterReviewState)
       .where(and(eq(chapterReviewState.userId, userId), gte(chapterReviewState.viewedAt, since)))
       .groupBy(sql`1`);
+  },
+
+  /** Mark one generated key-change question checked for a user. Idempotent. */
+  async markKeyChangeViewed(
+    p: { userId: string; chapterId: string; keyChangeId: string },
+    db: Db = getDb(),
+  ): Promise<void> {
+    await db
+      .insert(keyChangeReviewState)
+      .values({ userId: p.userId, chapterId: p.chapterId, keyChangeId: p.keyChangeId })
+      .onConflictDoUpdate({
+        target: [
+          keyChangeReviewState.userId,
+          keyChangeReviewState.chapterId,
+          keyChangeReviewState.keyChangeId,
+        ],
+        set: { viewedAt: new Date(), updatedAt: new Date() },
+      });
+  },
+
+  /** Remove one generated key-change question's checked state. */
+  async unmarkKeyChangeViewed(
+    p: { userId: string; chapterId: string; keyChangeId: string },
+    db: Db = getDb(),
+  ): Promise<void> {
+    await db
+      .delete(keyChangeReviewState)
+      .where(
+        and(
+          eq(keyChangeReviewState.userId, p.userId),
+          eq(keyChangeReviewState.chapterId, p.chapterId),
+          eq(keyChangeReviewState.keyChangeId, p.keyChangeId),
+        ),
+      );
+  },
+
+  /** Viewed key-change ids grouped by chapter for a user. */
+  async keyChangesViewedForChapters(
+    userId: string,
+    chapterIds: string[],
+    db: Db = getDb(),
+  ): Promise<Map<string, Set<string>>> {
+    if (chapterIds.length === 0) {
+      return new Map();
+    }
+    const rows = await db
+      .select({
+        chapterId: keyChangeReviewState.chapterId,
+        keyChangeId: keyChangeReviewState.keyChangeId,
+      })
+      .from(keyChangeReviewState)
+      .where(
+        and(
+          eq(keyChangeReviewState.userId, userId),
+          inArray(keyChangeReviewState.chapterId, chapterIds),
+        ),
+      );
+    const byChapter = new Map<string, Set<string>>();
+    for (const row of rows) {
+      const set = byChapter.get(row.chapterId) ?? new Set<string>();
+      set.add(row.keyChangeId);
+      byChapter.set(row.chapterId, set);
+    }
+    return byChapter;
+  },
+
+  /** File-level review progress against the file list currently visible to the user. */
+  async fileProgressForRevision(
+    userId: string,
+    revisionId: string,
+    filePaths: string[],
+    db: Db = getDb(),
+  ): Promise<{ viewed: number; total: number }> {
+    const viewed = await this.viewedForRevision(userId, revisionId, db);
+    const visible = new Set(filePaths);
+    return {
+      viewed: viewed.filePaths.filter((path) => visible.has(path)).length,
+      total: visible.size,
+    };
   },
 };

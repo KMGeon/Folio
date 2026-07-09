@@ -17,6 +17,8 @@ async function buildController(overrides: {
   run?: ReturnType<typeof vi.fn>;
   getReview?: ReturnType<typeof vi.fn>;
   setChapterViewed?: ReturnType<typeof vi.fn>;
+  setFileViewed?: ReturnType<typeof vi.fn>;
+  setKeyChangeViewed?: ReturnType<typeof vi.fn>;
   createInlineComment?: ReturnType<typeof vi.fn>;
 }) {
   const moduleRef = await Test.createTestingModule({
@@ -26,7 +28,11 @@ async function buildController(overrides: {
       { provide: ReviewReadFacade, useValue: { getReview: overrides.getReview ?? vi.fn() } },
       {
         provide: ReviewStateFacade,
-        useValue: { setChapterViewed: overrides.setChapterViewed ?? vi.fn() },
+        useValue: {
+          setChapterViewed: overrides.setChapterViewed ?? vi.fn(),
+          setFileViewed: overrides.setFileViewed ?? vi.fn(),
+          setKeyChangeViewed: overrides.setKeyChangeViewed ?? vi.fn(),
+        },
       },
       {
         provide: ReviewCommentFacade,
@@ -92,6 +98,62 @@ describe("PullsController", () => {
       userId: "u1",
     });
     expect(result.progress).toEqual({ viewed: 1, total: 3 });
+  });
+
+  it("PATCH toggles a file's viewed mark and returns file progress", async () => {
+    const setFileViewed = vi.fn(async () => ({
+      path: "src/a.ts",
+      viewed: true,
+      progress: { viewed: 1, total: 2 },
+    }));
+    const controller = await buildController({ setFileViewed });
+
+    const result = await controller.setFileViewed(
+      "acme",
+      "widget",
+      "7",
+      { path: " src/a.ts ", viewed: true },
+      user,
+    );
+
+    expect(setFileViewed).toHaveBeenCalledWith({
+      owner: "acme",
+      repo: "widget",
+      number: 7,
+      path: "src/a.ts",
+      viewed: true,
+      userId: "u1",
+    });
+    expect(result.progress).toEqual({ viewed: 1, total: 2 });
+  });
+
+  it("PATCH toggles a key-change viewed mark", async () => {
+    const setKeyChangeViewed = vi.fn(async () => ({
+      id: "chapter-1-kc-1",
+      viewed: true,
+    }));
+    const controller = await buildController({ setKeyChangeViewed });
+
+    const result = await controller.setKeyChangeViewed(
+      "acme",
+      "widget",
+      "7",
+      "1",
+      "chapter-1-kc-1",
+      { viewed: true },
+      user,
+    );
+
+    expect(setKeyChangeViewed).toHaveBeenCalledWith({
+      owner: "acme",
+      repo: "widget",
+      number: 7,
+      index: 1,
+      keyChangeId: "chapter-1-kc-1",
+      viewed: true,
+      userId: "u1",
+    });
+    expect(result).toEqual({ id: "chapter-1-kc-1", viewed: true });
   });
 
   it("POST creates an inline review comment with the current user's login", async () => {
