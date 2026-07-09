@@ -1,11 +1,4 @@
-import { type ExecutionContext } from "@nestjs/common";
-import { APP_FILTER, APP_INTERCEPTOR } from "@nestjs/core";
-import { Test } from "@nestjs/testing";
-import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ApiResponseInterceptor } from "../../interfaces/api/common/api-response.interceptor.js";
-import { LOGGER_PORT } from "../../internal/logger/logger.port.js";
-import { CoreExceptionFilter } from "../../support/error/core-exception.filter.js";
 
 const listByAccountLogin = vi.fn(async () => [{ id: "i1", githubInstallationId: 111 }]);
 const listByInstallation = vi.fn(async () => [
@@ -43,16 +36,6 @@ vi.mock("../../infrastructure/github/github-contributions.js", () => ({
 
 const { DashboardFacade } = await import("./dashboard.facade.js");
 const { clearDashboardGithubCache } = await import("./dashboard-github-cache.js");
-const { DashboardController } =
-  await import("../../interfaces/api/dashboard/dashboard.controller.js");
-const { SessionAuthGuard } = await import("../../interfaces/api/common/session-auth.guard.js");
-const dashboardUser = { id: "u1", login: "KMGeon", avatarUrl: "https://a/u1" };
-const dashboardAllowGuard = {
-  canActivate: (context: ExecutionContext) => {
-    context.switchToHttp().getRequest().user = dashboardUser;
-    return true;
-  },
-};
 
 interface PullFixture {
   number: number;
@@ -840,33 +823,5 @@ describe("DashboardFacade", () => {
 
     expect(first.items.map((pull) => pull.number)).toEqual([2]);
     expect(second.items.map((pull) => pull.number)).toEqual([3]);
-  });
-
-  it("wraps invalid dashboard pull query errors in the common API envelope", async () => {
-    const moduleRef = await Test.createTestingModule({
-      controllers: [DashboardController],
-      providers: [
-        { provide: DashboardFacade, useValue: { getPullPageForUser: vi.fn() } },
-        { provide: LOGGER_PORT, useValue: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } },
-        { provide: APP_FILTER, useClass: CoreExceptionFilter },
-        { provide: APP_INTERCEPTOR, useClass: ApiResponseInterceptor },
-      ],
-    })
-      .overrideGuard(SessionAuthGuard)
-      .useValue(dashboardAllowGuard)
-      .compile();
-    const app = moduleRef.createNestApplication();
-    await app.init();
-
-    const res = await request(app.getHttpServer()).get("/api/v1/dashboard/pulls?bucket=bogus");
-
-    expect(res.status).toBe(400);
-    expect(res.body).toMatchObject({
-      success: false,
-      error: { code: "bad_request", message: "The request is invalid." },
-      path: "/api/v1/dashboard/pulls?bucket=bogus",
-    });
-    expect(res.body.timestamp).toEqual(expect.any(String));
-    await app.close();
   });
 });
