@@ -88,10 +88,16 @@ export async function pageCompletedByLines(
   query: { limit: number; direction: DashboardDirection },
 ): Promise<DashboardPullPage> {
   const enriched = await completedPulls(candidates);
-  const sorted = [...enriched].sort((a, b) => lineDelta(a, b, query.direction));
+  const sorted = enriched
+    .map((pull, index) => ({ candidate: candidates[index], pull }))
+    .sort((a, b) => lineDelta(a.pull, b.pull, query.direction));
+  const pageRows = sorted.slice(0, query.limit);
   return {
-    items: sorted.slice(0, query.limit),
-    nextCursor: completedNextCursor(candidates.slice(query.limit), cursor),
+    items: pageRows.map((row) => row.pull),
+    nextCursor: completedNextCursor(
+      sorted.flatMap((row) => (row.candidate ? [row.candidate] : [])).slice(query.limit),
+      cursor,
+    ),
     count: sorted.length,
   };
 }

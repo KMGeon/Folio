@@ -1,4 +1,11 @@
+import { type ExecutionContext } from "@nestjs/common";
+import { APP_FILTER, APP_INTERCEPTOR } from "@nestjs/core";
+import { Test } from "@nestjs/testing";
+import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ApiResponseInterceptor } from "../../interfaces/api/common/api-response.interceptor.js";
+import { LOGGER_PORT } from "../../internal/logger/logger.port.js";
+import { CoreExceptionFilter } from "../../support/error/core-exception.filter.js";
 
 const listByAccountLogin = vi.fn(async () => [{ id: "i1", githubInstallationId: 111 }]);
 const listByInstallation = vi.fn(async () => [
@@ -37,6 +44,15 @@ vi.mock("../../infrastructure/github/github-contributions.js", () => ({
 const { DashboardFacade } = await import("./dashboard.facade.js");
 const { DashboardController } =
   await import("../../interfaces/api/dashboard/dashboard.controller.js");
+const { SessionAuthGuard } = await import("../../interfaces/api/common/session-auth.guard.js");
+
+const dashboardUser = { id: "u1", login: "KMGeon", avatarUrl: "https://a/u1" };
+const dashboardAllowGuard = {
+  canActivate: (context: ExecutionContext) => {
+    context.switchToHttp().getRequest().user = dashboardUser;
+    return true;
+  },
+};
 
 interface PullFixture {
   number: number;
@@ -111,6 +127,17 @@ function closedPr({
     updated_at: closedAt,
     closed_at: closedAt,
     merged_at: mergedAt,
+  };
+}
+
+function repoRow(id: string, name: string) {
+  return {
+    id,
+    owner: "KMGeon",
+    name,
+    fullName: `KMGeon/${name}`,
+    defaultBranch: "main",
+    folioEnabled: true,
   };
 }
 
@@ -306,24 +333,7 @@ describe("DashboardFacade", () => {
   });
 
   it("globally sorts completed pulls from multiple repos newest first and caps them at 20", async () => {
-    listByInstallation.mockResolvedValueOnce([
-      {
-        id: "r1",
-        owner: "KMGeon",
-        name: "Folio",
-        fullName: "KMGeon/Folio",
-        defaultBranch: "main",
-        folioEnabled: true,
-      },
-      {
-        id: "r2",
-        owner: "KMGeon",
-        name: "Amberjack",
-        fullName: "KMGeon/Amberjack",
-        defaultBranch: "main",
-        folioEnabled: true,
-      },
-    ]);
+    listByInstallation.mockResolvedValueOnce([repoRow("r1", "Folio"), repoRow("r2", "Amberjack")]);
     const closedByRepo = Array.from({ length: 25 }, (_, index) => index + 1).reduce<
       Record<string, PullFixture[]>
     >(
@@ -390,22 +400,8 @@ describe("DashboardFacade", () => {
 
   it("keeps reachable completed pulls when one repo open pull fetching fails", async () => {
     listByInstallation.mockResolvedValueOnce([
-      {
-        id: "broken-repo-id",
-        owner: "KMGeon",
-        name: "broken",
-        fullName: "KMGeon/broken",
-        defaultBranch: "main",
-        folioEnabled: true,
-      },
-      {
-        id: "reachable-repo-id",
-        owner: "KMGeon",
-        name: "reachable",
-        fullName: "KMGeon/reachable",
-        defaultBranch: "main",
-        folioEnabled: true,
-      },
+      repoRow("broken-repo-id", "broken"),
+      repoRow("reachable-repo-id", "reachable"),
     ]);
     const octokit = octokitWith({
       open: { broken: [], reachable: [] },
@@ -710,22 +706,8 @@ describe("DashboardFacade", () => {
 
   it("keeps reachable pull page results when one repository fails", async () => {
     listByInstallation.mockResolvedValueOnce([
-      {
-        id: "broken-repo-id",
-        owner: "KMGeon",
-        name: "broken",
-        fullName: "KMGeon/broken",
-        defaultBranch: "main",
-        folioEnabled: true,
-      },
-      {
-        id: "reachable-repo-id",
-        owner: "KMGeon",
-        name: "reachable",
-        fullName: "KMGeon/reachable",
-        defaultBranch: "main",
-        folioEnabled: true,
-      },
+      repoRow("broken-repo-id", "broken"),
+      repoRow("reachable-repo-id", "reachable"),
     ]);
     getByRepoAndNumber.mockResolvedValue({ id: "pr" });
     const octokit = octokitWith({
@@ -786,23 +768,107 @@ describe("DashboardFacade", () => {
     );
   });
 
-  it("rejects invalid dashboard pull query values before calling the facade", async () => {
-    const dashboard = { getPullPageForUser: vi.fn() };
-    const controller = new DashboardController(dashboard as never);
-
-    await expect(
-      controller.pulls(
-        { id: "u1", login: "KMGeon" } as never,
-        "invalid",
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
+  it("does not duplicate completed pulls after one repo is exhausted while another continues", async () => {
+    listByInstallation.mockResolvedValue([
+      repoRow("short-repo-id", "short"),
+      repoRow("long-repo-id", "long"),
+    ]);
+    const closedByRepo = {
+      short: [closedPr({ number: 100, mergedAt: "2026-07-26T10:00:00Z" })],
+      long: Array.from({ length: 25 }, (_, index) =>
+        closedPr({
+          number: 25 - index,
+          mergedAt: `2026-07-${String(25 - index).padStart(2, "0")}T10:00:00Z`,
+        }),
       ),
-    ).rejects.toThrow("Invalid bucket");
-    expect(dashboard.getPullPageForUser).not.toHaveBeenCalled();
+    };
+    const octokit = octokitWith({ open: [], closed: closedByRepo, details: {} });
+    const facade = new DashboardFacade({ octokitFactory: async () => octokit as never });
+
+    const first = await facade.getPullPageForUser(
+      { id: "u1", login: "KMGeon" },
+      { bucket: "completed", limit: 2, ordering: "updated", direction: "desc" },
+    );
+    const second = await facade.getPullPageForUser(
+      { id: "u1", login: "KMGeon" },
+      { bucket: "completed", limit: 2, cursor: first.nextCursor ?? undefined },
+    );
+    const third = await facade.getPullPageForUser(
+      { id: "u1", login: "KMGeon" },
+      { bucket: "completed", limit: 2, cursor: second.nextCursor ?? undefined },
+    );
+
+    const seen = [...first.items, ...second.items, ...third.items].map((pull) => pull.id);
+    expect(seen).toEqual([
+      "KMGeon-short-100",
+      "KMGeon-long-25",
+      "KMGeon-long-24",
+      "KMGeon-long-23",
+      "KMGeon-long-22",
+      "KMGeon-long-21",
+    ]);
+  });
+
+  it("continues completed line-ordered pages without duplicates", async () => {
+    const octokit = octokitWith({
+      open: [],
+      closed: [
+        closedPr({ number: 1, title: "Small", mergedAt: "2026-07-03T10:00:00Z" }),
+        closedPr({ number: 2, title: "Large", mergedAt: "2026-07-02T10:00:00Z" }),
+        closedPr({ number: 3, title: "Medium", mergedAt: "2026-07-01T10:00:00Z" }),
+      ],
+      details: {
+        1: { additions: 1, deletions: 0, changed_files: 1 },
+        2: { additions: 30, deletions: 0, changed_files: 1 },
+        3: { additions: 20, deletions: 0, changed_files: 1 },
+      },
+    });
+    const facade = new DashboardFacade({ octokitFactory: async () => octokit as never });
+
+    const first = await facade.getPullPageForUser(
+      { id: "u1", login: "KMGeon" },
+      { bucket: "completed", limit: 1, ordering: "lines", direction: "desc" },
+    );
+    const second = await facade.getPullPageForUser(
+      { id: "u1", login: "KMGeon" },
+      {
+        bucket: "completed",
+        limit: 1,
+        cursor: first.nextCursor ?? undefined,
+        ordering: "lines",
+        direction: "desc",
+      },
+    );
+
+    expect(first.items.map((pull) => pull.number)).toEqual([2]);
+    expect(second.items.map((pull) => pull.number)).toEqual([3]);
+  });
+
+  it("wraps invalid dashboard pull query errors in the common API envelope", async () => {
+    const moduleRef = await Test.createTestingModule({
+      controllers: [DashboardController],
+      providers: [
+        { provide: DashboardFacade, useValue: { getPullPageForUser: vi.fn() } },
+        { provide: LOGGER_PORT, useValue: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } },
+        { provide: APP_FILTER, useClass: CoreExceptionFilter },
+        { provide: APP_INTERCEPTOR, useClass: ApiResponseInterceptor },
+      ],
+    })
+      .overrideGuard(SessionAuthGuard)
+      .useValue(dashboardAllowGuard)
+      .compile();
+    const app = moduleRef.createNestApplication();
+    await app.init();
+
+    const res = await request(app.getHttpServer()).get("/api/v1/dashboard/pulls?bucket=bogus");
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({
+      success: false,
+      error: { code: "bad_request", message: "The request is invalid." },
+      path: "/api/v1/dashboard/pulls?bucket=bogus",
+    });
+    expect(res.body.timestamp).toEqual(expect.any(String));
+    await app.close();
   });
 });

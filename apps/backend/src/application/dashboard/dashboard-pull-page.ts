@@ -60,7 +60,10 @@ export async function getDashboardPullPageForUser(
   const makeOctokit = deps.octokitFactory ?? createInstallationOctokit;
   const openCandidates: OpenCandidate[] = [];
   const completedCandidates: CompletedCandidate[] = [];
-  const nextCompletedCursor: CompletedCursor = { repoPages: {}, remaining: [] };
+  const nextCompletedCursor: CompletedCursor = {
+    repoPages: { ...cursor.completed?.repoPages },
+    remaining: [],
+  };
 
   for (const installation of await installationsRepo.listByAccountLogin(user.login)) {
     const repoRows = (await repositoriesRepo.listByInstallation(installation.id)).filter(
@@ -89,8 +92,11 @@ export async function getDashboardPullPageForUser(
 
       let pulls: GitHubPullSummary[];
       try {
-        const page = cursor.completed?.repoPages[repoKey] ?? 1;
-        if (query.bucket === "completed" && page === null) {
+        const page =
+          cursor.completed && Object.hasOwn(cursor.completed.repoPages, repoKey)
+            ? cursor.completed.repoPages[repoKey]
+            : 1;
+        if (query.bucket === "completed" && page == null) {
           continue;
         }
         pulls = await deps.listPulls(
@@ -98,7 +104,7 @@ export async function getDashboardPullPageForUser(
           repo.owner,
           repo.name,
           query.bucket === "completed" ? "closed" : "open",
-          query.bucket === "completed" ? page : undefined,
+          query.bucket === "completed" ? (page ?? undefined) : undefined,
         );
         if (query.bucket === "completed") {
           nextCompletedCursor.repoPages[repoKey] =
