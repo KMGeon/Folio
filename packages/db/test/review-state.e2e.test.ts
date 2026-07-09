@@ -67,6 +67,59 @@ d("review state (e2e)", () => {
     progress = await reviewStateRepo.progressForRevision(base.userId, base.revisionId, db);
     expect(progress).toEqual({ viewed: 2, total: 3 });
   });
+
+  it("marks key changes viewed idempotently", async () => {
+    const [chapter] = await chaptersRepo.replaceForRevision(
+      base.revisionId,
+      [makeChapter(base, "c1", "1")],
+      db,
+    );
+    const chapterId = nonNull(chapter).id;
+
+    await reviewStateRepo.markKeyChangeViewed(
+      { userId: base.userId, chapterId, keyChangeId: "chapter-1-kc-1" },
+      db,
+    );
+    await reviewStateRepo.markKeyChangeViewed(
+      { userId: base.userId, chapterId, keyChangeId: "chapter-1-kc-1" },
+      db,
+    );
+
+    const viewed = await reviewStateRepo.keyChangesViewedForChapters(base.userId, [chapterId], db);
+    expect(viewed.get(chapterId)).toEqual(new Set(["chapter-1-kc-1"]));
+  });
+
+  it("unmarks key changes", async () => {
+    const [chapter] = await chaptersRepo.replaceForRevision(
+      base.revisionId,
+      [makeChapter(base, "c1", "1")],
+      db,
+    );
+    const chapterId = nonNull(chapter).id;
+    const payload = { userId: base.userId, chapterId, keyChangeId: "chapter-1-kc-1" };
+
+    await reviewStateRepo.markKeyChangeViewed(payload, db);
+    await reviewStateRepo.unmarkKeyChangeViewed(payload, db);
+
+    const viewed = await reviewStateRepo.keyChangesViewedForChapters(base.userId, [chapterId], db);
+    expect(viewed.get(chapterId)).toBeUndefined();
+  });
+
+  it("counts file progress against the current review files", async () => {
+    await reviewStateRepo.markFileViewed(
+      { userId: base.userId, revisionId: base.revisionId, filePath: "src/a.ts" },
+      db,
+    );
+
+    const progress = await reviewStateRepo.fileProgressForRevision(
+      base.userId,
+      base.revisionId,
+      ["src/a.ts", "src/b.ts"],
+      db,
+    );
+
+    expect(progress).toEqual({ viewed: 1, total: 2 });
+  });
 });
 
 function makeChapter(base: BaseFixture, externalId: string, order: string) {

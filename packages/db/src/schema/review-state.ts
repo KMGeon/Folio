@@ -58,7 +58,35 @@ export const chapterReviewState = pgTable(
   ],
 );
 
+/**
+ * Per-key-change "checked" state, keyed by (user, chapter, keyChangeId).
+ * Key changes live in chapter jsonb, so keyChangeId stays text instead of a FK.
+ */
+export const keyChangeReviewState = pgTable(
+  "key_change_review_state",
+  {
+    ...baseColumns(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    chapterId: uuid("chapter_id")
+      .notNull()
+      .references(() => chapters.id, { onDelete: "cascade" }),
+    keyChangeId: text("key_change_id").notNull(),
+    viewedAt: timestamp("viewed_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("key_change_review_state_user_chapter_key_unique").on(
+      table.userId,
+      table.chapterId,
+      table.keyChangeId,
+    ),
+  ],
+);
+
 export type FileReviewStateRow = typeof fileReviewState.$inferSelect;
 export type FileReviewStateInsert = typeof fileReviewState.$inferInsert;
 export type ChapterReviewStateRow = typeof chapterReviewState.$inferSelect;
 export type ChapterReviewStateInsert = typeof chapterReviewState.$inferInsert;
+export type KeyChangeReviewStateRow = typeof keyChangeReviewState.$inferSelect;
+export type KeyChangeReviewStateInsert = typeof keyChangeReviewState.$inferInsert;
