@@ -22,6 +22,7 @@ import { getDashboardPullPageForUser } from "./dashboard-pull-page.js";
 import { getDashboardSummaryForUser } from "./dashboard-summary.js";
 import type {
   CompletedCandidate,
+  DashboardDirection,
   DashboardPullPageQuery,
   GitHubPullSummary,
 } from "./dashboard-pull-page-types.js";
@@ -224,6 +225,7 @@ export class DashboardFacade {
     repo: string,
     state: "open" | "closed",
     page?: number,
+    direction?: DashboardDirection,
   ): Promise<GitHubPullSummary[]> {
     if (state === "closed") {
       const { data } = await octokit.rest.pulls.list({
@@ -231,7 +233,7 @@ export class DashboardFacade {
         repo,
         state,
         sort: "updated",
-        direction: "desc",
+        direction: direction ?? "desc",
         per_page: COMPLETED_PULL_LIMIT,
         ...(page ? { page } : {}),
       });

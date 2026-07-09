@@ -19,6 +19,7 @@ import type {
   CompletedCandidate,
   DashboardBucket,
   DashboardClosedRange,
+  DashboardDirection,
   DashboardPullPage,
   DashboardPullPageQuery,
   GitHubPullSummary,
@@ -42,6 +43,7 @@ type PullPageDeps = {
     repo: string,
     state: "open" | "closed",
     page?: number,
+    direction?: DashboardDirection,
   ) => Promise<GitHubPullSummary[]>;
   resolveStatus: (userId: string, repoId: string, prNumber: number) => Promise<PullStatus>;
 };
@@ -105,6 +107,7 @@ export async function getDashboardPullPageForUser(
           repo.name,
           query.bucket === "completed" ? "closed" : "open",
           query.bucket === "completed" ? (page ?? undefined) : undefined,
+          query.bucket === "completed" ? query.direction : undefined,
         );
         if (query.bucket === "completed") {
           nextCompletedCursor.repoPages[repoKey] =

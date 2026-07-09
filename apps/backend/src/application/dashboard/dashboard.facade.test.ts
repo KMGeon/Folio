@@ -147,7 +147,13 @@ function pullsFor(
 ): PullFixture[] {
   return Array.isArray(pulls) ? pulls : (pulls[repo ?? ""] ?? []);
 }
-
+type PullListOptions = {
+  repo?: string;
+  state?: "open" | "closed";
+  page?: number;
+  per_page?: number;
+  direction?: "asc" | "desc";
+};
 function octokitWith({
   open,
   closed,
@@ -157,24 +163,19 @@ function octokitWith({
   failOpenListForRepos,
 }: OctokitFixture) {
   const pulls = {
-    list: vi.fn(
-      async (options: {
-        repo?: string;
-        state?: "open" | "closed";
-        page?: number;
-        per_page?: number;
-      }) => {
-        if (options.state === "closed") {
-          if (failClosedList) {
-            throw new Error("closed list failed");
-          }
-          const perPage = options.per_page ?? 20;
-          const start = ((options.page ?? 1) - 1) * perPage;
-          return { data: pullsFor(closed, options.repo).slice(start, start + perPage) };
+    list: vi.fn(async (options: PullListOptions) => {
+      if (options.state === "closed") {
+        if (failClosedList) {
+          throw new Error("closed list failed");
         }
-        return { data: pullsFor(open, options.repo) };
-      },
-    ),
+        const perPage = options.per_page ?? 20;
+        const start = ((options.page ?? 1) - 1) * perPage;
+        const data = pullsFor(closed, options.repo);
+        const ordered = options.direction === "asc" ? [...data].reverse() : data;
+        return { data: ordered.slice(start, start + perPage) };
+      }
+      return { data: pullsFor(open, options.repo) };
+    }),
     get: vi.fn(async ({ pull_number }: { pull_number: number }) => {
       if (failDetailsFor?.has(pull_number)) {
         throw new Error("detail failed");
@@ -729,38 +730,35 @@ describe("DashboardFacade", () => {
     expect(page.items.map((pull) => pull.title)).toEqual(["Reachable"]);
   });
 
-  it("continues completed pull pages beyond the first bounded GitHub window", async () => {
+  it("continues completed pull pages beyond the first bounded GitHub window ascending", async () => {
     const closed = Array.from({ length: 25 }, (_, index) =>
       closedPr({
         number: 25 - index,
-        title: `Completed ${25 - index}`,
+        closedAt: `2026-07-${String(25 - index).padStart(2, "0")}T10:00:00Z`,
         mergedAt: `2026-07-${String(25 - index).padStart(2, "0")}T10:00:00Z`,
       }),
     );
     const octokit = octokitWith({ open: [], closed, details: {} });
     const facade = new DashboardFacade({ octokitFactory: async () => octokit as never });
+    const user = { id: "u1", login: "KMGeon" };
+    const query = {
+      bucket: "completed",
+      limit: 20,
+      ordering: "updated",
+      direction: "asc",
+    } as const;
 
-    const first = await facade.getPullPageForUser(
-      { id: "u1", login: "KMGeon" },
-      { bucket: "completed", limit: 20, ordering: "updated", direction: "desc" },
-    );
-    const second = await facade.getPullPageForUser(
-      { id: "u1", login: "KMGeon" },
-      {
-        bucket: "completed",
-        limit: 20,
-        cursor: first.nextCursor ?? undefined,
-        ordering: "updated",
-        direction: "desc",
-      },
-    );
-
+    const first = await facade.getPullPageForUser(user, query);
+    const second = await facade.getPullPageForUser(user, {
+      ...query,
+      cursor: first.nextCursor ?? undefined,
+    });
     expect(first.items.map((pull) => pull.number)).toEqual(
-      Array.from({ length: 20 }, (_, index) => 25 - index),
+      Array.from({ length: 20 }, (_, index) => index + 1),
     );
-    expect(second.items.map((pull) => pull.number)).toEqual([5, 4, 3, 2, 1]);
+    expect(second.items.map((pull) => pull.number)).toEqual([21, 22, 23, 24, 25]);
     expect(octokit.rest.pulls.list).toHaveBeenCalledWith(
-      expect.objectContaining({ state: "closed", per_page: 20, page: 2 }),
+      expect.objectContaining({ state: "closed", per_page: 20, direction: "asc", page: 2 }),
     );
     expect(octokit.paginate).not.toHaveBeenCalledWith(
       expect.anything(),
