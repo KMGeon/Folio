@@ -4,9 +4,7 @@ import { redirect } from "next/navigation";
 import { AppLayout } from "@/components/app-layout";
 import { DashboardBoardClient } from "@/components/dashboard/dashboard-board-client";
 import { type DashboardBoardLabels } from "@/components/dashboard/dashboard-board";
-import { ApiError } from "@/lib/api-client";
 import { getMe } from "@/lib/auth";
-import { fetchDashboardSummary } from "@/lib/dashboard-api";
 
 export const dynamic = "force-dynamic";
 
@@ -23,16 +21,10 @@ export default async function DashboardPage() {
     .map((c) => `${c.name}=${c.value}`)
     .join("; ");
 
-  try {
-    await fetchDashboardSummary({ cookie: cookieHeader });
-  } catch (err) {
-    if (err instanceof ApiError && err.status === 401) {
-      redirect("/login?redirect=/");
-    }
-    throw err;
-  }
-
   const user = await getMe(cookieHeader);
+  if (!user) {
+    redirect("/login?redirect=/");
+  }
 
   return (
     <AppLayout user={user}>

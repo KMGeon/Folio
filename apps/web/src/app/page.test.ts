@@ -7,7 +7,9 @@ describe("DashboardPage", () => {
     const source = await readFile(new URL("./page.tsx", import.meta.url), "utf8");
 
     expect(source).toContain("DashboardBoardClient");
-    expect(source).toContain("fetchDashboardSummary");
+    expect(source).toContain("getMe");
+    expect(source).toContain('redirect("/login?redirect=/")');
+    expect(source).not.toContain("fetchDashboardSummary");
     expect(source).toContain("Ready to review");
     expect(source).toContain("Your pull requests");
     expect(source).toContain("Other");

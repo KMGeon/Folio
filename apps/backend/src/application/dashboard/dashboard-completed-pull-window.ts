@@ -1,4 +1,5 @@
 import { pullLineCounts, relativeTime } from "./dashboard-pull-details.js";
+import { DASHBOARD_COMPLETED_PULL_DETAIL_TTL_MS } from "./dashboard-github-cache.js";
 import type { DashboardCompletedPull } from "./dashboard.facade.js";
 import type {
   CompletedCandidate,
@@ -48,6 +49,7 @@ export async function completedPulls(
       candidate.owner,
       candidate.repo,
       candidate.number,
+      { ttlMs: DASHBOARD_COMPLETED_PULL_DETAIL_TTL_MS },
     );
     pulls.push({
       id: `${candidate.owner}-${candidate.repo}-${candidate.number}`,

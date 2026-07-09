@@ -12,7 +12,7 @@ import { type AuthedUser, SessionAuthGuard } from "../common/session-auth.guard.
 const buckets = ["ready", "yours", "other", "completed"] as const;
 const orderings = ["updated", "lines"] as const;
 const directions = ["desc", "asc"] as const;
-const closedRanges = ["all", "7d", "30d", "90d"] as const;
+const closedRanges = ["all", "1d", "7d", "30d", "90d"] as const;
 
 function parseEnum<T extends string>(
   value: string | undefined,

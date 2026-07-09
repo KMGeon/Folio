@@ -30,18 +30,20 @@ export function ReviewView({
   comments,
   commits,
   commitsTruncated,
+  initialChapterIndex,
 }: {
   pr: ReviewPrMeta;
   chapters: ReviewChapter[];
   comments: ReviewIssueComment[];
   commits: ReviewCommit[];
   commitsTruncated: boolean;
+  initialChapterIndex?: number;
 }) {
   const [tab, setTab] = useState<ReviewTab>("chapters");
   const [chapterPanelTab, setChapterPanelTab] = useState<ChapterPanelTab>("chapters");
   const [reviewChapters, setReviewChapters] = useState(chapters);
   // null = the graph+cards overview; a number = that chapter's in-place diff review.
-  const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const [openIndex, setOpenIndex] = useState<number | null>(initialChapterIndex ?? null);
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
   // Keep file diffs open on first entry; only the toolbar action should emit a collapse signal.
   const [collapseSignal, setCollapseSignal] = useState<number | undefined>();
@@ -49,6 +51,10 @@ export function ReviewView({
   useEffect(() => {
     setReviewChapters(chapters);
   }, [chapters]);
+
+  useEffect(() => {
+    setOpenIndex(initialChapterIndex ?? null);
+  }, [initialChapterIndex]);
 
   const files = aggregateChangedFiles(reviewChapters);
   const fileProgressValue = fileProgress(files);
@@ -168,7 +174,7 @@ export function ReviewView({
                 </Button>
               </div>
             </div>
-            <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_380px]">
+            <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_460px]">
               <DiffViewer
                 chapter={openChapter}
                 collapseSignal={collapseSignal}

@@ -120,6 +120,7 @@ export function DashboardFilterPanel({ open, filters, onChange }: DashboardFilte
           className="h-8 rounded-md border bg-background px-3 text-sm"
         >
           <option value="all">All time</option>
+          <option value="1d">Last 24 hours</option>
           <option value="7d">Last 7 days</option>
           <option value="30d">Last 30 days</option>
           <option value="90d">Last 90 days</option>

@@ -11,7 +11,7 @@ import type {
 export type DashboardBucket = "ready" | "yours" | "other" | "completed";
 export type DashboardOrdering = "updated" | "lines";
 export type DashboardDirection = "desc" | "asc";
-export type DashboardClosedRange = "all" | "7d" | "30d" | "90d";
+export type DashboardClosedRange = "all" | "1d" | "7d" | "30d" | "90d";
 
 export interface DashboardSummaryPayload {
   metrics: DashboardPayload["metrics"];

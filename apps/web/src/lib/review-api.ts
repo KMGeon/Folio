@@ -1,4 +1,4 @@
-import { apiRequest } from "./api-client";
+import { ApiError, apiRequest } from "./api-client";
 
 export interface ReviewDiffLine {
   path: string;
@@ -185,6 +185,14 @@ export interface ReviewPayload {
   commitsTruncated: boolean;
 }
 
+export interface ReviewGenerationResult {
+  prId: string;
+  revisionId: string;
+  chapters: { order: number; title: string }[];
+  commentUrl: string | null;
+  commentError?: string | null;
+}
+
 export interface FetchReviewOptions {
   /** Forwarded `Cookie` header so server-component fetches carry the session. */
   cookie?: string;
@@ -202,4 +210,41 @@ export function fetchReview(
   return opts?.cookie
     ? apiRequest<ReviewPayload>(path, { headers: { cookie: opts.cookie } })
     : apiRequest<ReviewPayload>(path);
+}
+
+export function createReview(
+  org: string,
+  repo: string,
+  number: number,
+  opts?: FetchReviewOptions,
+): Promise<ReviewGenerationResult> {
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  if (opts?.cookie) {
+    headers.cookie = opts.cookie;
+  }
+  return apiRequest<ReviewGenerationResult>("/api/v1/pulls", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ owner: org, repo, number }),
+  });
+}
+
+export async function fetchReviewOrCreate(
+  org: string,
+  repo: string,
+  number: number,
+  opts?: FetchReviewOptions,
+): Promise<ReviewPayload> {
+  try {
+    return await fetchReview(org, repo, number, opts);
+  } catch (err) {
+    if (!(err instanceof ApiError) || err.status !== 404) {
+      throw err;
+    }
+  }
+
+  // A missing review is recoverable: generate the existing Folio review artifact,
+  // including the GitHub chapter comment, then read through the normal path.
+  await createReview(org, repo, number, opts);
+  return fetchReview(org, repo, number, opts);
 }
