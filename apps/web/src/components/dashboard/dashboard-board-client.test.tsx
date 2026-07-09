@@ -13,6 +13,16 @@ describe("DashboardBoardClient", () => {
     expect(source).toContain("showEmptyColumns");
   });
 
+  it("sends grouping through the pull-page query and reload flow", async () => {
+    const api = await readFile(new URL("../../lib/dashboard-api.ts", import.meta.url), "utf8");
+    const client = await readFile(new URL("./dashboard-board-client.tsx", import.meta.url), "utf8");
+
+    expect(api).toContain("grouping?: DashboardGrouping");
+    expect(api).toContain('params.set("grouping", query.grouping)');
+    expect(client).toContain("grouping: filters.grouping");
+    expect(client).toContain("filters.grouping");
+  });
+
   it("keeps filter panel controls aligned to the board requirements", async () => {
     const source = await readFile(new URL("./dashboard-filter-panel.tsx", import.meta.url), "utf8");
 

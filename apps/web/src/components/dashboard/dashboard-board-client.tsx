@@ -137,6 +137,7 @@ export function DashboardBoardClient({
           ordering: filters.ordering,
           direction: filters.direction,
           closedRange: filters.closedRange,
+          grouping: filters.grouping,
           showDrafts: filters.showDrafts,
         });
         if (version !== requestVersionRef.current) {
@@ -170,7 +171,14 @@ export function DashboardBoardClient({
         inFlightRef.current.delete(key);
       }
     },
-    [debouncedQuery, filters.closedRange, filters.direction, filters.ordering, filters.showDrafts],
+    [
+      debouncedQuery,
+      filters.closedRange,
+      filters.direction,
+      filters.grouping,
+      filters.ordering,
+      filters.showDrafts,
+    ],
   );
 
   useEffect(() => {
