@@ -1,14 +1,7 @@
 import { FileText, Folder } from "lucide-react";
 
+import type { ChangedFile } from "@/components/review/changed-file-summary";
 import { cn } from "@/lib/utils";
-
-export interface ChangedFile {
-  path: string;
-  additions: number;
-  deletions: number;
-  chapterIndex: number;
-  chapterTitle: string;
-}
 
 export function FileTree({
   files,

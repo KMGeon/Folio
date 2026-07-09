@@ -9,8 +9,8 @@ const chapter: ReviewChapter = {
   title: "Chapter",
   summary: "Summary",
   files: [
-    { path: "a.ts", additions: 1, deletions: 0 },
-    { path: "b.ts", additions: 0, deletions: 1 },
+    { path: "a.ts", status: "added", additions: 1, deletions: 0 },
+    { path: "b.ts", status: "deleted", additions: 0, deletions: 1 },
   ],
   diffLines: [
     { path: "a.ts", n: 2, kind: "add", text: "a", newLineNumber: 2 },
@@ -23,7 +23,7 @@ describe("buildFileScopedChapter", () => {
   it("keeps chapter metadata but only includes the selected file lines and file summary", () => {
     expect(buildFileScopedChapter(chapter, "b.ts")).toEqual({
       ...chapter,
-      files: [{ path: "b.ts", additions: 0, deletions: 1 }],
+      files: [{ path: "b.ts", status: "deleted", additions: 0, deletions: 1 }],
       diffLines: [{ path: "b.ts", n: 4, kind: "del", text: "b", oldLineNumber: 4 }],
     });
   });

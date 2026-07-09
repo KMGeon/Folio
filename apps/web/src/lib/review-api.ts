@@ -9,8 +9,11 @@ export interface ReviewDiffLine {
   newLineNumber?: number;
 }
 
+export type ReviewFileStatus = "added" | "modified" | "deleted" | "renamed" | "moved";
+
 export interface ReviewChapterFile {
   path: string;
+  status: ReviewFileStatus;
   additions: number;
   deletions: number;
 }

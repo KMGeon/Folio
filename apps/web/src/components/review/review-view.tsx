@@ -13,8 +13,9 @@ import {
 import { useMemo, useState } from "react";
 
 import { ChapterCards } from "@/components/review/chapter-cards";
+import { aggregateChangedFiles } from "@/components/review/changed-file-summary";
 import { buildFileScopedChapter } from "@/components/review/chapter-file-diff";
-import { FileTree, type ChangedFile } from "@/components/review/changed-file-tree";
+import { FileTree } from "@/components/review/changed-file-tree";
 import { CommitGraph } from "@/components/review/commit-graph";
 import { DiffViewer } from "@/components/review/diff-viewer";
 import { ReviewPrologue } from "@/components/review/review-prologue";
@@ -58,29 +59,6 @@ const STATUS_META: Record<
 type Tab = "chapters" | "files";
 type ChapterPanelTab = "chapters" | "activity";
 
-/** Aggregate every chapter's files into a deduped changed-file list for the Files tab. */
-function aggregateFiles(chapters: ReviewChapter[]): ChangedFile[] {
-  const byPath = new Map<string, ChangedFile>();
-  for (const chapter of chapters) {
-    for (const file of chapter.files) {
-      const existing = byPath.get(file.path);
-      if (existing) {
-        existing.additions += file.additions;
-        existing.deletions += file.deletions;
-      } else {
-        byPath.set(file.path, {
-          path: file.path,
-          additions: file.additions,
-          deletions: file.deletions,
-          chapterIndex: chapter.index,
-          chapterTitle: chapter.title,
-        });
-      }
-    }
-  }
-  return [...byPath.values()];
-}
-
 export function ReviewView({
   pr,
   chapters,
@@ -102,7 +80,7 @@ export function ReviewView({
 
   const status = STATUS_META[pr.status];
   const StatusIcon = status.icon;
-  const files = aggregateFiles(chapters);
+  const files = aggregateChangedFiles(chapters);
   const selectedFile = useMemo(
     () => files.find((file) => file.path === selectedFilePath) ?? files[0] ?? null,
     [files, selectedFilePath],
