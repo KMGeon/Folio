@@ -7,6 +7,11 @@ coverage/
 *.tsbuildinfo
 .DS_Store
 .turbo/
+apm_modules/
+.agents/
+.omo/
+.claude/skills/
+apm.lock.yaml
 
 # next.js
 .next/
@@ -30,3 +35,5 @@ next-env.d.ts
 
 # agent scratch/spec output
 docs/superpowers/
+.codegraph
+.debug-journal.md

@@ -1,0 +1,4 @@
+scripts:
+  setup: |
+    apm install
+    pnpm install
