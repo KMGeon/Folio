@@ -11,6 +11,9 @@ export function buildSplitDiffRows(lines: ReviewDiffLine[]): SplitDiffRow[] {
 
   while (index < lines.length) {
     const line = lines[index];
+    if (!line) {
+      break;
+    }
 
     if (line.kind === "ctx") {
       rows.push({ oldLine: line, newLine: line });
@@ -22,14 +25,18 @@ export function buildSplitDiffRows(lines: ReviewDiffLine[]): SplitDiffRow[] {
       const deletions: ReviewDiffLine[] = [];
       const additions: ReviewDiffLine[] = [];
 
-      while (lines[index]?.kind === "del") {
-        deletions.push(lines[index]);
+      let current = lines[index];
+      while (current?.kind === "del") {
+        deletions.push(current);
         index += 1;
+        current = lines[index];
       }
 
-      while (lines[index]?.kind === "add") {
-        additions.push(lines[index]);
+      current = lines[index];
+      while (current?.kind === "add") {
+        additions.push(current);
         index += 1;
+        current = lines[index];
       }
 
       const count = Math.max(deletions.length, additions.length);
