@@ -28,6 +28,7 @@ services:
     environment:
       APP_PROFILE: prd
       NODE_ENV: production
+      PORT: 5173
     restart: unless-stopped
     ports:
       - "127.0.0.1:5173:5173"
