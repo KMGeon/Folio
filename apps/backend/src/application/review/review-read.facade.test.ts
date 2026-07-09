@@ -46,7 +46,7 @@ vi.mock("@folio/db", () => ({
 
 vi.mock("@folio/github", () => ({
   createInstallationOctokit: vi.fn(async () => ({ rest: {} })),
-  getRepositoryCommits: vi.fn(async () => []),
+  getRepositoryCommits: vi.fn(async () => ({ commits: [], hasMore: true })),
   getPullRequestCommits: vi.fn(async () => []),
   listIssueComments: vi.fn(async () => [
     {
@@ -83,6 +83,7 @@ describe("ReviewReadFacade", () => {
     expect(payload!.chapters[0]!.index).toBe(1);
     expect(payload!.chapters[0]!.diffLines.length).toBeGreaterThan(0);
     expect(payload!.chapters[0]!.viewed).toBe(true);
+    expect(payload!.commitsTruncated).toBe(true);
   });
 
   it("returns null when the pr is unknown", async () => {

@@ -63,6 +63,7 @@ export class ReviewReadFacade {
     });
 
     let commits: ReviewCommit[] = [];
+    let commitsTruncated = false;
     let comments: ReviewIssueComment[] = [];
     try {
       const installation = await installationsRepo.getById(repository.installationId);
@@ -70,12 +71,13 @@ export class ReviewReadFacade {
         const octokit = await createInstallationOctokit(installation.githubInstallationId);
         // Live GitHub reads are additive UI context; each section degrades independently.
         try {
-          const [baseCommits, prCommits] = await Promise.all([
+          const [basePage, prCommits] = await Promise.all([
             getRepositoryCommits(octokit, { owner, repo, sha: pr.baseRef, perPage: 20 }),
             getPullRequestCommits(octokit, { owner, repo, number }),
           ]);
+          commitsTruncated = basePage.hasMore;
           commits = mergeCommitFlow(
-            baseCommits.map((commit) => ({ ...commit, branch: "base" as const })),
+            basePage.commits.map((commit) => ({ ...commit, branch: "base" as const })),
             prCommits.map((commit) => ({ ...commit, branch: "head" as const })),
           );
         } catch (err) {
@@ -119,6 +121,7 @@ export class ReviewReadFacade {
       chapters,
       comments,
       commits,
+      commitsTruncated,
     };
   }
 }

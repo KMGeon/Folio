@@ -44,6 +44,11 @@ export interface PullRequestCommit {
   parents: string[];
 }
 
+export interface PullRequestCommitPage {
+  commits: PullRequestCommit[];
+  hasMore: boolean;
+}
+
 export interface ReviewSummary {
   id: number;
   reviewerLogin: string | null;
@@ -167,20 +172,38 @@ export async function getPullRequestCommits(
 export async function getRepositoryCommits(
   client: Octokit,
   input: { owner: string; repo: string; sha: string; perPage?: number },
-): Promise<PullRequestCommit[]> {
-  const commits = await client.paginate(client.rest.repos.listCommits, {
+): Promise<PullRequestCommitPage> {
+  const { data, headers } = await client.rest.repos.listCommits({
     owner: input.owner,
     repo: input.repo,
     sha: input.sha,
     per_page: input.perPage ?? 20,
   });
-  return commits.map((c) => ({
+  return { commits: data.map(mapCommit), hasMore: hasNextPage(headers.link) };
+}
+
+function mapCommit(c: {
+  sha: string;
+  commit: {
+    message: string;
+    author?: { name?: string; date?: string } | null;
+    committer?: { date?: string } | null;
+  };
+  author?: { login?: string } | null;
+  parents?: { sha: string }[];
+}): PullRequestCommit {
+  return {
     sha: c.sha,
     message: c.commit.message,
     author: c.author?.login ?? c.commit.author?.name ?? "unknown",
     authoredAt: c.commit.author?.date ?? c.commit.committer?.date ?? "",
     parents: c.parents?.map((p) => p.sha) ?? [],
-  }));
+  };
+}
+
+function hasNextPage(linkHeader: string | string[] | undefined): boolean {
+  const value = Array.isArray(linkHeader) ? linkHeader.join(",") : (linkHeader ?? "");
+  return /;\s*rel="next"/u.test(value);
 }
 
 /**

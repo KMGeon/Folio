@@ -70,6 +70,7 @@ export {
   type CreatedReviewComment,
   type CreateReviewCommentInput,
   type PullRequestCommit,
+  type PullRequestCommitPage,
   type PullRequestFile,
   type PullRequestSummary,
   type ReviewCommentSummary,

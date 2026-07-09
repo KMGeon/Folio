@@ -117,6 +117,8 @@ export interface ReviewPayload {
   comments: ReviewIssueComment[];
   /** Oldest→newest PR commits; may be empty if GitHub was unreachable. */
   commits: ReviewCommit[];
+  /** True when only the initial commit window was loaded. */
+  commitsTruncated: boolean;
 }
 
 export interface FetchReviewOptions {

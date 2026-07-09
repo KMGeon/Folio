@@ -45,6 +45,7 @@ export default async function ChapterReviewPage({
         chapters={review.chapters}
         comments={review.comments}
         commits={review.commits}
+        commitsTruncated={review.commitsTruncated}
       />
     </AppLayout>
   );

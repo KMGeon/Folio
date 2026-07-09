@@ -12,6 +12,9 @@ vi.mock("./api-client", () => ({
       headBranch: "feat",
     },
     chapters: [{ index: 1, title: "C1", summary: "s", files: [], diffLines: [] }],
+    comments: [],
+    commits: [],
+    commitsTruncated: false,
   })),
 }));
 

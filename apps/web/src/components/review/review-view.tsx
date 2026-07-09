@@ -85,11 +85,13 @@ export function ReviewView({
   chapters,
   comments,
   commits,
+  commitsTruncated,
 }: {
   pr: ReviewPrMeta;
   chapters: ReviewChapter[];
   comments: ReviewIssueComment[];
   commits: ReviewCommit[];
+  commitsTruncated: boolean;
 }) {
   const [tab, setTab] = useState<Tab>("chapters");
   const [chapterPanelTab, setChapterPanelTab] = useState<ChapterPanelTab>("chapters");
@@ -268,7 +270,7 @@ export function ReviewView({
                     />
                     <PanelTabButton
                       active={chapterPanelTab === "activity"}
-                      label={`활동 ${commits.length}`}
+                      label={`활동 ${commits.length}${commitsTruncated ? "+" : ""}`}
                       onClick={() => setChapterPanelTab("activity")}
                     />
                   </div>

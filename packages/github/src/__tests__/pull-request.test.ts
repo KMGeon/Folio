@@ -71,37 +71,47 @@ describe("getPullRequest", () => {
 });
 
 describe("getRepositoryCommits", () => {
-  it("lists recent commits for a branch or sha", async () => {
-    const paginate = vi.fn().mockResolvedValue([
-      {
-        sha: "base1",
-        commit: { message: "base: latest", author: { date: "2026-06-03T00:00:00Z" } },
-        author: { login: "alice" },
-        parents: [{ sha: "base0" }],
-      },
-    ]);
-    const client = fakeOctokit({ paginate });
+  it("lists only the first page of recent commits for a branch or sha", async () => {
+    const listRepoCommits = vi.fn().mockResolvedValue({
+      data: [
+        {
+          sha: "base1",
+          commit: { message: "base: latest", author: { date: "2026-06-03T00:00:00Z" } },
+          author: { login: "alice" },
+          parents: [{ sha: "base0" }],
+        },
+      ],
+      headers: { link: '<https://api.github.com/repos/acme/widgets/commits?page=2>; rel="next"' },
+    });
+    const paginate = vi.fn();
+    const client = fakeOctokit({ listRepoCommits, paginate });
 
-    const commits = await getRepositoryCommits(client, {
+    const result = await getRepositoryCommits(client, {
       owner: "acme",
       repo: "widgets",
       sha: "main",
       perPage: 20,
     });
 
-    expect(commits).toEqual([
-      {
-        sha: "base1",
-        message: "base: latest",
-        author: "alice",
-        authoredAt: "2026-06-03T00:00:00Z",
-        parents: ["base0"],
-      },
-    ]);
-    expect(paginate).toHaveBeenCalledWith(
-      "listRepoCommits-endpoint",
-      expect.objectContaining({ owner: "acme", repo: "widgets", sha: "main", per_page: 20 }),
-    );
+    expect(result).toEqual({
+      commits: [
+        {
+          sha: "base1",
+          message: "base: latest",
+          author: "alice",
+          authoredAt: "2026-06-03T00:00:00Z",
+          parents: ["base0"],
+        },
+      ],
+      hasMore: true,
+    });
+    expect(listRepoCommits).toHaveBeenCalledWith({
+      owner: "acme",
+      repo: "widgets",
+      sha: "main",
+      per_page: 20,
+    });
+    expect(paginate).not.toHaveBeenCalled();
   });
 });
 
