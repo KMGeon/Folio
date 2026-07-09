@@ -38,6 +38,13 @@ export interface DashboardCompletedPull {
   changedFiles: number;
 }
 
+export type DashboardBucket = "ready" | "yours" | "other" | "completed";
+export type DashboardOrdering = "updated" | "lines";
+export type DashboardDirection = "desc" | "asc";
+export type DashboardClosedRange = "all" | "7d" | "30d" | "90d";
+export type DashboardLayoutMode = "board" | "list";
+export type DashboardGrouping = "responsibility" | "repository";
+
 export interface DashboardRepo {
   id: string;
   fullName: string;
@@ -64,6 +71,29 @@ export interface DashboardPayload {
   activity: ActivityDay[];
 }
 
+export interface DashboardSummaryPayload {
+  metrics: DashboardPayload["metrics"];
+  repos: DashboardRepo[];
+  activity: ActivityDay[];
+}
+
+export interface DashboardPullPage {
+  items: (DashboardPull | DashboardCompletedPull)[];
+  nextCursor: string | null;
+  count: number;
+}
+
+export interface DashboardPullPageQuery {
+  bucket: DashboardBucket;
+  limit?: number;
+  cursor?: string | null;
+  q?: string;
+  ordering?: DashboardOrdering;
+  direction?: DashboardDirection;
+  closedRange?: DashboardClosedRange;
+  showDrafts?: boolean;
+}
+
 export interface FetchDashboardOptions {
   /** Forwarded `Cookie` header so server-component fetches carry the session. */
   cookie?: string;
@@ -73,4 +103,41 @@ export function fetchDashboard(opts?: FetchDashboardOptions): Promise<DashboardP
   return opts?.cookie
     ? apiRequest<DashboardPayload>("/api/v1/dashboard", { headers: { cookie: opts.cookie } })
     : apiRequest<DashboardPayload>("/api/v1/dashboard");
+}
+
+export function fetchDashboardSummary(
+  opts?: FetchDashboardOptions,
+): Promise<DashboardSummaryPayload> {
+  return opts?.cookie
+    ? apiRequest<DashboardSummaryPayload>("/api/v1/dashboard/summary", {
+        headers: { cookie: opts.cookie },
+      })
+    : apiRequest<DashboardSummaryPayload>("/api/v1/dashboard/summary");
+}
+
+export function fetchDashboardPullPage(query: DashboardPullPageQuery): Promise<DashboardPullPage> {
+  const params = new URLSearchParams();
+  params.set("bucket", query.bucket);
+  if (query.limit) {
+    params.set("limit", String(query.limit));
+  }
+  if (query.cursor) {
+    params.set("cursor", query.cursor);
+  }
+  if (query.q) {
+    params.set("q", query.q);
+  }
+  if (query.ordering) {
+    params.set("ordering", query.ordering);
+  }
+  if (query.direction) {
+    params.set("direction", query.direction);
+  }
+  if (query.closedRange) {
+    params.set("closedRange", query.closedRange);
+  }
+  if (typeof query.showDrafts === "boolean") {
+    params.set("showDrafts", String(query.showDrafts));
+  }
+  return apiRequest<DashboardPullPage>(`/api/v1/dashboard/pulls?${params.toString()}`);
 }

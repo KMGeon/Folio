@@ -2,12 +2,12 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { AppLayout } from "@/components/app-layout";
-import { DashboardBoard, type DashboardBoardLabels } from "@/components/dashboard/dashboard-board";
+import { DashboardBoardClient } from "@/components/dashboard/dashboard-board-client";
+import { type DashboardBoardLabels } from "@/components/dashboard/dashboard-board";
 import { ApiError } from "@/lib/api-client";
 import { getMe } from "@/lib/auth";
-import { type DashboardPayload, fetchDashboard } from "@/lib/dashboard-api";
+import { fetchDashboardSummary } from "@/lib/dashboard-api";
 
-// Live dashboard: open and recently completed PRs from installed repos.
 export const dynamic = "force-dynamic";
 
 const dashboardBoardLabels: DashboardBoardLabels = {
@@ -23,9 +23,8 @@ export default async function DashboardPage() {
     .map((c) => `${c.name}=${c.value}`)
     .join("; ");
 
-  let data: DashboardPayload;
   try {
-    data = await fetchDashboard({ cookie: cookieHeader });
+    await fetchDashboardSummary({ cookie: cookieHeader });
   } catch (err) {
     if (err instanceof ApiError && err.status === 401) {
       redirect("/login?redirect=/");
@@ -34,14 +33,6 @@ export default async function DashboardPage() {
   }
 
   const user = await getMe(cookieHeader);
-  const userLogin = user?.login;
-  const yourPulls = userLogin ? data.pulls.filter((pull) => pull.author === userLogin) : [];
-  const readyPulls = data.pulls.filter(
-    (pull) => pull.author !== userLogin && pull.status === "ready",
-  );
-  const otherPulls = data.pulls.filter(
-    (pull) => pull.author !== userLogin && pull.status !== "ready",
-  );
 
   return (
     <AppLayout user={user}>
@@ -53,13 +44,7 @@ export default async function DashboardPage() {
             </h1>
           </header>
 
-          <DashboardBoard
-            readyPulls={readyPulls}
-            yourPulls={yourPulls}
-            otherPulls={otherPulls}
-            completedPulls={data.completedPulls}
-            labels={dashboardBoardLabels}
-          />
+          <DashboardBoardClient labels={dashboardBoardLabels} />
         </div>
       </div>
     </AppLayout>

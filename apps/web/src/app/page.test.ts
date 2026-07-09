@@ -3,31 +3,44 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 describe("DashboardPage", () => {
-  it("renders the PR board dashboard instead of repository access controls", async () => {
+  it("renders the lazy PR board dashboard instead of waiting for full card arrays", async () => {
     const source = await readFile(new URL("./page.tsx", import.meta.url), "utf8");
 
-    expect(source).toContain("DashboardBoard");
-    expect(source).toContain("completedPulls");
+    expect(source).toContain("DashboardBoardClient");
+    expect(source).toContain("fetchDashboardSummary");
     expect(source).toContain("Ready to review");
     expect(source).toContain("Your pull requests");
     expect(source).toContain("Other");
     expect(source).toContain("Recently completed");
+    expect(source).not.toContain("completedPulls={");
     expect(source).not.toContain("RepositoryToggleForm");
-    expect(source).not.toContain("activeRepos");
-    expect(source).not.toContain("folioEnabled");
   });
 
-  it("keeps dashboard board components in a focused module", async () => {
-    const source = await readFile(
+  it("keeps dashboard board components split by concrete responsibility", async () => {
+    const board = await readFile(
       new URL("../components/dashboard/dashboard-board.tsx", import.meta.url),
       "utf8",
     );
+    const client = await readFile(
+      new URL("../components/dashboard/dashboard-board-client.tsx", import.meta.url),
+      "utf8",
+    );
+    const filters = await readFile(
+      new URL("../components/dashboard/dashboard-filter-panel.tsx", import.meta.url),
+      "utf8",
+    );
+    const skeleton = await readFile(
+      new URL("../components/dashboard/dashboard-skeleton.tsx", import.meta.url),
+      "utf8",
+    );
 
-    expect(source).toContain("export function DashboardBoard");
-    expect(source).toContain("function DashboardColumn");
-    expect(source).toContain("function OpenPullCard");
-    expect(source).toContain("function CompletedPullCard");
-    expect(source).toContain("function DashboardSearchBar");
-    expect(source).toContain("size/XS");
+    expect(board).toContain("export function DashboardBoard");
+    expect(board).toContain("function OpenPullCard");
+    expect(board).toContain("function CompletedPullCard");
+    expect(client).toContain("IntersectionObserver");
+    expect(client).toContain("fetchDashboardPullPage");
+    expect(filters).toContain("DashboardFilterPanel");
+    expect(filters).toContain("Closed reviews");
+    expect(skeleton).toContain("DashboardSkeletonCard");
   });
 });
