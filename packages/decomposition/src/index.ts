@@ -1,7 +1,6 @@
 // @folio/decomposition — the emit_chapters engine. Decomposes a PR unified diff
 // into ordered review chapters + a PR-level prologue via a Codex structured-output
-// turn, guarantees every hunk is covered exactly once, repairs LLM mistakes, and
-// falls back to deterministic heuristics on tiny PRs or LLM failure.
+// turn, guarantees every hunk is covered exactly once, and repairs model mistakes.
 
 export { decompose, decomposeDeterministic, type DecomposeDeps } from "./decompose.js";
 
@@ -51,7 +50,6 @@ export {
   DEFAULT_SINGLE_CHAPTER_HUNK_THRESHOLD,
   resolveConfig,
   resolveModel,
-  isLlmEnabled,
   type ResolvedConfig,
 } from "./config.js";
 

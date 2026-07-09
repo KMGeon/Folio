@@ -1,21 +1,17 @@
 // Orchestrator. The public entry the I2 worker calls.
 //
 // Pipeline:
-//   parse diff (E1) → filter excluded files → (no-reviewable-hunk / llm-off short-circuit
-//   to deterministic fallback) → format + inject-guard → LLM emit_chapters (chunked
-//   if large) → Zod + coverage validation → bounded repair loop → assemble wire
-//   chapters (+ excluded "Other changes" bucket) → final coverage guarantee.
-//
-// The engine NEVER throws a coverage error to the caller: any LLM failure,
-// exhausted repair, or transport error degrades to the deterministic fallback,
-// which always yields 100% hunk coverage.
+//   parse diff (E1) → filter excluded files → format + inject-guard → Codex
+//   emit_chapters (chunked if large) → Zod + coverage validation → bounded repair
+//   loop → assemble wire chapters (+ excluded "Other changes" bucket) → final
+//   coverage guarantee.
 
 import { filterFilesForLlm, formatDiffForLlm, parseUnifiedDiff } from "@folio/diff";
 import type { ChapterEmit, Prologue, PullRequestFile } from "@folio/types";
 import { assembleChapters } from "./assemble.js";
 import { fitsInOneChunk, mergeChunkChapters, splitIntoChunks } from "./chunking.js";
 import type { ChapterClient } from "./client.js";
-import { createDefaultClient } from "./fallback-client.js";
+import { createCodexClient } from "./client.js";
 import { type ResolvedConfig, resolveConfig } from "./config.js";
 import { coverageOf, isFullyCovered } from "./coverage.js";
 import { buildFallbackChapters } from "./fallback.js";
@@ -49,9 +45,8 @@ function excludedBucket(
 }
 
 /**
- * Pure deterministic decomposition (no LLM). Used directly by the harness
- * `--no-llm`, by the tiny-PR / llm-off short-circuit, and as the universal
- * fallback. Always 100% covered.
+ * Pure deterministic decomposition (no LLM). Used directly by the harness and
+ * for PRs with no reviewable hunks. Always 100% covered.
  */
 export function decomposeDeterministic(
   input: DecompositionInput,
@@ -94,8 +89,9 @@ function emptyPrologue(): Prologue {
 }
 
 /**
- * Main entry. Attempts the LLM path and degrades to the deterministic fallback
- * on any failure. Never throws a coverage error to the caller.
+ * Main entry. Uses Codex for reviewable changes and propagates model, validation,
+ * or transport errors to the caller. PRs with no reviewable hunks use the
+ * deterministic path because there is nothing meaningful to send to the model.
  */
 export async function decompose(
   input: DecompositionInput,
@@ -108,41 +104,33 @@ export async function decompose(
   const catchAll = excludedBucket(allFiles, excludedByPath);
   const reviewableHunks = countHunks(reviewable);
 
-  // No reviewable hunks, or LLM disabled → deterministic path.
-  // (Tiny PRs now take the LLM path too, for real narration + prologue.)
-  const llmOff = !config.llmEnabled && !deps.clientFactory;
-  if (reviewableHunks === 0 || llmOff) {
+  if (reviewableHunks === 0) {
     return decomposeDeterministic(input, opts);
   }
 
-  try {
-    const client = (deps.clientFactory ?? createDefaultClient)(config);
-    // ≤ threshold → hint the model toward a single chapter (soft, not a cap).
-    const smallPrHunkCount =
-      reviewableHunks <= config.singleChapterHunkThreshold ? reviewableHunks : undefined;
-    const { output, repaired } = await runLlm(
-      input,
-      reviewable,
-      client,
-      config,
-      opts.signal,
-      smallPrHunkCount,
-    );
+  const client = (deps.clientFactory ?? createCodexClient)(config);
+  // ≤ threshold → hint the model toward a single chapter (soft, not a cap).
+  const smallPrHunkCount =
+    reviewableHunks <= config.singleChapterHunkThreshold ? reviewableHunks : undefined;
+  const { output, repaired } = await runLlm(
+    input,
+    reviewable,
+    client,
+    config,
+    opts.signal,
+    smallPrHunkCount,
+  );
 
-    const merged = ensureFullCoverage(output.chapters, reviewable);
-    const chapters = assembleChapters(merged, catchAll);
-    const prologue: Prologue = output.prologue ?? buildFallbackPrologue(input, reviewable);
+  const merged = ensureFullCoverage(output.chapters, reviewable);
+  const chapters = assembleChapters(merged, catchAll);
+  const prologue: Prologue = output.prologue ?? buildFallbackPrologue(input, reviewable);
 
-    return {
-      chapters,
-      prologue,
-      source: repaired ? "llm-repaired" : "llm",
-      modelUsed: client.model,
-    };
-  } catch {
-    // Any LLM / validation / transport failure → deterministic fallback.
-    return decomposeDeterministic(input, opts);
-  }
+  return {
+    chapters,
+    prologue,
+    source: repaired ? "llm-repaired" : "llm",
+    modelUsed: client.model,
+  };
 }
 
 /**

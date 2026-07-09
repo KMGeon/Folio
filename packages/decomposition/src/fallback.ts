@@ -1,5 +1,5 @@
-// Deterministic, no-LLM decomposition. Used when the LLM path is disabled
-// (FOLIO_DECOMP_LLM=0) and when the LLM path + repair loop are exhausted.
+// Deterministic, no-LLM decomposition. Used by the offline evaluator and for
+// changes with no reviewable hunks.
 // It ALWAYS covers 100% of reviewable hunks exactly once.
 //
 // Strategy precedence:

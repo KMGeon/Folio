@@ -52,7 +52,7 @@ function validate(raw: unknown, files: PullRequestFile[]): ValidateResult {
  * Take the FIRST raw tool input and drive the repair loop. Returns the validated
  * output (with `repaired` provenance). On exhaustion with a schema-valid attempt,
  * returns the best attempt so the caller's coverage sanitizer can fill the gaps.
- * Only throws if no attempt was ever schema-valid (deterministic fallback path).
+ * Throws if no attempt was ever schema-valid.
  */
 export async function runRepairLoop(firstRaw: unknown, ctx: RepairContext): Promise<RepairOutcome> {
   let result = validate(firstRaw, ctx.files);
@@ -83,7 +83,7 @@ export async function runRepairLoop(firstRaw: unknown, ctx: RepairContext): Prom
   }
 
   // Exhausted. Keep the best schema-valid attempt so the caller's coverage
-  // sanitizer preserves the LLM's chapters instead of discarding to deterministic.
+  // sanitizer preserves the LLM's chapters.
   if (bestValid) {
     return { output: bestValid, repaired: true };
   }

@@ -1,6 +1,6 @@
 // Defaults + environment resolution for the decomposition engine.
 // Centralizes every tunable so the orchestrator, client, repair loop, chunker,
-// and fallback share one source of truth.
+// and Codex client share one source of truth.
 
 /** Default Codex model used for the `emit_chapters` structured-output turn. */
 export const DEFAULT_MODEL = "gpt-5.5";
@@ -8,13 +8,13 @@ export const DEFAULT_MODEL = "gpt-5.5";
 /** Low temperature: decomposition is a near-deterministic structuring task. */
 export const DEFAULT_TEMPERATURE = 0.2;
 
-/** Bounded repair re-prompts before giving up and falling back. */
+/** Bounded repair re-prompts before returning the best schema-valid model output. */
 export const DEFAULT_MAX_REPAIR_ATTEMPTS = 2;
 
 /**
  * PRs with at most this many reviewable hunks hint the model toward a SINGLE
- * chapter (soft preference, not a cap). The LLM is still called. Also drives the
- * tiny→one-chapter rule inside the deterministic fallback.
+ * chapter (soft preference, not a cap). The LLM is still called. This also
+ * drives the deterministic evaluator's tiny→one-chapter rule.
  */
 export const DEFAULT_SINGLE_CHAPTER_HUNK_THRESHOLD = 3;
 
@@ -32,15 +32,6 @@ export const DEFAULT_REQUEST_TIMEOUT_MS = 120_000;
  */
 export const DEFAULT_MAX_DIFF_CHARS = 80_000;
 
-/** Default Ollama OpenAI-compatible base URL (local install). */
-export const DEFAULT_OLLAMA_URL = "http://localhost:11434/v1";
-
-/** Default local model for the fallback path; a coder model handles decomposition better. */
-export const DEFAULT_OLLAMA_MODEL = "qwen2.5-coder:14b";
-
-/** How long the Codex circuit breaker stays open after a failure (ms). */
-export const DEFAULT_CODEX_COOLDOWN_MS = 60_000;
-
 /** Resolved, immutable config the engine actually runs with. */
 export interface ResolvedConfig {
   model: string;
@@ -50,18 +41,6 @@ export interface ResolvedConfig {
   maxTokens: number;
   requestTimeoutMs: number;
   maxDiffChars: number;
-  /** Whether the LLM (Codex) path is enabled; false forces deterministic fallback. */
-  llmEnabled: boolean;
-  /** Optional OpenAI API key; when unset the Codex SDK uses the local subscription auth. */
-  apiKey: string | undefined;
-  /** Whether the Ollama fallback slot is enabled; false skips it (Codex → deterministic). */
-  ollamaEnabled: boolean;
-  /** Ollama OpenAI-compatible base URL (the path before /chat/completions). */
-  ollamaUrl: string;
-  /** Local model id for the Ollama fallback. */
-  ollamaModel: string;
-  /** Circuit-breaker open duration (ms) after a Codex failure. */
-  codexCooldownMs: number;
 }
 
 import type { DecompositionOptions } from "./types.js";
@@ -69,20 +48,6 @@ import type { DecompositionOptions } from "./types.js";
 /** Read the model override from `FOLIO_DECOMP_MODEL`, else the default. */
 export function resolveModel(optModel?: string): string {
   return optModel ?? process.env.FOLIO_DECOMP_MODEL ?? DEFAULT_MODEL;
-}
-
-/**
- * True unless explicitly disabled with `FOLIO_DECOMP_LLM=0`. Codex auth comes from
- * the local CLI session, so there is no API key to gate on — we attempt the LLM
- * path by default and degrade to the deterministic fallback on any failure.
- */
-export function isLlmEnabled(): boolean {
-  return process.env.FOLIO_DECOMP_LLM?.trim() !== "0";
-}
-
-/** True unless explicitly disabled with `FOLIO_DECOMP_OLLAMA=0` (mirrors the LLM switch). */
-export function isOllamaEnabled(): boolean {
-  return process.env.FOLIO_DECOMP_OLLAMA?.trim() !== "0";
 }
 
 /** Merge caller options with env + defaults into a fully resolved config. */
@@ -96,12 +61,5 @@ export function resolveConfig(opts: DecompositionOptions = {}): ResolvedConfig {
     maxTokens: opts.maxTokens ?? DEFAULT_MAX_TOKENS,
     requestTimeoutMs: opts.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS,
     maxDiffChars: opts.maxDiffChars ?? DEFAULT_MAX_DIFF_CHARS,
-    llmEnabled: isLlmEnabled(),
-    apiKey: process.env.OPENAI_API_KEY?.trim() || undefined,
-    ollamaEnabled: isOllamaEnabled(),
-    ollamaUrl: process.env.FOLIO_DECOMP_OLLAMA_URL?.trim() || DEFAULT_OLLAMA_URL,
-    ollamaModel: process.env.FOLIO_DECOMP_OLLAMA_MODEL?.trim() || DEFAULT_OLLAMA_MODEL,
-    codexCooldownMs:
-      Number(process.env.FOLIO_DECOMP_CODEX_COOLDOWN_MS) || DEFAULT_CODEX_COOLDOWN_MS,
   };
 }

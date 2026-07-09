@@ -138,8 +138,8 @@ describe("ReviewPullFacade", () => {
     const facade = new ReviewPullFacade({
       octokitFactory: () => octokit as never,
       persist: vi.fn(async () => ({ prId: "pr1", revisionId: "rev1", revisionIndex: 0 })),
-      // Stub decomposition so the test never depends on the ambient FOLIO_DECOMP_LLM
-      // env (a real LLM client would hang here); chapter content is irrelevant.
+      // Stub decomposition so the test never depends on a real model client;
+      // chapter content is irrelevant.
       decomposeDeps: {
         clientFactory: () => ({
           model: "stub",
