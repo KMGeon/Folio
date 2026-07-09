@@ -19,6 +19,10 @@ services:
     environment:
       APP_PROFILE: prd
       NODE_ENV: production
+      HOME: /home/ubuntu
+      CODEX_HOME: /home/ubuntu/.codex
+    volumes:
+      - /home/ubuntu/.codex:/home/ubuntu/.codex
     restart: unless-stopped
 
   web:

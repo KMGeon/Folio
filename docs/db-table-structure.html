@@ -1,0 +1,1052 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Folio Database Table Structure</title>
+    <style>
+      :root {
+        --background: oklch(0.145 0 0);
+        --foreground: oklch(0.903 0.014 60.6);
+        --card: oklch(0.192 0.002 17.3);
+        --muted: oklch(0.22 0.002 17.3);
+        --muted-foreground: oklch(0.726 0.004 67.8);
+        --border: oklch(1 0 0 / 0.06);
+        --primary: oklch(0.58 0.13 145);
+        --info: oklch(0.7 0.13 250);
+        --warning: oklch(0.8 0.12 75);
+        --destructive: oklch(0.65 0.2 25);
+        --syntax-code: oklch(0.78 0.11 60);
+        --radius: 8px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        color-scheme: dark;
+      }
+
+      body {
+        margin: 0;
+        background: var(--background);
+        color: var(--foreground);
+        font-family:
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+        font-size: 14px;
+        line-height: 1.5;
+      }
+
+      main {
+        width: min(1440px, calc(100vw - 48px));
+        margin: 0 auto;
+        padding: 32px 0 56px;
+      }
+
+      header {
+        display: grid;
+        gap: 10px;
+        margin-bottom: 24px;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: 24px;
+        font-weight: 650;
+        letter-spacing: 0;
+      }
+
+      h2 {
+        font-size: 15px;
+        font-weight: 650;
+        margin-bottom: 10px;
+      }
+
+      h3 {
+        font-size: 14px;
+        font-weight: 650;
+      }
+
+      .subtle {
+        color: var(--muted-foreground);
+      }
+
+      .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+        margin-bottom: 18px;
+      }
+
+      .stat,
+      .panel,
+      .table-card {
+        border: 1px solid var(--border);
+        background: var(--card);
+        border-radius: var(--radius);
+      }
+
+      .stat {
+        padding: 12px;
+      }
+
+      .stat strong {
+        display: block;
+        font-size: 20px;
+        line-height: 1.1;
+      }
+
+      .panel {
+        padding: 14px;
+        margin-bottom: 18px;
+      }
+
+      .relationships {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px 16px;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+
+      .relationships li {
+        color: var(--muted-foreground);
+        font-family:
+          ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          Consolas,
+          monospace;
+        font-size: 12px;
+      }
+
+      .erd-panel {
+        padding: 14px;
+        margin-bottom: 18px;
+      }
+
+      .erd-scroll {
+        overflow-x: auto;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: oklch(0.11 0 0);
+      }
+
+      .erd {
+        display: block;
+        min-width: 1280px;
+      }
+
+      .erd-bg {
+        fill: oklch(0.145 0 0);
+      }
+
+      .entity rect {
+        stroke: oklch(1 0 0 / 0.18);
+        stroke-width: 1;
+      }
+
+      .entity .body {
+        fill: var(--card);
+      }
+
+      .entity .install {
+        fill: oklch(0.36 0.045 215);
+      }
+
+      .entity .github {
+        fill: oklch(0.36 0.045 250);
+      }
+
+      .entity .review {
+        fill: oklch(0.35 0.06 145);
+      }
+
+      .entity .state {
+        fill: oklch(0.36 0.065 75);
+      }
+
+      .entity .chat {
+        fill: oklch(0.35 0.05 300);
+      }
+
+      .entity .queue {
+        fill: oklch(0.34 0.055 25);
+      }
+
+      .entity text {
+        fill: var(--foreground);
+        font-family:
+          ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          Consolas,
+          monospace;
+        font-size: 11px;
+      }
+
+      .entity .title {
+        font-family:
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .entity .key {
+        fill: var(--syntax-code);
+        font-weight: 700;
+      }
+
+      .entity .muted {
+        fill: var(--muted-foreground);
+      }
+
+      .rel {
+        fill: none;
+        stroke: oklch(0.76 0.004 67.8);
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 1.35;
+      }
+
+      .rel-label {
+        fill: var(--muted-foreground);
+        font-family:
+          ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          Consolas,
+          monospace;
+        font-size: 10px;
+      }
+
+      .schema-grid {
+        display: grid;
+        gap: 14px;
+      }
+
+      .table-card {
+        overflow: hidden;
+      }
+
+      .table-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        align-items: flex-start;
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .table-meta {
+        color: var(--muted-foreground);
+        font-size: 12px;
+      }
+
+      .scroll {
+        overflow-x: auto;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 880px;
+      }
+
+      th,
+      td {
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--border);
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        background: var(--muted);
+        color: var(--muted-foreground);
+        font-size: 11px;
+        font-weight: 650;
+        text-transform: uppercase;
+      }
+
+      tr:last-child td {
+        border-bottom: 0;
+      }
+
+      code,
+      .mono {
+        font-family:
+          ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          Consolas,
+          monospace;
+      }
+
+      code {
+        color: var(--syntax-code);
+        font-size: 12px;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        min-height: 20px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 1px 7px;
+        font-size: 11px;
+        font-weight: 650;
+      }
+
+      .pk {
+        color: var(--primary);
+      }
+
+      .fk {
+        color: var(--info);
+      }
+
+      .unique {
+        color: var(--warning);
+      }
+
+      .nullable {
+        color: var(--muted-foreground);
+      }
+
+      .required {
+        color: var(--foreground);
+      }
+
+      .delete {
+        color: var(--destructive);
+      }
+
+      @media (max-width: 900px) {
+        main {
+          width: min(100vw - 24px, 1440px);
+          padding-top: 20px;
+        }
+
+        .summary-grid,
+        .relationships {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Folio Database Table Structure</h1>
+        <p class="subtle">
+          Generated from <code>packages/db/src/schema</code> and current Drizzle migrations.
+          Every table includes shared <code>id</code>, <code>created_at</code>, and
+          <code>updated_at</code> base columns.
+        </p>
+      </header>
+
+      <section class="summary-grid" aria-label="Database summary">
+        <div class="stat">
+          <strong>15</strong>
+          <span class="subtle">tables</span>
+        </div>
+        <div class="stat">
+          <strong>20</strong>
+          <span class="subtle">foreign keys</span>
+        </div>
+        <div class="stat">
+          <strong>6</strong>
+          <span class="subtle">composite / partial unique indexes</span>
+        </div>
+        <div class="stat">
+          <strong>Postgres</strong>
+          <span class="subtle">Drizzle ORM schema</span>
+        </div>
+      </section>
+
+      <section class="panel erd-panel">
+        <h2>ERD Overview</h2>
+        <div class="erd-scroll">
+          <svg
+            class="erd"
+            viewBox="0 0 1280 820"
+            role="img"
+            aria-labelledby="erd-title erd-desc"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <title id="erd-title">Folio database entity relationship diagram</title>
+            <desc id="erd-desc">
+              Entity relationship diagram showing Folio tables and foreign key links.
+            </desc>
+            <defs>
+              <marker
+                id="crow"
+                viewBox="0 0 12 12"
+                refX="11"
+                refY="6"
+                markerWidth="12"
+                markerHeight="12"
+                orient="auto-start-reverse"
+              >
+                <path d="M1 1 L11 6 L1 11 M1 6 L11 6" class="rel" />
+              </marker>
+            </defs>
+            <rect class="erd-bg" x="0" y="0" width="1280" height="820" rx="12" />
+
+            <path class="rel" marker-end="url(#crow)" d="M220 136 H280" />
+            <path class="rel" marker-end="url(#crow)" d="M460 136 H520" />
+            <path class="rel" marker-end="url(#crow)" d="M700 136 H760" />
+            <path class="rel" marker-end="url(#crow)" d="M700 190 C800 316 910 316 1000 185" />
+            <path class="rel" marker-end="url(#crow)" d="M940 136 H1000" />
+            <path class="rel" marker-end="url(#crow)" d="M130 220 V610" />
+            <path class="rel" marker-end="url(#crow)" d="M220 426 H280" />
+            <path class="rel" marker-end="url(#crow)" d="M220 470 C335 535 420 420 520 410" />
+            <path class="rel" marker-end="url(#crow)" d="M850 268 C830 310 700 320 610 350" />
+            <path class="rel" marker-end="url(#crow)" d="M220 500 C390 585 620 530 760 410" />
+            <path class="rel" marker-end="url(#crow)" d="M1090 302 C1030 325 960 365 940 410" />
+            <path class="rel" marker-end="url(#crow)" d="M850 268 V350" />
+            <path class="rel" marker-end="url(#crow)" d="M700 210 C840 310 940 310 1000 400" />
+            <path class="rel" marker-end="url(#crow)" d="M940 195 C980 235 995 285 1040 340" />
+            <path class="rel" marker-end="url(#crow)" d="M1090 302 V340" />
+            <path class="rel" marker-end="url(#crow)" d="M610 268 V600" />
+            <path class="rel" marker-end="url(#crow)" d="M850 268 C800 430 710 500 610 600" />
+            <path class="rel" marker-end="url(#crow)" d="M220 515 C300 540 420 540 500 560 L500 650 L520 660" />
+            <path class="rel" marker-end="url(#crow)" d="M700 676 H760" />
+            <path class="rel" marker-end="url(#crow)" d="M1120 302 V600" />
+
+            <text class="rel-label" x="232" y="128">installation_id</text>
+            <text class="rel-label" x="472" y="128">repo_id</text>
+            <text class="rel-label" x="712" y="128">pr_id</text>
+            <text class="rel-label" x="952" y="128">revision_id</text>
+            <text class="rel-label" x="142" y="402">account_id</text>
+            <text class="rel-label" x="1132" y="418">chapter_id</text>
+            <text class="rel-label" x="862" y="296">revision_id</text>
+            <text class="rel-label" x="322" y="418">user_id</text>
+            <text class="rel-label" x="712" y="668">thread_id</text>
+
+            <g class="entity" transform="translate(40 78)">
+              <rect class="install" width="180" height="28" rx="4" />
+              <rect class="body" y="28" width="180" height="114" rx="4" />
+              <text class="title" x="12" y="18">installations</text>
+              <text x="12" y="50"><tspan class="key">PK</tspan> id</text>
+              <text x="12" y="68">github_installation_id</text>
+              <text x="12" y="86">account_login</text>
+              <text x="12" y="104">account_type</text>
+              <text x="12" y="122">suspended_at</text>
+            </g>
+
+            <g class="entity" transform="translate(280 78)">
+              <rect class="github" width="180" height="28" rx="4" />
+              <rect class="body" y="28" width="180" height="138" rx="4" />
+              <text class="title" x="12" y="18">repositories</text>
+              <text x="12" y="50"><tspan class="key">PK</tspan> id</text>
+              <text x="12" y="68"><tspan class="key">FK</tspan> installation_id</text>
+              <text x="12" y="86">github_repo_id</text>
+              <text x="12" y="104">full_name</text>
+              <text x="12" y="122">default_branch</text>
+              <text x="12" y="140">folio_enabled</text>
+            </g>
+
+            <g class="entity" transform="translate(520 78)">
+              <rect class="github" width="180" height="28" rx="4" />
+              <rect class="body" y="28" width="180" height="162" rx="4" />
+              <text class="title" x="12" y="18">pull_requests</text>
+              <text x="12" y="50"><tspan class="key">PK</tspan> id</text>
+              <text x="12" y="68"><tspan class="key">FK</tspan> repo_id</text>
+              <text x="12" y="86">github_pr_number</text>
+              <text x="12" y="104">title</text>
+              <text x="12" y="122">base_ref / head_ref</text>
+              <text x="12" y="140">head_sha</text>
+              <text x="12" y="158">status</text>
+            </g>
+
+            <g class="entity" transform="translate(760 78)">
+              <rect class="review" width="180" height="28" rx="4" />
+              <rect class="body" y="28" width="180" height="162" rx="4" />
+              <text class="title" x="12" y="18">revisions</text>
+              <text x="12" y="50"><tspan class="key">PK</tspan> id</text>
+              <text x="12" y="68"><tspan class="key">FK</tspan> pr_id</text>
+              <text x="12" y="86">index</text>
+              <text x="12" y="104">head_sha</text>
+              <text x="12" y="122">base_sha</text>
+              <text x="12" y="140">merge_base_sha</text>
+              <text x="12" y="158">raw_diff</text>
+            </g>
+
+            <g class="entity" transform="translate(1000 78)">
+              <rect class="review" width="180" height="28" rx="4" />
+              <rect class="body" y="28" width="180" height="196" rx="4" />
+              <text class="title" x="12" y="18">chapters</text>
+              <text x="12" y="50"><tspan class="key">PK</tspan> id</text>
+              <text x="12" y="68"><tspan class="key">FK</tspan> pr_id</text>
+              <text x="12" y="86"><tspan class="key">FK</tspan> revision_id</text>
+              <text x="12" y="104">external_id</text>
+              <text x="12" y="122">order</text>
+              <text x="12" y="140">title / summary</text>
+              <text x="12" y="158">hunk_refs</text>
+              <text x="12" y="176">key_changes</text>
+              <text x="12" y="194">status</text>
+            </g>
+
+            <g class="entity" transform="translate(40 360)">
+              <rect class="github" width="180" height="28" rx="4" />
+              <rect class="body" y="28" width="180" height="140" rx="4" />
+              <text class="title" x="12" y="18">users</text>
+              <text x="12" y="50"><tspan class="key">PK</tspan> id</text>
+              <text x="12" y="68">github_user_id</text>
+              <text x="12" y="86">login</text>
+              <text x="12" y="104">avatar_url</text>
+              <text x="12" y="122">email</text>
+              <text x="12" y="140">status</text>
+            </g>
+
+            <g class="entity" transform="translate(280 360)">
+              <rect class="state" width="180" height="28" rx="4" />
+              <rect class="body" y="28" width="180" height="104" rx="4" />
+              <text class="title" x="12" y="18">sessions</text>
+              <text x="12" y="50"><tspan class="key">PK</tspan> id</text>
+              <text x="12" y="68"><tspan class="key">FK</tspan> user_id</text>
+              <text x="12" y="86">token_hash</text>
+              <text x="12" y="104">expires_at</text>
+            </g>
+
+            <g class="entity" transform="translate(520 350)">
+              <rect class="state" width="180" height="28" rx="4" />
+              <rect class="body" y="28" width="180" height="122" rx="4" />
+              <text class="title" x="12" y="18">file_review_state</text>
+              <text x="12" y="50"><tspan class="key">PK</tspan> id</text>
+              <text x="12" y="68"><tspan class="key">FK</tspan> user_id</text>
+              <text x="12" y="86"><tspan class="key">FK</tspan> revision_id</text>
+              <text x="12" y="104">file_path</text>
+              <text x="12" y="122">viewed_at</text>
+            </g>
+
+            <g class="entity" transform="translate(760 350)">
+              <rect class="state" width="180" height="28" rx="4" />
+              <rect class="body" y="28" width="180" height="122" rx="4" />
+              <text class="title" x="12" y="18">chapter_review_state</text>
+              <text x="12" y="50"><tspan class="key">PK</tspan> id</text>
+              <text x="12" y="68"><tspan class="key">FK</tspan> user_id</text>
+              <text x="12" y="86"><tspan class="key">FK</tspan> chapter_id</text>
+              <text x="12" y="104"><tspan class="key">FK</tspan> revision_id</text>
+              <text x="12" y="122">viewed_at</text>
+            </g>
+
+            <g class="entity" transform="translate(1000 340)">
+              <rect class="state" width="180" height="28" rx="4" />
+              <rect class="body" y="28" width="180" height="158" rx="4" />
+              <text class="title" x="12" y="18">comments</text>
+              <text x="12" y="50"><tspan class="key">PK</tspan> id</text>
+              <text x="12" y="68"><tspan class="key">FK</tspan> pr_id</text>
+              <text x="12" y="86"><tspan class="key">FK</tspan> revision_id</text>
+              <text x="12" y="104"><tspan class="key">FK</tspan> chapter_id</text>
+              <text x="12" y="122">line_ref</text>
+              <text x="12" y="140">github_comment_id</text>
+              <text x="12" y="158">source</text>
+            </g>
+
+            <g class="entity" transform="translate(40 610)">
+              <rect class="state" width="180" height="28" rx="4" />
+              <rect class="body" y="28" width="180" height="122" rx="4" />
+              <text class="title" x="12" y="18">subscriptions</text>
+              <text x="12" y="50"><tspan class="key">PK</tspan> id</text>
+              <text x="12" y="68"><tspan class="key">FK</tspan> account_id</text>
+              <text x="12" y="86">plan</text>
+              <text x="12" y="104">status</text>
+              <text x="12" y="122">current_period_end</text>
+            </g>
+
+            <g class="entity" transform="translate(280 600)">
+              <rect class="queue" width="180" height="28" rx="4" />
+              <rect class="body" y="28" width="180" height="158" rx="4" />
+              <text class="title" x="12" y="18">jobs</text>
+              <text x="12" y="50"><tspan class="key">PK</tspan> id</text>
+              <text x="12" y="68">kind</text>
+              <text x="12" y="86">status</text>
+              <text x="12" y="104">payload</text>
+              <text x="12" y="122">attempts</text>
+              <text x="12" y="140">run_after</text>
+              <text x="12" y="158">dedupe_key</text>
+            </g>
+
+            <g class="entity" transform="translate(520 600)">
+              <rect class="chat" width="180" height="28" rx="4" />
+              <rect class="body" y="28" width="180" height="122" rx="4" />
+              <text class="title" x="12" y="18">foliant_threads</text>
+              <text x="12" y="50"><tspan class="key">PK</tspan> id</text>
+              <text x="12" y="68"><tspan class="key">FK</tspan> pr_id</text>
+              <text x="12" y="86"><tspan class="key">FK</tspan> revision_id</text>
+              <text x="12" y="104"><tspan class="key">FK</tspan> user_id</text>
+            </g>
+
+            <g class="entity" transform="translate(760 600)">
+              <rect class="chat" width="180" height="28" rx="4" />
+              <rect class="body" y="28" width="180" height="122" rx="4" />
+              <text class="title" x="12" y="18">foliant_messages</text>
+              <text x="12" y="50"><tspan class="key">PK</tspan> id</text>
+              <text x="12" y="68"><tspan class="key">FK</tspan> thread_id</text>
+              <text x="12" y="86">role</text>
+              <text x="12" y="104">content</text>
+              <text x="12" y="122">citations</text>
+            </g>
+
+            <g class="entity" transform="translate(1000 600)">
+              <rect class="review" width="180" height="28" rx="4" />
+              <rect class="body" y="28" width="180" height="86" rx="4" />
+              <text class="title" x="12" y="18">chapter_files</text>
+              <text x="12" y="50"><tspan class="key">PK</tspan> id</text>
+              <text x="12" y="68"><tspan class="key">FK</tspan> chapter_id</text>
+              <text x="12" y="86">file_path</text>
+            </g>
+          </svg>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Relationship Map</h2>
+        <ul class="relationships">
+          <li>repositories.installation_id -> installations.id</li>
+          <li>sessions.user_id -> users.id</li>
+          <li>pull_requests.repo_id -> repositories.id</li>
+          <li>revisions.pr_id -> pull_requests.id</li>
+          <li>chapters.pr_id -> pull_requests.id</li>
+          <li>chapters.revision_id -> revisions.id</li>
+          <li>chapter_files.chapter_id -> chapters.id</li>
+          <li>file_review_state.user_id -> users.id</li>
+          <li>file_review_state.revision_id -> revisions.id</li>
+          <li>chapter_review_state.user_id -> users.id</li>
+          <li>chapter_review_state.chapter_id -> chapters.id</li>
+          <li>chapter_review_state.revision_id -> revisions.id</li>
+          <li>comments.pr_id -> pull_requests.id</li>
+          <li>comments.revision_id -> revisions.id</li>
+          <li>comments.chapter_id -> chapters.id</li>
+          <li>subscriptions.account_id -> installations.id</li>
+          <li>foliant_threads.pr_id -> pull_requests.id</li>
+          <li>foliant_threads.revision_id -> revisions.id</li>
+          <li>foliant_threads.user_id -> users.id</li>
+          <li>foliant_messages.thread_id -> foliant_threads.id</li>
+        </ul>
+      </section>
+
+      <section class="schema-grid" aria-label="Table definitions">
+        <article class="table-card">
+          <div class="table-header">
+            <div>
+              <h3>installations</h3>
+              <p class="table-meta">GitHub App installation account.</p>
+            </div>
+            <span class="pill unique">github_installation_id unique</span>
+          </div>
+          <div class="scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Column</th>
+                  <th>Type</th>
+                  <th>Null</th>
+                  <th>Default</th>
+                  <th>Key</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td><code>id</code></td><td>uuid</td><td class="required">not null</td><td><code>gen_random_uuid()</code></td><td class="pk">PK</td><td></td></tr>
+                <tr><td><code>created_at</code></td><td>timestamptz</td><td class="required">not null</td><td><code>now()</code></td><td></td><td></td></tr>
+                <tr><td><code>updated_at</code></td><td>timestamptz</td><td class="required">not null</td><td><code>now()</code></td><td></td><td>Updated by app code.</td></tr>
+                <tr><td><code>github_installation_id</code></td><td>bigint</td><td class="required">not null</td><td></td><td class="unique">unique</td><td></td></tr>
+                <tr><td><code>account_login</code></td><td>text</td><td class="required">not null</td><td></td><td></td><td></td></tr>
+                <tr><td><code>account_type</code></td><td>text</td><td class="required">not null</td><td></td><td></td><td><code>user</code> or <code>organization</code>.</td></tr>
+                <tr><td><code>suspended_at</code></td><td>timestamptz</td><td class="nullable">nullable</td><td></td><td></td><td></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="table-card">
+          <div class="table-header">
+            <div>
+              <h3>repositories</h3>
+              <p class="table-meta">GitHub repositories linked to installations.</p>
+            </div>
+            <span class="pill unique">github_repo_id unique</span>
+          </div>
+          <div class="scroll">
+            <table>
+              <thead><tr><th>Column</th><th>Type</th><th>Null</th><th>Default</th><th>Key</th><th>Notes</th></tr></thead>
+              <tbody>
+                <tr><td><code>id</code></td><td>uuid</td><td class="required">not null</td><td><code>gen_random_uuid()</code></td><td class="pk">PK</td><td></td></tr>
+                <tr><td><code>created_at</code></td><td>timestamptz</td><td class="required">not null</td><td><code>now()</code></td><td></td><td></td></tr>
+                <tr><td><code>updated_at</code></td><td>timestamptz</td><td class="required">not null</td><td><code>now()</code></td><td></td><td></td></tr>
+                <tr><td><code>installation_id</code></td><td>uuid</td><td class="required">not null</td><td></td><td class="fk">FK</td><td>References <code>installations.id</code>, <span class="delete">cascade delete</span>.</td></tr>
+                <tr><td><code>github_repo_id</code></td><td>bigint</td><td class="required">not null</td><td></td><td class="unique">unique</td><td></td></tr>
+                <tr><td><code>owner</code></td><td>text</td><td class="required">not null</td><td></td><td></td><td></td></tr>
+                <tr><td><code>name</code></td><td>text</td><td class="required">not null</td><td></td><td></td><td></td></tr>
+                <tr><td><code>full_name</code></td><td>text</td><td class="required">not null</td><td></td><td></td><td></td></tr>
+                <tr><td><code>private</code></td><td>boolean</td><td class="required">not null</td><td><code>false</code></td><td></td><td></td></tr>
+                <tr><td><code>default_branch</code></td><td>text</td><td class="required">not null</td><td></td><td></td><td></td></tr>
+                <tr><td><code>folio_enabled</code></td><td>boolean</td><td class="required">not null</td><td><code>false</code></td><td></td><td>Activation switch added in migration 0004.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="table-card">
+          <div class="table-header">
+            <div>
+              <h3>users</h3>
+              <p class="table-meta">GitHub-authenticated users.</p>
+            </div>
+            <span class="pill unique">github_user_id unique</span>
+          </div>
+          <div class="scroll">
+            <table>
+              <thead><tr><th>Column</th><th>Type</th><th>Null</th><th>Default</th><th>Key</th><th>Notes</th></tr></thead>
+              <tbody>
+                <tr><td><code>id</code></td><td>uuid</td><td class="required">not null</td><td><code>gen_random_uuid()</code></td><td class="pk">PK</td><td></td></tr>
+                <tr><td><code>created_at</code></td><td>timestamptz</td><td class="required">not null</td><td><code>now()</code></td><td></td><td></td></tr>
+                <tr><td><code>updated_at</code></td><td>timestamptz</td><td class="required">not null</td><td><code>now()</code></td><td></td><td></td></tr>
+                <tr><td><code>github_user_id</code></td><td>bigint</td><td class="required">not null</td><td></td><td class="unique">unique</td><td></td></tr>
+                <tr><td><code>login</code></td><td>text</td><td class="required">not null</td><td></td><td></td><td></td></tr>
+                <tr><td><code>avatar_url</code></td><td>text</td><td class="required">not null</td><td></td><td></td><td></td></tr>
+                <tr><td><code>email</code></td><td>text</td><td class="nullable">nullable</td><td></td><td></td><td></td></tr>
+                <tr><td><code>status</code></td><td>text</td><td class="required">not null</td><td><code>pending</code></td><td></td><td><code>pending</code> or <code>approved</code>.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="table-card">
+          <div class="table-header">
+            <div>
+              <h3>sessions</h3>
+              <p class="table-meta">Cookie session records with hashed opaque token.</p>
+            </div>
+            <span class="pill unique">token_hash unique</span>
+          </div>
+          <div class="scroll">
+            <table>
+              <thead><tr><th>Column</th><th>Type</th><th>Null</th><th>Default</th><th>Key</th><th>Notes</th></tr></thead>
+              <tbody>
+                <tr><td><code>id</code></td><td>uuid</td><td class="required">not null</td><td><code>gen_random_uuid()</code></td><td class="pk">PK</td><td></td></tr>
+                <tr><td><code>created_at</code></td><td>timestamptz</td><td class="required">not null</td><td><code>now()</code></td><td></td><td></td></tr>
+                <tr><td><code>updated_at</code></td><td>timestamptz</td><td class="required">not null</td><td><code>now()</code></td><td></td><td></td></tr>
+                <tr><td><code>user_id</code></td><td>uuid</td><td class="required">not null</td><td></td><td class="fk">FK</td><td>References <code>users.id</code>, <span class="delete">cascade delete</span>.</td></tr>
+                <tr><td><code>token_hash</code></td><td>text</td><td class="required">not null</td><td></td><td class="unique">unique</td><td>sha256 hex of the opaque cookie token.</td></tr>
+                <tr><td><code>expires_at</code></td><td>timestamptz</td><td class="required">not null</td><td></td><td></td><td></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="table-card">
+          <div class="table-header">
+            <div>
+              <h3>pull_requests</h3>
+              <p class="table-meta">GitHub pull request metadata.</p>
+            </div>
+            <span class="pill unique">repo_id + github_pr_number unique</span>
+          </div>
+          <div class="scroll">
+            <table>
+              <thead><tr><th>Column</th><th>Type</th><th>Null</th><th>Default</th><th>Key</th><th>Notes</th></tr></thead>
+              <tbody>
+                <tr><td><code>id</code></td><td>uuid</td><td class="required">not null</td><td><code>gen_random_uuid()</code></td><td class="pk">PK</td><td></td></tr>
+                <tr><td><code>created_at</code></td><td>timestamptz</td><td class="required">not null</td><td><code>now()</code></td><td></td><td></td></tr>
+                <tr><td><code>updated_at</code></td><td>timestamptz</td><td class="required">not null</td><td><code>now()</code></td><td></td><td></td></tr>
+                <tr><td><code>repo_id</code></td><td>uuid</td><td class="required">not null</td><td></td><td class="fk">FK</td><td>References <code>repositories.id</code>, <span class="delete">cascade delete</span>.</td></tr>
+                <tr><td><code>github_pr_number</code></td><td>integer</td><td class="required">not null</td><td></td><td class="unique">unique*</td><td>Unique with <code>repo_id</code>.</td></tr>
+                <tr><td><code>title</code></td><td>text</td><td class="required">not null</td><td></td><td></td><td></td></tr>
+                <tr><td><code>body</code></td><td>text</td><td class="nullable">nullable</td><td></td><td></td><td></td></tr>
+                <tr><td><code>author_login</code></td><td>text</td><td class="required">not null</td><td></td><td></td><td></td></tr>
+                <tr><td><code>base_ref</code></td><td>text</td><td class="required">not null</td><td></td><td></td><td></td></tr>
+                <tr><td><code>head_ref</code></td><td>text</td><td class="required">not null</td><td></td><td></td><td></td></tr>
+                <tr><td><code>head_sha</code></td><td>text</td><td class="required">not null</td><td></td><td></td><td></td></tr>
+                <tr><td><code>status</code></td><td>text</td><td class="required">not null</td><td></td><td></td><td><code>open</code>, <code>merged</code>, <code>closed</code>, or <code>draft</code>.</td></tr>
+                <tr><td><code>html_url</code></td><td>text</td><td class="required">not null</td><td></td><td></td><td></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="table-card">
+          <div class="table-header">
+            <div>
+              <h3>revisions</h3>
+              <p class="table-meta">One PR head snapshot used for decomposition.</p>
+            </div>
+            <span class="pill unique">pr_id + index unique</span>
+          </div>
+          <div class="scroll">
+            <table>
+              <thead><tr><th>Column</th><th>Type</th><th>Null</th><th>Default</th><th>Key</th><th>Notes</th></tr></thead>
+              <tbody>
+                <tr><td><code>id</code></td><td>uuid</td><td class="required">not null</td><td><code>gen_random_uuid()</code></td><td class="pk">PK</td><td></td></tr>
+                <tr><td><code>created_at</code></td><td>timestamptz</td><td class="required">not null</td><td><code>now()</code></td><td></td><td></td></tr>
+                <tr><td><code>updated_at</code></td><td>timestamptz</td><td class="required">not null</td><td><code>now()</code></td><td></td><td></td></tr>
+                <tr><td><code>pr_id</code></td><td>uuid</td><td class="required">not null</td><td></td><td class="fk">FK</td><td>References <code>pull_requests.id</code>, <span class="delete">cascade delete</span>.</td></tr>
+                <tr><td><code>index</code></td><td>integer</td><td class="required">not null</td><td></td><td class="unique">unique*</td><td>Unique with <code>pr_id</code>.</td></tr>
+                <tr><td><code>head_sha</code></td><td>text</td><td class="required">not null</td><td></td><td></td><td></td></tr>
+                <tr><td><code>base_sha</code></td><td>text</td><td class="required">not null</td><td></td><td></td><td></td></tr>
+                <tr><td><code>merge_base_sha</code></td><td>text</td><td class="required">not null</td><td></td><td></td><td></td></tr>
+                <tr><td><code>prologue</code></td><td>jsonb</td><td class="nullable">nullable</td><td></td><td></td><td>Typed as <code>Prologue</code>.</td></tr>
+                <tr><td><code>raw_diff</code></td><td>text</td><td class="nullable">nullable</td><td></td><td></td><td>Captured unified diff for read-path slicing.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="table-card">
+          <div class="table-header">
+            <div>
+              <h3>chapters</h3>
+              <p class="table-meta">Ordered diff slices inside a revision.</p>
+            </div>
+            <span class="pill unique">revision_id + external_id unique</span>
+          </div>
+          <div class="scroll">
+            <table>
+              <thead><tr><th>Column</th><th>Type</th><th>Null</th><th>Default</th><th>Key</th><th>Notes</th></tr></thead>
+              <tbody>
+                <tr><td><code>id</code></td><td>uuid</td><td class="required">not null</td><td><code>gen_random_uuid()</code></td><td class="pk">PK</td><td></td></tr>
+                <tr><td><code>created_at</code></td><td>timestamptz</td><td class="required">not null</td><td><code>now()</code></td><td></td><td></td></tr>
+                <tr><td><code>updated_at</code></td><td>timestamptz</td><td class="required">not null</td><td><code>now()</code></td><td></td><td></td></tr>
+                <tr><td><code>external_id</code></td><td>text</td><td class="required">not null</td><td></td><td class="unique">unique*</td><td>Engine-assigned chapter id, unique with <code>revision_id</code>.</td></tr>
+                <tr><td><code>pr_id</code></td><td>uuid</td><td class="required">not null</td><td></td><td class="fk">FK</td><td>References <code>pull_requests.id</code>, <span class="delete">cascade delete</span>.</td></tr>
+                <tr><td><code>revision_id</code></td><td>uuid</td><td class="required">not null</td><td></td><td class="fk">FK</td><td>References <code>revisions.id</code>, <span class="delete">cascade delete</span>.</td></tr>
+                <tr><td><code>order</code></td><td>text</td><td class="required">not null</td><td></td><td></td><td>LexoRank string.</td></tr>
+                <tr><td><code>title</code></td><td>text</td><td class="required">not null</td><td></td><td></td><td></td></tr>
+                <tr><td><code>summary</code></td><td>text</td><td class="required">not null</td><td></td><td></td><td></td></tr>
+                <tr><td><code>hunk_refs</code></td><td>jsonb</td><td class="required">not null</td><td><code>[]</code></td><td></td><td>Typed as <code>HunkReference[]</code>.</td></tr>
+                <tr><td><code>key_changes</code></td><td>jsonb</td><td class="required">not null</td><td><code>[]</code></td><td></td><td>Typed as <code>KeyChange[]</code>.</td></tr>
+                <tr><td><code>review_hints</code></td><td>jsonb</td><td class="required">not null</td><td><code>[]</code></td><td></td><td>Typed as <code>ReviewHint[]</code>.</td></tr>
+                <tr><td><code>risks</code></td><td>jsonb</td><td class="required">not null</td><td><code>[]</code></td><td></td><td>Typed as <code>Risk[]</code>.</td></tr>
+                <tr><td><code>status</code></td><td>text</td><td class="required">not null</td><td><code>published</code></td><td></td><td><code>draft</code>, <code>published</code>, or <code>edited</code>.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="table-card">
+          <div class="table-header">
+            <div>
+              <h3>chapter_files</h3>
+              <p class="table-meta">File paths associated with each chapter.</p>
+            </div>
+            <span class="pill unique">chapter_id + file_path unique</span>
+          </div>
+          <div class="scroll">
+            <table>
+              <thead><tr><th>Column</th><th>Type</th><th>Null</th><th>Default</th><th>Key</th><th>Notes</th></tr></thead>
+              <tbody>
+                <tr><td><code>id</code></td><td>uuid</td><td class="required">not null</td><td><code>gen_random_uuid()</code></td><td class="pk">PK</td><td></td></tr>
+                <tr><td><code>created_at</code></td><td>timestamptz</td><td class="required">not null</td><td><code>now()</code></td><td></td><td></td></tr>
+                <tr><td><code>updated_at</code></td><td>timestamptz</td><td class="required">not null</td><td><code>now()</code></td><td></td><td></td></tr>
+                <tr><td><code>chapter_id</code></td><td>uuid</td><td class="required">not null</td><td></td><td class="fk">FK</td><td>References <code>chapters.id</code>, <span class="delete">cascade delete</span>.</td></tr>
+                <tr><td><code>file_path</code></td><td>text</td><td class="required">not null</td><td></td><td class="unique">unique*</td><td>Unique with <code>chapter_id</code>.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="table-card">
+          <div class="table-header">
+            <div>
+              <h3>file_review_state</h3>
+              <p class="table-meta">Per-user file viewed markers for a revision.</p>
+            </div>
+            <span class="pill unique">user_id + revision_id + file_path unique</span>
+          </div>
+          <div class="scroll">
+            <table>
+              <thead><tr><th>Column</th><th>Type</th><th>Null</th><th>Default</th><th>Key</th><th>Notes</th></tr></thead>
+              <tbody>
+                <tr><td><code>id</code></td><td>uuid</td><td class="required">not null</td><td><code>gen_random_uuid()</code></td><td class="pk">PK</td><td></td></tr>
+                <tr><td><code>created_at</code></td><td>timestamptz</td><td class="required">not null</td><td><code>now()</code></td><td></td><td></td></tr>
+                <tr><td><code>updated_at</code></td><td>timestamptz</td><td class="required">not null</td><td><code>now()</code></td><td></td><td></td></tr>
+                <tr><td><code>user_id</code></td><td>uuid</td><td class="required">not null</td><td></td><td class="fk">FK</td><td>References <code>users.id</code>, <span class="delete">cascade delete</span>.</td></tr>
+                <tr><td><code>revision_id</code></td><td>uuid</td><td class="required">not null</td><td></td><td class="fk">FK</td><td>References <code>revisions.id</code>, <span class="delete">cascade delete</span>.</td></tr>
+                <tr><td><code>file_path</code></td><td>text</td><td class="required">not null</td><td></td><td class="unique">unique*</td><td>Unique with <code>user_id</code> and <code>revision_id</code>.</td></tr>
+                <tr><td><code>viewed_at</code></td><td>timestamptz</td><td class="required">not null</td><td><code>now()</code></td><td></td><td></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="table-card">
+          <div class="table-header">
+            <div>
+              <h3>chapter_review_state</h3>
+              <p class="table-meta">Per-user chapter viewed markers.</p>
+            </div>
+            <span class="pill unique">user_id + chapter_id unique</span>
+          </div>
+          <div class="scroll">
+            <table>
+              <thead><tr><th>Column</th><th>Type</th><th>Null</th><th>Default</th><th>Key</th><th>Notes</th></tr></thead>
+              <tbody>
+                <tr><td><code>id</code></td><td>uuid</td><td class="required">not null</td><td><code>gen_random_uuid()</code></td><td class="pk">PK</td><td></td></tr>
+                <tr><td><code>created_at</code></td><td>timestamptz</td><td class="required">not null</td><td><code>now()</code></td><td></td><td></td></tr>
+                <tr><td><code>updated_at</code></td><td>timestamptz</td><td class="required">not null</td><td><code>now()</code></td><td></td><td></td></tr>
+                <tr><td><code>user_id</code></td><td>uuid</td><td class="required">not null</td><td></td><td class="fk">FK</td><td>References <code>users.id</code>, <span class="delete">cascade delete</span>.</td></tr>
+                <tr><td><code>chapter_id</code></td><td>uuid</td><td class="required">not null</td><td></td><td class="fk">FK</td><td>References <code>chapters.id</code>, <span class="delete">cascade delete</span>.</td></tr>
+                <tr><td><code>revision_id</code></td><td>uuid</td><td class="required">not null</td><td></td><td class="fk">FK</td><td>References <code>revisions.id</code>, <span class="delete">cascade delete</span>.</td></tr>
+                <tr><td><code>viewed_at</code></td><td>timestamptz</td><td class="required">not null</td><td><code>now()</code></td><td></td><td></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="table-card">
+          <div class="table-header">
+            <div>
+              <h3>comments</h3>
+              <p class="table-meta">Folio and GitHub review comments.</p>
+            </div>
+            <span class="pill">review sync</span>
+          </div>
+          <div class="scroll">
+            <table>
+              <thead><tr><th>Column</th><th>Type</th><th>Null</th><th>Default</th><th>Key</th><th>Notes</th></tr></thead>
+              <tbody>
+                <tr><td><code>id</code></td><td>uuid</td><td class="required">not null</td><td><code>gen_random_uuid()</code></td><td class="pk">PK</td><td></td></tr>
+                <tr><td><code>created_at</code></td><td>timestamptz</td><td class="required">not null</td><td><code>now()</code></td><td></td><td></td></tr>
+                <tr><td><code>updated_at</code></td><td>timestamptz</td><td class="required">not null</td><td><code>now()</code></td><td></td><td></td></tr>
+                <tr><td><code>pr_id</code></td><td>uuid</td><td class="required">not null</td><td></td><td class="fk">FK</td><td>References <code>pull_requests.id</code>, <span class="delete">cascade delete</span>.</td></tr>
+                <tr><td><code>revision_id</code></td><td>uuid</td><td class="nullable">nullable</td><td></td><td class="fk">FK</td><td>References <code>revisions.id</code>, <span class="delete">cascade delete</span>.</td></tr>
+                <tr><td><code>chapter_id</code></td><td>uuid</td><td class="nullable">nullable</td><td></td><td class="fk">FK</td><td>References <code>chapters.id</code>, <span class="delete">cascade delete</span>.</td></tr>
+                <tr><td><code>line_ref</code></td><td>jsonb</td><td class="nullable">nullable</td><td></td><td></td><td>Typed as <code>LineRef</code>.</td></tr>
+                <tr><td><code>author_login</code></td><td>text</td><td class="required">not null</td><td></td><td></td><td></td></tr>
+                <tr><td><code>body</code></td><td>text</td><td class="required">not null</td><td></td><td></td><td></td></tr>
+                <tr><td><code>github_comment_id</code></td><td>bigint</td><td class="nullable">nullable</td><td></td><td></td><td></td></tr>
+                <tr><td><code>source</code></td><td>text</td><td class="required">not null</td><td></td><td></td><td><code>folio</code> or <code>github</code>.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="table-card">
+          <div class="table-header">
+            <div>
+              <h3>jobs</h3>
+              <p class="table-meta">SKIP-LOCKED async job queue.</p>
+            </div>
+            <span class="pill unique">active dedupe_key partial unique</span>
+          </div>
+          <div class="scroll">
+            <table>
+              <thead><tr><th>Column</th><th>Type</th><th>Null</th><th>Default</th><th>Key</th><th>Notes</th></tr></thead>
+              <tbody>
+                <tr><td><code>id</code></td><td>uuid</td><td class="required">not null</td><td><code>gen_random_uuid()</code></td><td class="pk">PK</td><td></td></tr>
+                <tr><td><code>created_at</code></td><td>timestamptz</td><td class="required">not null</td><td><code>now()</code></td><td></td><td></td></tr>
+                <tr><td><code>updated_at</code></td><td>timestamptz</td><td class="required">not null</td><td><code>now()</code></td><td></td><td></td></tr>
+                <tr><td><code>kind</code></td><td>text</td><td class="required">not null</td><td></td><td></td><td><code>decompose</code>, <code>re_chapter</code>, <code>sync_comments</code>, or <code>review_pull</code>.</td></tr>
+                <tr><td><code>status</code></td><td>text</td><td class="required">not null</td><td><code>pending</code></td><td></td><td><code>pending</code>, <code>claimed</code>, <code>running</code>, <code>succeeded</code>, <code>failed</code>, or <code>dead</code>.</td></tr>
+                <tr><td><code>payload</code></td><td>jsonb</td><td class="required">not null</td><td></td><td></td><td>Typed as <code>JobPayload</code>.</td></tr>
+                <tr><td><code>result</code></td><td>jsonb</td><td class="nullable">nullable</td><td></td><td></td><td></td></tr>
+                <tr><td><code>attempts</code></td><td>integer</td><td class="required">not null</td><td><code>0</code></td><td></td><td></td></tr>
+                <tr><td><code>max_attempts</code></td><td>integer</td><td class="required">not null</td><td><code>5</code></td><td></td><td></td></tr>
+                <tr><td><code>run_after</code></td><td>timestamptz</td><td class="required">not null</td><td><code>now()</code></td><td></td><td></td></tr>
+                <tr><td><code>lease_expires_at</code></td><td>timestamptz</td><td class="nullable">nullable</td><td></td><td></td><td></td></tr>
+                <tr><td><code>locked_by</code></td><td>text</td><td class="nullable">nullable</td><td></td><td></td><td></td></tr>
+                <tr><td><code>last_error</code></td><td>text</td><td class="nullable">nullable</td><td></td><td></td><td></td></tr>
+                <tr><td><code>dedupe_key</code></td><td>text</td><td class="nullable">nullable</td><td></td><td class="unique">partial unique</td><td>Unique while status is active: pending, claimed, running, or failed.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="table-card">
+          <div class="table-header">
+            <div>
+              <h3>subscriptions</h3>
+              <p class="table-meta">Billing plan and status per installation account.</p>
+            </div>
+            <span class="pill">billing gate</span>
+          </div>
+          <div class="scroll">
+            <table>
+              <thead><tr><th>Column</th><th>Type</th><th>Null</th><th>Default</th><th>Key</th><th>Notes</th></tr></thead>
+              <tbody>
+                <tr><td><code>id</code></td><td>uuid</td><td class="required">not null</td><td><code>gen_random_uuid()</code></td><td class="pk">PK</td><td></td></tr>
+                <tr><td><code>created_at</code></td><td>timestamptz</td><td class="required">not null</td><td><code>now()</code></td><td></td><td></td></tr>
+                <tr><td><code>updated_at</code></td><td>timestamptz</td><td class="required">not null</td><td><code>now()</code></td><td></td><td></td></tr>
+                <tr><td><code>account_id</code></td><td>uuid</td><td class="required">not null</td><td></td><td class="fk">FK</td><td>References <code>installations.id</code>, <span class="delete">cascade delete</span>.</td></tr>
+                <tr><td><code>plan</code></td><td>text</td><td class="required">not null</td><td></td><td></td><td><code>free</code>, <code>pro</code>, or <code>team</code>.</td></tr>
+                <tr><td><code>status</code></td><td>text</td><td class="required">not null</td><td></td><td></td><td><code>trialing</code>, <code>active</code>, <code>past_due</code>, or <code>canceled</code>.</td></tr>
+                <tr><td><code>trial_ends_at</code></td><td>timestamptz</td><td class="nullable">nullable</td><td></td><td></td><td></td></tr>
+                <tr><td><code>current_period_end</code></td><td>timestamptz</td><td class="nullable">nullable</td><td></td><td></td><td></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="table-card">
+          <div class="table-header">
+            <div>
+              <h3>foliant_threads</h3>
+              <p class="table-meta">Diff-chat conversation thread.</p>
+            </div>
+            <span class="pill">chat</span>
+          </div>
+          <div class="scroll">
+            <table>
+              <thead><tr><th>Column</th><th>Type</th><th>Null</th><th>Default</th><th>Key</th><th>Notes</th></tr></thead>
+              <tbody>
+                <tr><td><code>id</code></td><td>uuid</td><td class="required">not null</td><td><code>gen_random_uuid()</code></td><td class="pk">PK</td><td></td></tr>
+                <tr><td><code>created_at</code></td><td>timestamptz</td><td class="required">not null</td><td><code>now()</code></td><td></td><td></td></tr>
+                <tr><td><code>updated_at</code></td><td>timestamptz</td><td class="required">not null</td><td><code>now()</code></td><td></td><td></td></tr>
+                <tr><td><code>pr_id</code></td><td>uuid</td><td class="required">not null</td><td></td><td class="fk">FK</td><td>References <code>pull_requests.id</code>, <span class="delete">cascade delete</span>.</td></tr>
+                <tr><td><code>revision_id</code></td><td>uuid</td><td class="nullable">nullable</td><td></td><td class="fk">FK</td><td>References <code>revisions.id</code>, <span class="delete">cascade delete</span>.</td></tr>
+                <tr><td><code>user_id</code></td><td>uuid</td><td class="required">not null</td><td></td><td class="fk">FK</td><td>References <code>users.id</code>, <span class="delete">cascade delete</span>.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="table-card">
+          <div class="table-header">
+            <div>
+              <h3>foliant_messages</h3>
+              <p class="table-meta">Messages inside a Foliant thread.</p>
+            </div>
+            <span class="pill">chat</span>
+          </div>
+          <div class="scroll">
+            <table>
+              <thead><tr><th>Column</th><th>Type</th><th>Null</th><th>Default</th><th>Key</th><th>Notes</th></tr></thead>
+              <tbody>
+                <tr><td><code>id</code></td><td>uuid</td><td class="required">not null</td><td><code>gen_random_uuid()</code></td><td class="pk">PK</td><td></td></tr>
+                <tr><td><code>created_at</code></td><td>timestamptz</td><td class="required">not null</td><td><code>now()</code></td><td></td><td></td></tr>
+                <tr><td><code>updated_at</code></td><td>timestamptz</td><td class="required">not null</td><td><code>now()</code></td><td></td><td></td></tr>
+                <tr><td><code>thread_id</code></td><td>uuid</td><td class="required">not null</td><td></td><td class="fk">FK</td><td>References <code>foliant_threads.id</code>, <span class="delete">cascade delete</span>.</td></tr>
+                <tr><td><code>role</code></td><td>text</td><td class="required">not null</td><td></td><td></td><td><code>user</code>, <code>assistant</code>, or <code>system</code>.</td></tr>
+                <tr><td><code>content</code></td><td>text</td><td class="required">not null</td><td></td><td></td><td></td></tr>
+                <tr><td><code>citations</code></td><td>jsonb</td><td class="required">not null</td><td><code>[]</code></td><td></td><td>Typed as <code>Citation[]</code>.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

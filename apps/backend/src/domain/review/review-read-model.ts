@@ -1,8 +1,11 @@
-/** Web-facing diff line: line number, change kind, text (mirrors apps/web DiffLine). */
+/** Web-facing diff line: file identity plus display line data for comments. */
 export interface WebDiffLine {
+  path: string;
   n: number;
   kind: "add" | "del" | "ctx";
   text: string;
+  oldLineNumber?: number;
+  newLineNumber?: number;
 }
 
 export interface WebChapterFile {
