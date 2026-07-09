@@ -54,11 +54,12 @@ interface PullDetailFixture {
 }
 
 interface OctokitFixture {
-  open: PullFixture[];
-  closed: PullFixture[];
+  open: PullFixture[] | Record<string, PullFixture[]>;
+  closed: PullFixture[] | Record<string, PullFixture[]>;
   details: Record<number, PullDetailFixture>;
   failDetailsFor?: Set<number>;
   failClosedList?: boolean;
+  failOpenListForRepos?: Set<string>;
 }
 
 function openPr({
@@ -103,7 +104,21 @@ function closedPr({
   };
 }
 
-function octokitWith({ open, closed, details, failDetailsFor, failClosedList }: OctokitFixture) {
+function pullsFor(
+  pulls: PullFixture[] | Record<string, PullFixture[]>,
+  repo: string | undefined,
+): PullFixture[] {
+  return Array.isArray(pulls) ? pulls : (pulls[repo ?? ""] ?? []);
+}
+
+function octokitWith({
+  open,
+  closed,
+  details,
+  failDetailsFor,
+  failClosedList,
+  failOpenListForRepos,
+}: OctokitFixture) {
   const pulls = {
     list: vi.fn(),
     get: vi.fn(async ({ pull_number }: { pull_number: number }) => {
@@ -118,15 +133,23 @@ function octokitWith({ open, closed, details, failDetailsFor, failClosedList }: 
     }),
   };
   return {
-    paginate: vi.fn(async (_list: unknown, options: { state?: "open" | "closed" }) => {
-      if (options.state === "closed") {
-        if (failClosedList) {
-          throw new Error("closed list failed");
+    paginate: vi.fn(
+      async (_list: unknown, options: { repo?: string; state?: "open" | "closed" }) => {
+        if (options.state === "open") {
+          if (options.repo && failOpenListForRepos?.has(options.repo)) {
+            throw new Error("open list failed");
+          }
+          return pullsFor(open, options.repo);
         }
-        return closed;
-      }
-      return open;
-    }),
+        if (options.state === "closed") {
+          if (failClosedList) {
+            throw new Error("closed list failed");
+          }
+          return pullsFor(closed, options.repo);
+        }
+        return [];
+      },
+    ),
     rest: { pulls },
   };
 }
@@ -246,22 +269,51 @@ describe("DashboardFacade", () => {
     ]);
   });
 
-  it("sorts completed pulls newest first and caps them at 20", async () => {
-    const closed = Array.from({ length: 25 }, (_, index) =>
-      closedPr({
-        number: index + 1,
-        title: `Completed ${index + 1}`,
-        mergedAt: `2026-07-${String(index + 1).padStart(2, "0")}T10:00:00Z`,
-      }),
+  it("globally sorts completed pulls from multiple repos newest first and caps them at 20", async () => {
+    listByInstallation.mockResolvedValueOnce([
+      {
+        id: "r1",
+        owner: "KMGeon",
+        name: "Folio",
+        fullName: "KMGeon/Folio",
+        defaultBranch: "main",
+        folioEnabled: true,
+      },
+      {
+        id: "r2",
+        owner: "KMGeon",
+        name: "Amberjack",
+        fullName: "KMGeon/Amberjack",
+        defaultBranch: "main",
+        folioEnabled: true,
+      },
+    ]);
+    const closedByRepo = Array.from({ length: 25 }, (_, index) => index + 1).reduce<
+      Record<string, PullFixture[]>
+    >(
+      (pulls, day) => {
+        const repo = day % 2 === 0 ? "Amberjack" : "Folio";
+        pulls[repo]?.push(
+          closedPr({
+            number: day,
+            title: `Completed ${day}`,
+            mergedAt: `2026-07-${String(day).padStart(2, "0")}T10:00:00Z`,
+          }),
+        );
+        return pulls;
+      },
+      { Folio: [], Amberjack: [] },
     );
-    const octokit = octokitWith({ open: [], closed, details: {} });
+    const octokit = octokitWith({ open: [], closed: closedByRepo, details: {} });
     const facade = new DashboardFacade({ octokitFactory: async () => octokit as never });
 
     const payload = await facade.getForUser({ id: "u1", login: "KMGeon" });
 
+    const expectedNewestTwenty = Array.from({ length: 20 }, (_, index) => 25 - index);
     expect(payload.completedPulls).toHaveLength(20);
-    expect(payload.completedPulls[0]?.number).toBe(25);
-    expect(payload.completedPulls.at(-1)?.number).toBe(6);
+    expect(payload.completedPulls.map((pull) => [pull.repo, pull.number])).toEqual(
+      expectedNewestTwenty.map((day) => [day % 2 === 0 ? "Amberjack" : "Folio", day]),
+    );
     expect(payload.metrics.completed).toBe(20);
   });
 
@@ -298,6 +350,66 @@ describe("DashboardFacade", () => {
     expect(payload.pulls).toHaveLength(1);
     expect(payload.completedPulls).toEqual([]);
     expect(payload.metrics.completed).toBe(0);
+  });
+
+  it("keeps reachable completed pulls when one repo open pull fetching fails", async () => {
+    listByInstallation.mockResolvedValueOnce([
+      {
+        id: "broken-repo-id",
+        owner: "KMGeon",
+        name: "broken",
+        fullName: "KMGeon/broken",
+        defaultBranch: "main",
+        folioEnabled: true,
+      },
+      {
+        id: "reachable-repo-id",
+        owner: "KMGeon",
+        name: "reachable",
+        fullName: "KMGeon/reachable",
+        defaultBranch: "main",
+        folioEnabled: true,
+      },
+    ]);
+    const octokit = octokitWith({
+      open: { broken: [], reachable: [] },
+      closed: {
+        broken: [closedPr({ number: 11, mergedAt: "2026-07-08T10:00:00Z" })],
+        reachable: [closedPr({ number: 12, mergedAt: "2026-07-09T10:00:00Z" })],
+      },
+      details: { 12: { additions: 12, deletions: 3, changed_files: 4 } },
+      failOpenListForRepos: new Set(["broken"]),
+    });
+    const facade = new DashboardFacade({ octokitFactory: async () => octokit as never });
+
+    const payload = await facade.getForUser({ id: "u1", login: "KMGeon" });
+
+    expect(payload.repos).toEqual([
+      {
+        id: "broken-repo-id",
+        fullName: "KMGeon/broken",
+        openPrCount: 0,
+        folioEnabled: true,
+      },
+      {
+        id: "reachable-repo-id",
+        fullName: "KMGeon/reachable",
+        openPrCount: 0,
+        folioEnabled: true,
+      },
+    ]);
+    expect(payload.pulls).toEqual([]);
+    expect(payload.completedPulls).toEqual([
+      expect.objectContaining({
+        repo: "reachable",
+        number: 12,
+        completedState: "merged",
+        additions: 12,
+        deletions: 3,
+        changedFiles: 4,
+      }),
+    ]);
+    expect(payload.metrics.completed).toBe(1);
   });
 
   it("keeps disabled repositories visible when installation tokens cannot be minted", async () => {
