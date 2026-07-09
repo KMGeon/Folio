@@ -72,4 +72,6 @@ export interface ReviewPayload {
   comments: ReviewIssueComment[];
   /** Oldest→newest PR commits; empty when GitHub is unreachable at read time. */
   commits: ReviewCommit[];
+  /** True when the commit graph only includes the first GitHub page. */
+  commitsTruncated: boolean;
 }

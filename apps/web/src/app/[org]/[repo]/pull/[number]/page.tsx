@@ -41,6 +41,7 @@ export default async function PrOverviewPage({
         chapters={review.chapters}
         comments={review.comments}
         commits={review.commits}
+        commitsTruncated={review.commitsTruncated}
       />
     </AppLayout>
   );
