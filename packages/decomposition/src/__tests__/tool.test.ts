@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { SYSTEM_PROMPT } from "../prompt.js";
 import { AgentOutputSchema, parseAgentOutput } from "../schema.js";
 import { EMIT_CHAPTERS_TOOL_NAME, emitChaptersTool } from "../tool.js";
 
@@ -27,6 +28,13 @@ describe("emit_chapters tool definition", () => {
       emitChaptersTool.input_schema.properties.chapters.items.properties.keyChanges.items.properties
         .lineRefs.items;
     expect(lineRef.properties.side.enum).toEqual(["additions", "deletions"]);
+  });
+
+  it("instructs the model to produce reviewable checklist questions", () => {
+    expect(SYSTEM_PROMPT).toContain("For every reviewable implementation chapter");
+    expect(SYSTEM_PROMPT).toContain("1-3 keyChanges");
+    expect(SYSTEM_PROMPT).toContain("docs-only, generated-only, dependency-only");
+    expect(SYSTEM_PROMPT).toContain("lineRefs");
   });
 });
 
