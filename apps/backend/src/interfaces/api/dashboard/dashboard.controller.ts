@@ -1,7 +1,64 @@
-import { Controller, Get, Inject, UseGuards } from "@nestjs/common";
-import { DashboardFacade } from "../../../application/dashboard/dashboard.facade.js";
+import { BadRequestException, Controller, Get, Inject, Query, UseGuards } from "@nestjs/common";
+import {
+  type DashboardBucket,
+  type DashboardClosedRange,
+  type DashboardDirection,
+  DashboardFacade,
+  type DashboardOrdering,
+} from "../../../application/dashboard/dashboard.facade.js";
 import { CurrentUser } from "../common/current-user.decorator.js";
 import { type AuthedUser, SessionAuthGuard } from "../common/session-auth.guard.js";
+
+const buckets = ["ready", "yours", "other", "completed"] as const;
+const orderings = ["updated", "lines"] as const;
+const directions = ["desc", "asc"] as const;
+const closedRanges = ["all", "7d", "30d", "90d"] as const;
+
+function parseEnum<T extends string>(
+  value: string | undefined,
+  allowed: readonly T[],
+  name: string,
+): T {
+  if (value && allowed.includes(value as T)) {
+    return value as T;
+  }
+  throw new BadRequestException(`Invalid ${name}`);
+}
+
+function parseOptionalEnum<T extends string>(
+  value: string | undefined,
+  allowed: readonly T[],
+  name: string,
+): T | undefined {
+  if (!value) {
+    return undefined;
+  }
+  return parseEnum(value, allowed, name);
+}
+
+function parseLimit(value: string | undefined): number | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    throw new BadRequestException("Invalid limit");
+  }
+  return parsed;
+}
+
+function parseBoolean(value: string | undefined): boolean | undefined {
+  if (!value) {
+    return undefined;
+  }
+  if (value === "true") {
+    return true;
+  }
+  if (value === "false") {
+    return false;
+  }
+  throw new BadRequestException("Invalid showDrafts");
+}
 
 @Controller("api/v1/dashboard")
 @UseGuards(SessionAuthGuard)
@@ -15,5 +72,43 @@ export class DashboardController {
   @Get()
   async get(@CurrentUser() user: AuthedUser) {
     return this.dashboard.getForUser({ id: user.id, login: user.login });
+  }
+
+  @Get("summary")
+  async summary(@CurrentUser() user: AuthedUser) {
+    return this.dashboard.getSummaryForUser({ id: user.id, login: user.login });
+  }
+
+  @Get("pulls")
+  async pulls(
+    @CurrentUser() user: AuthedUser,
+    @Query("bucket") bucket: string | undefined,
+    @Query("limit") limit: string | undefined,
+    @Query("cursor") cursor: string | undefined,
+    @Query("q") q: string | undefined,
+    @Query("ordering") ordering: string | undefined,
+    @Query("direction") direction: string | undefined,
+    @Query("closedRange") closedRange: string | undefined,
+    @Query("showDrafts") showDrafts: string | undefined,
+  ) {
+    return this.dashboard.getPullPageForUser(
+      { id: user.id, login: user.login },
+      {
+        bucket: parseEnum(bucket, buckets, "bucket") as DashboardBucket,
+        limit: parseLimit(limit),
+        cursor,
+        q,
+        ordering: parseOptionalEnum(ordering, orderings, "ordering") as
+          | DashboardOrdering
+          | undefined,
+        direction: parseOptionalEnum(direction, directions, "direction") as
+          | DashboardDirection
+          | undefined,
+        closedRange: parseOptionalEnum(closedRange, closedRanges, "closedRange") as
+          | DashboardClosedRange
+          | undefined,
+        showDrafts: parseBoolean(showDrafts),
+      },
+    );
   }
 }

@@ -43,6 +43,7 @@ interface PullFixture {
   head: { ref: string };
   base: { ref: string };
   updated_at: string;
+  draft?: boolean;
   closed_at?: string | null;
   merged_at?: string | null;
 }
@@ -495,5 +496,126 @@ describe("DashboardFacade", () => {
     expect(payload.metrics).toMatchObject({ installedRepos: 1, activeRepos: 0 });
     expect(payload.metrics.completed).toBe(0);
     expect(payload.completedPulls).toEqual([]);
+  });
+
+  it("returns summary without card arrays", async () => {
+    const octokit = octokitWith({
+      open: [openPr({ number: 1, title: "Ready PR" })],
+      closed: [closedPr({ number: 69, mergedAt: "2026-07-08T10:00:00Z" })],
+      details: { 1: { additions: 10, deletions: 2, changed_files: 3 } },
+    });
+    const facade = new DashboardFacade({ octokitFactory: async () => octokit as never });
+
+    const payload = await facade.getSummaryForUser({ id: "u1", login: "KMGeon" });
+
+    expect(payload).toEqual({
+      metrics: {
+        ready: 0,
+        processing: 0,
+        installedRepos: 1,
+        activeRepos: 1,
+        completed: 0,
+      },
+      repos: [{ id: "r1", fullName: "KMGeon/Folio", openPrCount: 0, folioEnabled: true }],
+      activity: [{ date: "2026-06-20", count: 3 }],
+    });
+    expect("pulls" in payload).toBe(false);
+    expect("completedPulls" in payload).toBe(false);
+    expect(octokit.paginate).not.toHaveBeenCalled();
+    expect(octokit.rest.pulls.list).not.toHaveBeenCalled();
+  });
+
+  it("returns the first ready pull page and next cursor", async () => {
+    getByRepoAndNumber.mockImplementation(async (_repoId: string, n: number) =>
+      n <= 2 ? { id: `pr${n}` } : null,
+    );
+    const octokit = octokitWith({
+      open: [
+        openPr({ number: 1, title: "Ready one" }),
+        openPr({ number: 2, title: "Ready two" }),
+        openPr({ number: 3, title: "Processing" }),
+      ],
+      closed: [],
+      details: {
+        1: { additions: 10, deletions: 2, changed_files: 3 },
+        2: { additions: 20, deletions: 4, changed_files: 4 },
+      },
+    });
+    const facade = new DashboardFacade({ octokitFactory: async () => octokit as never });
+
+    const page = await facade.getPullPageForUser(
+      { id: "u1", login: "someone-else" },
+      { bucket: "ready", limit: 1, ordering: "updated", direction: "desc", showDrafts: true },
+    );
+
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0]).toMatchObject({ number: 1, title: "Ready one", status: "ready" });
+    expect(page.nextCursor).toBeTypeOf("string");
+    expect(page.count).toBe(2);
+    expect(octokit.rest.pulls.get).toHaveBeenCalledTimes(1);
+  });
+
+  it("continues pull pages from an opaque cursor", async () => {
+    getByRepoAndNumber.mockImplementation(async (_repoId: string, n: number) =>
+      n <= 2 ? { id: `pr${n}` } : null,
+    );
+    const octokit = octokitWith({
+      open: [openPr({ number: 1, title: "Ready one" }), openPr({ number: 2, title: "Ready two" })],
+      closed: [],
+      details: {
+        1: { additions: 10, deletions: 2, changed_files: 3 },
+        2: { additions: 20, deletions: 4, changed_files: 4 },
+      },
+    });
+    const facade = new DashboardFacade({ octokitFactory: async () => octokit as never });
+
+    const first = await facade.getPullPageForUser(
+      { id: "u1", login: "someone-else" },
+      { bucket: "ready", limit: 1, ordering: "updated", direction: "desc", showDrafts: true },
+    );
+    const second = await facade.getPullPageForUser(
+      { id: "u1", login: "someone-else" },
+      {
+        bucket: "ready",
+        limit: 1,
+        cursor: first.nextCursor ?? undefined,
+        ordering: "updated",
+        direction: "desc",
+        showDrafts: true,
+      },
+    );
+
+    expect(second.items.map((pull) => pull.number)).toEqual([2]);
+    expect(second.nextCursor).toBeNull();
+  });
+
+  it("filters completed pull pages by query and closed range", async () => {
+    const octokit = octokitWith({
+      open: [],
+      closed: [
+        closedPr({ number: 69, title: "Keep smoke", mergedAt: "2026-07-08T10:00:00Z" }),
+        closedPr({ number: 68, title: "Ignore docs", mergedAt: "2026-05-08T10:00:00Z" }),
+      ],
+      details: { 69: { additions: 81, deletions: 32, changed_files: 4 } },
+    });
+    const facade = new DashboardFacade({ octokitFactory: async () => octokit as never });
+
+    const page = await facade.getPullPageForUser(
+      { id: "u1", login: "KMGeon" },
+      {
+        bucket: "completed",
+        limit: 20,
+        q: "smoke",
+        ordering: "updated",
+        direction: "desc",
+        closedRange: "90d",
+        showDrafts: true,
+      },
+    );
+
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0]).toMatchObject({ number: 69, title: "Keep smoke" });
+    expect(page.count).toBe(1);
+    expect(octokit.rest.pulls.get).toHaveBeenCalledTimes(1);
   });
 });

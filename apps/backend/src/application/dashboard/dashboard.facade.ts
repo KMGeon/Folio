@@ -13,6 +13,28 @@ import { createInstallationOctokit } from "@folio/github";
 import type { Octokit } from "octokit";
 import { fetchPublicContributions } from "../../infrastructure/github/github-contributions.js";
 import { pullLineCounts, relativeTime } from "./dashboard-pull-details.js";
+import {
+  COMPLETED_PULL_LIMIT,
+  completedCandidate,
+  completedPulls,
+  getDashboardPullPageForUser,
+} from "./dashboard-pull-page.js";
+import { getDashboardSummaryForUser } from "./dashboard-summary.js";
+import type {
+  CompletedCandidate,
+  DashboardPullPageQuery,
+  GitHubPullSummary,
+} from "./dashboard-pull-page-types.js";
+
+export type {
+  DashboardBucket,
+  DashboardClosedRange,
+  DashboardDirection,
+  DashboardOrdering,
+  DashboardPullPage,
+  DashboardPullPageQuery,
+  DashboardSummaryPayload,
+} from "./dashboard-pull-page-types.js";
 
 export type DashboardReviewStatus = "ready" | "processing";
 export type DashboardRisk = "low" | "medium" | "high";
@@ -59,29 +81,12 @@ type PullStatus = Record<"chapterCount" | "viewedChapters" | "changedFiles", num
   status: DashboardReviewStatus;
 };
 
-type GitHubPullSummary = Record<"title" | "updated_at", string> & {
-  number: number;
-  user?: { login?: string } | null;
-  head: { ref: string };
-  base: { ref: string };
-  closed_at?: string | null;
-  merged_at?: string | null;
-};
-
-type CompletedCandidate = Record<"owner" | "repo" | "title" | "author" | "completedIso", string> & {
-  octokit: Octokit;
-  number: number;
-  completedState: DashboardCompletedState;
-};
-
 const PROCESSING: PullStatus = {
   status: "processing",
   chapterCount: 0,
   viewedChapters: 0,
   changedFiles: 0,
 };
-
-const COMPLETED_PULL_LIMIT = 20;
 
 @Injectable()
 export class DashboardFacade {
@@ -162,7 +167,7 @@ export class DashboardFacade {
         }
 
         for (const pr of closedPrs) {
-          const candidate = this.completedCandidate(octokit, repo.owner, repo.name, pr);
+          const candidate = completedCandidate(octokit, repo.owner, repo.name, pr);
           if (candidate) {
             completedCandidates.push(candidate);
           }
@@ -171,7 +176,11 @@ export class DashboardFacade {
     }
 
     const ready = pulls.filter((p) => p.status === "ready").length;
-    const completedPulls = await this.completedPulls(completedCandidates);
+    const completedPullsPayload = await completedPulls(
+      completedCandidates
+        .sort((a, b) => new Date(b.completedIso).getTime() - new Date(a.completedIso).getTime())
+        .slice(0, COMPLETED_PULL_LIMIT),
+    );
     // Activity heatmap is the user's PUBLIC GitHub contributions, not Folio data.
     const activity = await fetchPublicContributions(user.login);
     return {
@@ -180,13 +189,25 @@ export class DashboardFacade {
         processing: pulls.length - ready,
         installedRepos: repos.length,
         activeRepos: repos.filter((repo) => repo.folioEnabled).length,
-        completed: completedPulls.length,
+        completed: completedPullsPayload.length,
       },
       repos,
       pulls,
-      completedPulls,
+      completedPulls: completedPullsPayload,
       activity,
     };
+  }
+
+  async getSummaryForUser(user: { id: string; login: string }) {
+    return getDashboardSummaryForUser(user);
+  }
+
+  async getPullPageForUser(user: { id: string; login: string }, input: DashboardPullPageQuery) {
+    return getDashboardPullPageForUser(user, input, {
+      octokitFactory: this.deps.octokitFactory,
+      listPulls: this.listPulls.bind(this),
+      resolveStatus: this.resolveStatus.bind(this),
+    });
   }
 
   private repoPayload(
@@ -249,58 +270,5 @@ export class DashboardFacade {
       viewedChapters: viewed,
       changedFiles,
     };
-  }
-
-  private completedCandidate(
-    octokit: Octokit,
-    owner: string,
-    repo: string,
-    pr: GitHubPullSummary,
-  ): CompletedCandidate | null {
-    const completedIso = pr.merged_at ?? pr.closed_at;
-    return completedIso
-      ? {
-          owner,
-          repo,
-          octokit,
-          number: pr.number,
-          title: pr.title,
-          author: pr.user?.login ?? "unknown",
-          completedIso,
-          completedState: pr.merged_at ? "merged" : "closed",
-        }
-      : null;
-  }
-
-  private async completedPulls(
-    candidates: CompletedCandidate[],
-  ): Promise<DashboardCompletedPull[]> {
-    const pulls: DashboardCompletedPull[] = [];
-    for (const candidate of candidates
-      .sort((a, b) => new Date(b.completedIso).getTime() - new Date(a.completedIso).getTime())
-      .slice(0, COMPLETED_PULL_LIMIT)) {
-      const lineCounts = await pullLineCounts(
-        candidate.octokit,
-        candidate.owner,
-        candidate.repo,
-        candidate.number,
-      );
-
-      pulls.push({
-        id: `${candidate.owner}-${candidate.repo}-${candidate.number}`,
-        org: candidate.owner,
-        repo: candidate.repo,
-        number: candidate.number,
-        title: candidate.title,
-        author: candidate.author,
-        completedAt: relativeTime(candidate.completedIso),
-        completedState: candidate.completedState,
-        additions: lineCounts.additions,
-        deletions: lineCounts.deletions,
-        changedFiles: lineCounts.changedFiles,
-      });
-    }
-
-    return pulls;
   }
 }
