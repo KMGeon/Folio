@@ -169,7 +169,7 @@ jobs:
           docker compose pull
           # The SSH heredoc provides stdin; keep compose-run from consuming the
           # remaining deployment commands after migrations finish.
-          docker compose run -T --rm --no-deps backend pnpm --filter @folio/db db:migrate
+          docker compose run -T --rm --no-deps backend pnpm --filter @folio/db db:migrate < /dev/null
           docker compose up -d --remove-orphans
           if sudo test -f /etc/letsencrypt/live/folio.ai.kr/fullchain.pem; then
             sudo cp nginx/folio.conf /etc/nginx/sites-available/folio
