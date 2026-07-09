@@ -93,6 +93,30 @@ jobs:
             --push \
             .
 
+      - name: Allow runner SSH to EC2
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+        run: |
+          set -euo pipefail
+          runner_ip="$(curl -fsS https://checkip.amazonaws.com | tr -d '[:space:]')"
+          security_groups="$(
+            aws ec2 describe-instances \
+              --filters "Name=ip-address,Values=$EC2_HOST" "Name=instance-state-name,Values=running" \
+              --query 'Reservations[].Instances[].SecurityGroups[].GroupId' \
+              --output text
+          )"
+          test -n "$security_groups"
+          {
+            echo "RUNNER_SSH_CIDR=$runner_ip/32"
+            echo "RUNNER_SSH_SECURITY_GROUPS=$security_groups"
+          } >> "$GITHUB_ENV"
+          for security_group in $security_groups; do
+            aws ec2 authorize-security-group-ingress \
+              --group-id "$security_group" \
+              --ip-permissions "IpProtocol=tcp,FromPort=22,ToPort=22,IpRanges=[{CidrIp=$runner_ip/32,Description=GitHub Actions deploy run $GITHUB_RUN_ID}]" \
+              || true
+          done
+
       - name: Configure SSH
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
@@ -177,3 +201,19 @@ jobs:
           curl -ksS -D - https://folio.ai.kr/api/v1/dashboard || true
           exit 1
           REMOTE
+
+      - name: Revoke runner SSH from EC2
+        if: always()
+        run: |
+          set -euo pipefail
+          if [ -z "${RUNNER_SSH_CIDR:-}" ] || [ -z "${RUNNER_SSH_SECURITY_GROUPS:-}" ]; then
+            exit 0
+          fi
+          for security_group in $RUNNER_SSH_SECURITY_GROUPS; do
+            aws ec2 revoke-security-group-ingress \
+              --group-id "$security_group" \
+              --protocol tcp \
+              --port 22 \
+              --cidr "$RUNNER_SSH_CIDR" \
+              || true
+          done
