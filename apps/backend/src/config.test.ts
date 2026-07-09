@@ -156,6 +156,7 @@ describe("backend config", () => {
         "GITHUB_APP_SLUG",
         "GITHUB_APP_WEBHOOK_SECRET",
         "NEXT_PUBLIC_API_BASE_URL",
+        "NEXT_PUBLIC_APP_PROFILE",
         "NODE_ENV",
         "PORT",
         "PUBLIC_API_BASE_URL",

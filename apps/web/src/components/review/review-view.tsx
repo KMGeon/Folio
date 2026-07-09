@@ -18,6 +18,7 @@ import { FileTree, type ChangedFile } from "@/components/review/changed-file-tre
 import { CommitGraph } from "@/components/review/commit-graph";
 import { DiffViewer } from "@/components/review/diff-viewer";
 import { ReviewPrologue } from "@/components/review/review-prologue";
+import { PanelTabButton, TabButton } from "@/components/review/review-tab-buttons";
 import { Button } from "@/components/ui/button";
 import type {
   PullRequestStatus,
@@ -162,7 +163,7 @@ export function ReviewView({
             <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-foreground text-xs">
               {pr.headBranch}
             </code>
-            <span className="text-muted-foreground/60">→</span>
+            <span className="text-muted-foreground/60">-&gt;</span>
             <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-foreground text-xs">
               {pr.baseBranch}
             </code>
@@ -352,66 +353,5 @@ export function ReviewView({
         </div>
       )}
     </>
-  );
-}
-
-function TabButton({
-  active,
-  onClick,
-  icon: Icon,
-  label,
-  count,
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon: typeof BookOpen;
-  label: string;
-  count: number;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "-mb-px flex items-center gap-2 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm transition-colors",
-        active
-          ? "border-primary font-medium text-foreground"
-          : "border-transparent text-muted-foreground hover:text-foreground",
-      )}
-    >
-      <Icon className="size-4" />
-      {label}
-      <span
-        className={cn(
-          "rounded-full px-1.5 py-px text-[11px] tabular-nums",
-          active ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground",
-        )}
-      >
-        {count}
-      </span>
-    </button>
-  );
-}
-
-function PanelTabButton({
-  active,
-  label,
-  onClick,
-}: {
-  active: boolean;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "rounded px-2.5 py-1 font-medium text-xs transition-colors",
-        active ? "bg-card text-foreground" : "text-muted-foreground hover:text-foreground",
-      )}
-    >
-      {label}
-    </button>
   );
 }
