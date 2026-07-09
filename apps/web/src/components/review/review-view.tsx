@@ -69,7 +69,8 @@ export function ReviewView({
   // null = the graph+cards overview; a number = that chapter's in-place diff review.
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
-  const [collapseSignal, setCollapseSignal] = useState(0);
+  // Keep file diffs open on first entry; only the toolbar action should emit a collapse signal.
+  const [collapseSignal, setCollapseSignal] = useState<number | undefined>();
 
   useEffect(() => {
     setReviewChapters(chapters);
@@ -163,7 +164,11 @@ export function ReviewView({
                 {openChapter.title}
               </span>
               <div className="ml-auto flex items-center gap-1">
-                <Button variant="outline" size="sm" onClick={() => setCollapseSignal((v) => v + 1)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCollapseSignal((v) => (v ?? 0) + 1)}
+                >
                   <ChevronsUp className="size-4" />
                   모두 접기
                 </Button>
