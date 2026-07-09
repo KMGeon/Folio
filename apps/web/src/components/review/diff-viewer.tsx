@@ -23,6 +23,8 @@ import {
 import { type TokenizedLines, tokenizeDiffLines } from "@/lib/syntax-highlight";
 import { cn } from "@/lib/utils";
 
+import { commentTargetForLine } from "./diff-comment-target";
+
 // overallSummary, focusAreas, risks, and REVIEW_COMMENT are not in ReviewPayload;
 // those sub-sections are omitted to avoid re-introducing the sample import.
 
@@ -108,16 +110,14 @@ export function DiffViewer({
     setSubmitting(true);
     setError(null);
     try {
-      const side = activeLine.line.kind === "del" ? "LEFT" : "RIGHT";
+      const target = commentTargetForLine(activeLine.line);
       const result = await createReviewComment(
         commentContext.org,
         commentContext.repo,
         commentContext.number,
         {
           chapterIndex: commentContext.chapterIndex,
-          path: diffFile,
-          side,
-          line: activeLine.line.n,
+          ...target,
           body: text,
         },
       );

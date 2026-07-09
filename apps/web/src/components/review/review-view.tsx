@@ -13,6 +13,7 @@ import {
 import { useMemo, useState } from "react";
 
 import { ChapterCards } from "@/components/review/chapter-cards";
+import { buildFileScopedChapter } from "@/components/review/chapter-file-diff";
 import { FileTree, type ChangedFile } from "@/components/review/changed-file-tree";
 import { CommitGraph } from "@/components/review/commit-graph";
 import { DiffViewer } from "@/components/review/diff-viewer";
@@ -106,6 +107,10 @@ export function ReviewView({
   const selectedFileChapter = selectedFile
     ? chapters.find((chapter) => chapter.index === selectedFile.chapterIndex)
     : null;
+  const selectedFileScopedChapter =
+    selectedFile && selectedFileChapter
+      ? buildFileScopedChapter(selectedFileChapter, selectedFile.path)
+      : null;
   const totalAdditions = files.reduce((sum, file) => sum + file.additions, 0);
   const totalDeletions = files.reduce((sum, file) => sum + file.deletions, 0);
 
@@ -302,7 +307,7 @@ export function ReviewView({
             />
           </aside>
           <main className="min-w-0 overflow-y-auto p-6">
-            {selectedFile && selectedFileChapter ? (
+            {selectedFile && selectedFileScopedChapter ? (
               <section className="overflow-hidden rounded-lg border bg-card">
                 <div className="flex items-center gap-3 border-b px-4 py-3">
                   <FileText className="size-4 text-primary" />
@@ -325,13 +330,13 @@ export function ReviewView({
                   <div className="mt-1 font-medium">{selectedFile.chapterTitle}</div>
                 </div>
                 <DiffViewer
-                  chapter={selectedFileChapter}
+                  chapter={selectedFileScopedChapter}
                   compact
                   commentContext={{
                     org: pr.org,
                     repo: pr.repo,
                     number: pr.number,
-                    chapterIndex: selectedFileChapter.index,
+                    chapterIndex: selectedFileScopedChapter.index,
                     path: selectedFile.path,
                   }}
                 />

@@ -9,6 +9,8 @@ import {
 } from "@folio/db";
 import { COMMENT_SOURCE, DIFF_SIDE, type DiffSide } from "@folio/types";
 import { createInstallationOctokit, createReviewComment } from "@folio/github";
+import { sliceChapterCode } from "../../domain/review/chapter-diff-slice.js";
+import { isCommentTargetInChapter } from "../../domain/review/comment-target.js";
 
 export interface CreateInlineCommentInput {
   owner: string;
@@ -49,6 +51,16 @@ export class ReviewCommentFacade {
     const chapters = await chaptersRepo.listByRevision(revision.id);
     const chapter = chapters[input.chapterIndex - 1];
     if (!chapter) {
+      return null;
+    }
+    const code = sliceChapterCode(revision.rawDiff ?? "", chapter.hunkRefs ?? []);
+    if (
+      !isCommentTargetInChapter(code, {
+        path: input.path,
+        side: input.side,
+        line: input.line,
+      })
+    ) {
       return null;
     }
     const installation = await installationsRepo.getById(repository.installationId);

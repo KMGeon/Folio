@@ -1,9 +1,12 @@
 import { apiRequest } from "./api-client";
 
 export interface ReviewDiffLine {
+  path: string;
   n: number;
   kind: "add" | "del" | "ctx";
   text: string;
+  oldLineNumber?: number;
+  newLineNumber?: number;
 }
 
 export interface ReviewChapterFile {

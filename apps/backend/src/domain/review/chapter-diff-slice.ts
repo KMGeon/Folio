@@ -12,11 +12,14 @@ function lineKind(line: DiffLine): WebDiffLine["kind"] {
   return "ctx";
 }
 
-function toWebLine(line: DiffLine): WebDiffLine {
+function toWebLine(filePath: string, line: DiffLine): WebDiffLine {
   return {
+    path: filePath,
     n: line.newLineNumber ?? line.oldLineNumber ?? 0,
     kind: lineKind(line),
     text: line.content,
+    oldLineNumber: line.oldLineNumber,
+    newLineNumber: line.newLineNumber,
   };
 }
 
@@ -50,7 +53,7 @@ export function sliceChapterCode(rawDiff: string, hunkRefs: HunkReference[]): Ch
       if (line.type === "deletion") {
         entry.deletions += 1;
       }
-      diffLines.push(toWebLine(line));
+      diffLines.push(toWebLine(file.path, line));
     }
     touched.set(file.path, entry);
   }
