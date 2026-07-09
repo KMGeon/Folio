@@ -209,14 +209,23 @@ export class DashboardFacade {
     repo: string,
     state: "open" | "closed",
   ): Promise<GitHubPullSummary[]> {
-    const closedOptions =
-      state === "closed" ? ({ sort: "updated", direction: "desc" } as const) : {};
+    if (state === "closed") {
+      const { data } = await octokit.rest.pulls.list({
+        owner,
+        repo,
+        state,
+        sort: "updated",
+        direction: "desc",
+        per_page: COMPLETED_PULL_LIMIT,
+      });
+      return data as GitHubPullSummary[];
+    }
+
     return (await octokit.paginate(octokit.rest.pulls.list, {
       owner,
       repo,
       state,
-      per_page: state === "open" ? 100 : 20,
-      ...closedOptions,
+      per_page: 100,
     })) as GitHubPullSummary[];
   }
 

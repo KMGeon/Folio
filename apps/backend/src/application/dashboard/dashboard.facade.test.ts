@@ -120,7 +120,15 @@ function octokitWith({
   failOpenListForRepos,
 }: OctokitFixture) {
   const pulls = {
-    list: vi.fn(),
+    list: vi.fn(async (options: { repo?: string; state?: "open" | "closed" }) => {
+      if (options.state === "closed") {
+        if (failClosedList) {
+          throw new Error("closed list failed");
+        }
+        return { data: pullsFor(closed, options.repo) };
+      }
+      return { data: pullsFor(open, options.repo) };
+    }),
     get: vi.fn(async ({ pull_number }: { pull_number: number }) => {
       if (failDetailsFor?.has(pull_number)) {
         throw new Error("detail failed");
@@ -142,10 +150,7 @@ function octokitWith({
           return pullsFor(open, options.repo);
         }
         if (options.state === "closed") {
-          if (failClosedList) {
-            throw new Error("closed list failed");
-          }
-          return pullsFor(closed, options.repo);
+          throw new Error("closed pulls must use bounded list request");
         }
         return [];
       },
@@ -249,6 +254,18 @@ describe("DashboardFacade", () => {
     const payload = await facade.getForUser({ id: "u1", login: "KMGeon" });
 
     expect(payload.metrics.completed).toBe(2);
+    expect(octokit.paginate).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ state: "closed" }),
+    );
+    expect(octokit.rest.pulls.list).toHaveBeenCalledWith({
+      owner: "KMGeon",
+      repo: "Folio",
+      state: "closed",
+      sort: "updated",
+      direction: "desc",
+      per_page: 20,
+    });
     expect(payload.completedPulls).toEqual([
       expect.objectContaining({
         number: 69,
