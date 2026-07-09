@@ -38,7 +38,6 @@ review UI behavior.
 - Do not clone every StageReview control in the first pass.
 - Do not redesign the dashboard or PR header beyond controls needed for this
   workflow.
-- Do not regenerate chapter decomposition prompts for this UI work.
 - Do not treat checking a file as checking every review question.
 
 ## Recommended Approach
@@ -52,6 +51,35 @@ need a new per-user state keyed by chapter key-change id. The existing
 
 This approach matches the two check surfaces visible in StageReview while keeping
 Folio's existing decomposition and manual comment flow intact.
+
+## AI Review Question Generation
+
+StageReview's right panel depends on each chapter having useful review questions.
+Folio already stores model-generated `keyChanges`, but the current prompt allows
+empty arrays whenever the model decides there is no human judgment call. That is
+too sparse for this workflow.
+
+Update the decomposition prompt and tests so `keyChanges` becomes the source for
+chapter review questions:
+
+- For every reviewable implementation chapter, generate 1-3 `keyChanges`.
+- Permit 0 `keyChanges` only for chapters that are clearly docs-only,
+  generated-only, dependency-only, or "Other changes" catch-all buckets.
+- Each `keyChange.content` must be a Korean question a reviewer can check off
+  after inspecting the chapter.
+- Each question must include at least one tight `lineRef` pointing to the
+  strongest supporting diff line.
+- Questions should focus on product behavior, correctness risk, concurrency,
+  persistence, API contracts, security, performance, or test coverage.
+- Do not create questions for formatting, naming preference, or issues that
+  TypeScript, lint, or CI would deterministically catch.
+- Keep question text short enough to fit in the right panel without becoming a
+  paragraph.
+
+The parser should remain tolerant: if the model returns no key changes for a
+chapter, the UI renders the empty state instead of blocking the review. The
+quality bar should be enforced by prompt tests and fixture expectations, not by
+making review generation fail at runtime.
 
 ## Data Model
 
@@ -213,6 +241,8 @@ not change viewed state.
 
 Add focused coverage for:
 
+- Decomposition prompt/tool tests requiring reviewable chapters to produce
+  useful `keyChanges` for the right-side review checklist.
 - `ReviewReadFacade` returning file `viewed` state and chapter `keyChanges`.
 - File viewed endpoint marking and unmarking a file.
 - Key-change viewed endpoint marking and unmarking one question.
