@@ -47,6 +47,320 @@
 
 ---
 
+## DAG Execution Metadata
+
+```yaml
+tasks:
+  - id: "db-review-state"
+    purpose: "Add durable per-user key-change checklist state and file progress helpers."
+    deps: []
+    parallel_group: "wave-1"
+    worktree_strategy: "inter-worktree"
+    worker_role: "implementer"
+    scope:
+      files:
+        - "/Users/mugeon/orca/workspaces/Folio/siren/packages/db/src/schema/review-state.ts"
+        - "/Users/mugeon/orca/workspaces/Folio/siren/packages/db/src/repos/review-state.ts"
+        - "/Users/mugeon/orca/workspaces/Folio/siren/packages/db/drizzle/0005_key_change_review_state.sql"
+        - "/Users/mugeon/orca/workspaces/Folio/siren/packages/db/test/review-state.e2e.test.ts"
+      modules:
+        - "@folio/db"
+    verification:
+      commands:
+        - "pnpm vitest run packages/db/test/review-state.e2e.test.ts"
+      expected: "Passes when DB test environment is available; otherwise existing HAS_DB skip behavior is documented."
+    risk:
+      collision: "low"
+      external_write: false
+      database: true
+      deployment: false
+      notes: "Adds a migration file. Stop before applying to production data."
+    handoff_payload:
+      include_spec_sections:
+        - "Data Model"
+        - "Rollout Notes"
+      include_plan_sections:
+        - "Task 1: DB Review State"
+
+  - id: "decomposition-policy"
+    purpose: "Strengthen keyChanges prompt policy so chapters have useful review checklist questions."
+    deps: []
+    parallel_group: "wave-1"
+    worktree_strategy: "inter-worktree"
+    worker_role: "implementer"
+    scope:
+      files:
+        - "/Users/mugeon/orca/workspaces/Folio/siren/packages/decomposition/src/prompt.ts"
+        - "/Users/mugeon/orca/workspaces/Folio/siren/packages/decomposition/src/__tests__/tool.test.ts"
+      modules:
+        - "@folio/decomposition"
+    verification:
+      commands:
+        - "pnpm vitest run packages/decomposition/src/__tests__/tool.test.ts"
+      expected: "Passes and asserts checklist-oriented prompt text."
+    risk:
+      collision: "none"
+      external_write: false
+      database: false
+      deployment: false
+      notes: "Prompt-only behavior change; no model call in tests."
+    handoff_payload:
+      include_spec_sections:
+        - "AI Review Question Generation"
+      include_plan_sections:
+        - "Task 3: Decomposition Review-Question Policy"
+
+  - id: "backend-review-apis"
+    purpose: "Expose file viewed and key-change viewed state through backend read and write APIs."
+    deps: ["db-review-state"]
+    parallel_group: "wave-2"
+    worktree_strategy: "inter-worktree"
+    worker_role: "implementer"
+    scope:
+      files:
+        - "/Users/mugeon/orca/workspaces/Folio/siren/apps/backend/src/domain/review/review-read-model.ts"
+        - "/Users/mugeon/orca/workspaces/Folio/siren/apps/backend/src/application/review/review-read.facade.ts"
+        - "/Users/mugeon/orca/workspaces/Folio/siren/apps/backend/src/application/review/review-state.facade.ts"
+        - "/Users/mugeon/orca/workspaces/Folio/siren/apps/backend/src/interfaces/api/pulls/pulls.controller.ts"
+        - "/Users/mugeon/orca/workspaces/Folio/siren/apps/backend/src/application/review/review-read.facade.test.ts"
+        - "/Users/mugeon/orca/workspaces/Folio/siren/apps/backend/src/interfaces/api/pulls/pulls.controller.test.ts"
+      modules:
+        - "@folio/backend"
+    verification:
+      commands:
+        - "pnpm vitest run apps/backend/src/application/review/review-read.facade.test.ts apps/backend/src/interfaces/api/pulls/pulls.controller.test.ts"
+      expected: "Passes with new read-model and endpoint coverage."
+    risk:
+      collision: "medium"
+      external_write: false
+      database: false
+      deployment: false
+      notes: "Depends on Task 1 repo methods and types."
+    handoff_payload:
+      include_spec_sections:
+        - "Backend API"
+        - "Data Model"
+      include_plan_sections:
+        - "Task 2: Backend Read Model and Review-State APIs"
+
+  - id: "frontend-contracts"
+    purpose: "Add web API types/client functions and pure file-progress helpers."
+    deps: ["backend-review-apis"]
+    parallel_group: "wave-3"
+    worktree_strategy: "inter-worktree"
+    worker_role: "implementer"
+    scope:
+      files:
+        - "/Users/mugeon/orca/workspaces/Folio/siren/apps/web/src/lib/review-api.ts"
+        - "/Users/mugeon/orca/workspaces/Folio/siren/apps/web/src/components/review/review-file-state.ts"
+        - "/Users/mugeon/orca/workspaces/Folio/siren/apps/web/src/components/review/review-file-state.test.ts"
+        - "/Users/mugeon/orca/workspaces/Folio/siren/apps/web/src/components/review/chapter-file-diff.test.ts"
+      modules:
+        - "@folio/web"
+    verification:
+      commands:
+        - "pnpm vitest run apps/web/src/components/review/review-file-state.test.ts apps/web/src/components/review/chapter-file-diff.test.ts"
+      expected: "Passes helper and adjusted type fixture tests."
+    risk:
+      collision: "low"
+      external_write: false
+      database: false
+      deployment: false
+      notes: "Frontend contract follows backend payload from Task 2."
+    handoff_payload:
+      include_spec_sections:
+        - "Data Model"
+        - "Backend API"
+      include_plan_sections:
+        - "Task 4: Frontend Types, Client Functions, and Pure State Helpers"
+
+  - id: "frontend-stage-ui"
+    purpose: "Render Stage-style file checks, collapsed viewed files, checklist checks, and progress labels."
+    deps: ["frontend-contracts"]
+    parallel_group: "wave-4"
+    worktree_strategy: "inter-worktree"
+    worker_role: "implementer"
+    scope:
+      files:
+        - "/Users/mugeon/orca/workspaces/Folio/siren/apps/web/src/components/review/diff-viewer.tsx"
+        - "/Users/mugeon/orca/workspaces/Folio/siren/apps/web/src/components/review/chapter-panel.tsx"
+        - "/Users/mugeon/orca/workspaces/Folio/siren/apps/web/src/components/review/review-view.tsx"
+        - "/Users/mugeon/orca/workspaces/Folio/siren/apps/web/src/components/review/chapter-cards.tsx"
+      modules:
+        - "@folio/web"
+    verification:
+      commands:
+        - "pnpm vitest run apps/web/src/components/review/review-file-state.test.ts apps/web/src/components/review/chapter-file-diff.test.ts apps/web/src/components/review/diff-comment-target.test.ts"
+        - "pnpm --filter @folio/web typecheck"
+      expected: "Passes focused tests and web typecheck."
+    risk:
+      collision: "medium"
+      external_write: false
+      database: false
+      deployment: false
+      notes: "Large UI task; keep manual GitHub line comment behavior unchanged."
+    handoff_payload:
+      include_spec_sections:
+        - "UI Layout"
+        - "Review Question Behavior"
+        - "File Filtering and Navigation"
+      include_plan_sections:
+        - "Task 5: Stage-Style Review UI"
+
+  - id: "spec-review"
+    purpose: "Review implementation against the approved design and implementation plan."
+    deps: ["frontend-stage-ui", "decomposition-policy"]
+    parallel_group: "wave-5"
+    worktree_strategy: "intra-worktree"
+    worker_role: "spec-reviewer"
+    scope:
+      files:
+        - "/Users/mugeon/orca/workspaces/Folio/siren/docs/superpowers/specs/2026-07-09-stage-style-review-checks-design.md"
+        - "/Users/mugeon/orca/workspaces/Folio/siren/docs/superpowers/plans/2026-07-09-stage-style-review-checks.md"
+      modules:
+        - "review workflow"
+    verification:
+      commands:
+        - "git diff --stat HEAD~5..HEAD"
+      expected: "Reviewer reports APPROVED or concrete spec gaps."
+    risk:
+      collision: "none"
+      external_write: false
+      database: false
+      deployment: false
+      notes: "Read-only review."
+    handoff_payload:
+      include_spec_sections:
+        - "Goals"
+        - "AI Review Question Generation"
+        - "Backend API"
+        - "UI Layout"
+        - "Review Question Behavior"
+      include_plan_sections:
+        - "All implementation tasks"
+
+  - id: "quality-review"
+    purpose: "Review implementation quality, integration risk, and test strength."
+    deps: ["spec-review"]
+    parallel_group: "wave-6"
+    worktree_strategy: "intra-worktree"
+    worker_role: "quality-reviewer"
+    scope:
+      files:
+        - "/Users/mugeon/orca/workspaces/Folio/siren/packages/db/src/schema/review-state.ts"
+        - "/Users/mugeon/orca/workspaces/Folio/siren/packages/db/src/repos/review-state.ts"
+        - "/Users/mugeon/orca/workspaces/Folio/siren/apps/backend/src/application/review/review-state.facade.ts"
+        - "/Users/mugeon/orca/workspaces/Folio/siren/apps/web/src/components/review/diff-viewer.tsx"
+        - "/Users/mugeon/orca/workspaces/Folio/siren/apps/web/src/components/review/review-view.tsx"
+      modules:
+        - "review workflow"
+    verification:
+      commands:
+        - "pnpm lint"
+        - "pnpm typecheck"
+      expected: "Commands pass or reviewer reports concrete required fixes."
+    risk:
+      collision: "none"
+      external_write: false
+      database: false
+      deployment: false
+      notes: "Read-only review except running checks."
+    handoff_payload:
+      include_spec_sections:
+        - "Error Handling"
+        - "Testing"
+      include_plan_sections:
+        - "All implementation tasks"
+
+  - id: "final-verification"
+    purpose: "Run full repo verification and smoke-check readiness."
+    deps: ["quality-review"]
+    parallel_group: "wave-7"
+    worktree_strategy: "intra-worktree"
+    worker_role: "verifier"
+    scope:
+      files:
+        - "/Users/mugeon/orca/workspaces/Folio/siren"
+      modules:
+        - "monorepo"
+    verification:
+      commands:
+        - "pnpm lint"
+        - "pnpm typecheck"
+        - "pnpm test"
+        - "pnpm build"
+      expected: "All commands exit 0."
+    risk:
+      collision: "none"
+      external_write: false
+      database: false
+      deployment: false
+      notes: "Do not apply migrations to production; local smoke only."
+    handoff_payload:
+      include_spec_sections:
+        - "Testing"
+        - "Rollout Notes"
+      include_plan_sections:
+        - "Task 6: Final Verification and UX Pass"
+```
+
+Wave order:
+
+- wave-1: `db-review-state`, `decomposition-policy`
+- wave-2: `backend-review-apis`
+- wave-3: `frontend-contracts`
+- wave-4: `frontend-stage-ui`
+- wave-5: `spec-review`
+- wave-6: `quality-review`
+- wave-7: `final-verification`
+
+Review policy:
+
+- Each implementation chain is reviewed by `spec-review` and `quality-review`.
+- Any rejected review creates a fix task depending on the failed review, then repeats the failed review.
+- `final-verification` runs only after both review tasks approve.
+
+Dispatch gate summary:
+
+```markdown
+**Dispatch Gate**
+
+Spec: `docs/superpowers/specs/2026-07-09-stage-style-review-checks-design.md`
+Plan: `docs/superpowers/plans/2026-07-09-stage-style-review-checks.md`
+
+Waves:
+- wave-1: `db-review-state`, `decomposition-policy` using `inter-worktree`
+- wave-2: `backend-review-apis` using `inter-worktree`
+- wave-3: `frontend-contracts` using `inter-worktree`
+- wave-4: `frontend-stage-ui` using `inter-worktree`
+- wave-5: `spec-review` using `intra-worktree`
+- wave-6: `quality-review` using `intra-worktree`
+- wave-7: `final-verification` using `intra-worktree`
+
+Risks:
+- Database migration: `db-review-state` adds `0005_key_change_review_state.sql`; do not apply to production without explicit approval.
+- UI scope: `frontend-stage-ui` changes dense review surfaces; verify manual inline comment flow remains intact.
+- Dependency order: backend depends on DB repo methods; frontend depends on backend payload and client contract.
+
+Verification:
+- `pnpm vitest run packages/db/test/review-state.e2e.test.ts` expects pass or documented DB skip.
+- `pnpm vitest run apps/backend/src/application/review/review-read.facade.test.ts apps/backend/src/interfaces/api/pulls/pulls.controller.test.ts` expects pass.
+- `pnpm vitest run packages/decomposition/src/__tests__/tool.test.ts` expects pass.
+- `pnpm vitest run apps/web/src/components/review/review-file-state.test.ts apps/web/src/components/review/chapter-file-diff.test.ts apps/web/src/components/review/diff-comment-target.test.ts` expects pass.
+- `pnpm --filter @folio/web typecheck` expects pass.
+- Final `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build` expect pass.
+
+Decision gates:
+- Stop before applying any migration to production data.
+- Stop if Orca workers report overlapping edits on the same frontend review files.
+- Stop if DB e2e failures are ambiguous environment failures rather than implementation failures.
+- Stop if final verification failure suggests the plan's API/data model is wrong.
+
+Approve worker dispatch?
+```
+
+---
+
 ### Task 1: DB Review State
 
 **Files:**
