@@ -35,6 +35,8 @@ vi.mock("../../infrastructure/github/github-contributions.js", () => ({
 }));
 
 const { DashboardFacade } = await import("./dashboard.facade.js");
+const { DashboardController } =
+  await import("../../interfaces/api/dashboard/dashboard.controller.js");
 
 interface PullFixture {
   number: number;
@@ -67,18 +69,25 @@ function openPr({
   number,
   title = `PR ${number}`,
   head = "feat",
+  user = "KMGeon",
+  draft = false,
+  updatedAt = "2026-06-20T00:00:00Z",
 }: {
   number: number;
   title?: string;
   head?: string;
+  user?: string;
+  draft?: boolean;
+  updatedAt?: string;
 }): PullFixture {
   return {
     number,
     title,
-    user: { login: "KMGeon" },
+    user: { login: user },
     head: { ref: head },
     base: { ref: "main" },
-    updated_at: "2026-06-20T00:00:00Z",
+    updated_at: updatedAt,
+    draft,
   };
 }
 
@@ -121,15 +130,24 @@ function octokitWith({
   failOpenListForRepos,
 }: OctokitFixture) {
   const pulls = {
-    list: vi.fn(async (options: { repo?: string; state?: "open" | "closed" }) => {
-      if (options.state === "closed") {
-        if (failClosedList) {
-          throw new Error("closed list failed");
+    list: vi.fn(
+      async (options: {
+        repo?: string;
+        state?: "open" | "closed";
+        page?: number;
+        per_page?: number;
+      }) => {
+        if (options.state === "closed") {
+          if (failClosedList) {
+            throw new Error("closed list failed");
+          }
+          const perPage = options.per_page ?? 20;
+          const start = ((options.page ?? 1) - 1) * perPage;
+          return { data: pullsFor(closed, options.repo).slice(start, start + perPage) };
         }
-        return { data: pullsFor(closed, options.repo) };
-      }
-      return { data: pullsFor(open, options.repo) };
-    }),
+        return { data: pullsFor(open, options.repo) };
+      },
+    ),
     get: vi.fn(async ({ pull_number }: { pull_number: number }) => {
       if (failDetailsFor?.has(pull_number)) {
         throw new Error("detail failed");
@@ -617,5 +635,174 @@ describe("DashboardFacade", () => {
     expect(page.items[0]).toMatchObject({ number: 69, title: "Keep smoke" });
     expect(page.count).toBe(1);
     expect(octokit.rest.pulls.get).toHaveBeenCalledTimes(1);
+  });
+
+  it("excludes draft pull pages when showDrafts is false", async () => {
+    getByRepoAndNumber.mockResolvedValue({ id: "pr" });
+    const octokit = octokitWith({
+      open: [
+        openPr({ number: 1, title: "Visible" }),
+        openPr({ number: 2, title: "Draft", draft: true }),
+      ],
+      closed: [],
+      details: { 1: { additions: 10, deletions: 2, changed_files: 3 } },
+    });
+    const facade = new DashboardFacade({ octokitFactory: async () => octokit as never });
+
+    const page = await facade.getPullPageForUser(
+      { id: "u1", login: "someone-else" },
+      { bucket: "ready", showDrafts: false },
+    );
+
+    expect(page.items.map((pull) => pull.title)).toEqual(["Visible"]);
+    expect(octokit.rest.pulls.get).toHaveBeenCalledTimes(1);
+  });
+
+  it("sorts open pull pages by line count", async () => {
+    getByRepoAndNumber.mockResolvedValue({ id: "pr" });
+    const octokit = octokitWith({
+      open: [openPr({ number: 1, title: "Small" }), openPr({ number: 2, title: "Large" })],
+      closed: [],
+      details: {
+        1: { additions: 3, deletions: 2, changed_files: 1 },
+        2: { additions: 20, deletions: 5, changed_files: 2 },
+      },
+    });
+    const facade = new DashboardFacade({ octokitFactory: async () => octokit as never });
+
+    const page = await facade.getPullPageForUser(
+      { id: "u1", login: "someone-else" },
+      { bucket: "ready", ordering: "lines", direction: "desc" },
+    );
+
+    expect(page.items.map((pull) => pull.title)).toEqual(["Large", "Small"]);
+  });
+
+  it("separates yours and other pull buckets", async () => {
+    getByRepoAndNumber.mockImplementation(async (_repoId: string, n: number) =>
+      n === 1 ? { id: "pr1" } : null,
+    );
+    const octokit = octokitWith({
+      open: [
+        openPr({ number: 1, title: "Mine", user: "KMGeon" }),
+        openPr({ number: 2, title: "Processing", user: "someone-else" }),
+      ],
+      closed: [],
+      details: {
+        1: { additions: 10, deletions: 2, changed_files: 3 },
+        2: { additions: 4, deletions: 1, changed_files: 1 },
+      },
+    });
+    const facade = new DashboardFacade({ octokitFactory: async () => octokit as never });
+
+    const yours = await facade.getPullPageForUser(
+      { id: "u1", login: "KMGeon" },
+      { bucket: "yours" },
+    );
+    const other = await facade.getPullPageForUser(
+      { id: "u1", login: "KMGeon" },
+      { bucket: "other" },
+    );
+
+    expect(yours.items.map((pull) => pull.title)).toEqual(["Mine"]);
+    expect(other.items.map((pull) => pull.title)).toEqual(["Processing"]);
+  });
+
+  it("keeps reachable pull page results when one repository fails", async () => {
+    listByInstallation.mockResolvedValueOnce([
+      {
+        id: "broken-repo-id",
+        owner: "KMGeon",
+        name: "broken",
+        fullName: "KMGeon/broken",
+        defaultBranch: "main",
+        folioEnabled: true,
+      },
+      {
+        id: "reachable-repo-id",
+        owner: "KMGeon",
+        name: "reachable",
+        fullName: "KMGeon/reachable",
+        defaultBranch: "main",
+        folioEnabled: true,
+      },
+    ]);
+    getByRepoAndNumber.mockResolvedValue({ id: "pr" });
+    const octokit = octokitWith({
+      open: {
+        broken: [openPr({ number: 1, title: "Broken" })],
+        reachable: [openPr({ number: 2, title: "Reachable" })],
+      },
+      closed: [],
+      details: { 2: { additions: 10, deletions: 2, changed_files: 3 } },
+      failOpenListForRepos: new Set(["broken"]),
+    });
+    const facade = new DashboardFacade({ octokitFactory: async () => octokit as never });
+
+    const page = await facade.getPullPageForUser(
+      { id: "u1", login: "someone-else" },
+      { bucket: "ready" },
+    );
+
+    expect(page.items.map((pull) => pull.title)).toEqual(["Reachable"]);
+  });
+
+  it("continues completed pull pages beyond the first bounded GitHub window", async () => {
+    const closed = Array.from({ length: 25 }, (_, index) =>
+      closedPr({
+        number: 25 - index,
+        title: `Completed ${25 - index}`,
+        mergedAt: `2026-07-${String(25 - index).padStart(2, "0")}T10:00:00Z`,
+      }),
+    );
+    const octokit = octokitWith({ open: [], closed, details: {} });
+    const facade = new DashboardFacade({ octokitFactory: async () => octokit as never });
+
+    const first = await facade.getPullPageForUser(
+      { id: "u1", login: "KMGeon" },
+      { bucket: "completed", limit: 20, ordering: "updated", direction: "desc" },
+    );
+    const second = await facade.getPullPageForUser(
+      { id: "u1", login: "KMGeon" },
+      {
+        bucket: "completed",
+        limit: 20,
+        cursor: first.nextCursor ?? undefined,
+        ordering: "updated",
+        direction: "desc",
+      },
+    );
+
+    expect(first.items.map((pull) => pull.number)).toEqual(
+      Array.from({ length: 20 }, (_, index) => 25 - index),
+    );
+    expect(second.items.map((pull) => pull.number)).toEqual([5, 4, 3, 2, 1]);
+    expect(octokit.rest.pulls.list).toHaveBeenCalledWith(
+      expect.objectContaining({ state: "closed", per_page: 20, page: 2 }),
+    );
+    expect(octokit.paginate).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ state: "closed" }),
+    );
+  });
+
+  it("rejects invalid dashboard pull query values before calling the facade", async () => {
+    const dashboard = { getPullPageForUser: vi.fn() };
+    const controller = new DashboardController(dashboard as never);
+
+    await expect(
+      controller.pulls(
+        { id: "u1", login: "KMGeon" } as never,
+        "invalid",
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+      ),
+    ).rejects.toThrow("Invalid bucket");
+    expect(dashboard.getPullPageForUser).not.toHaveBeenCalled();
   });
 });

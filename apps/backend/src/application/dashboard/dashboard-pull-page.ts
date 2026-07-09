@@ -1,6 +1,14 @@
 import { installationsRepo, repositoriesRepo } from "@folio/db";
 import { createInstallationOctokit } from "@folio/github";
 import type { Octokit } from "octokit";
+import {
+  COMPLETED_PULL_LIMIT,
+  type CompletedCursor,
+  completedCandidate,
+  completedCursorFrom,
+  pageCompleted,
+  pageCompletedByLines,
+} from "./dashboard-completed-pull-window.js";
 import { pullLineCounts, relativeTime } from "./dashboard-pull-details.js";
 import type {
   DashboardCompletedPull,
@@ -25,6 +33,7 @@ type NormalizedQuery = Required<Omit<DashboardPullPageQuery, "cursor" | "q">> & 
   cursor?: string;
   q?: string;
 };
+type DashboardCursor = { offset: number; completed?: CompletedCursor };
 type PullPageDeps = {
   octokitFactory?: (githubInstallationId: number) => Promise<Octokit>;
   listPulls: (
@@ -32,11 +41,11 @@ type PullPageDeps = {
     owner: string,
     repo: string,
     state: "open" | "closed",
+    page?: number,
   ) => Promise<GitHubPullSummary[]>;
   resolveStatus: (userId: string, repoId: string, prNumber: number) => Promise<PullStatus>;
 };
 
-export const COMPLETED_PULL_LIMIT = 20;
 const DEFAULT_PULL_PAGE_LIMIT = 20;
 const MAX_PULL_PAGE_LIMIT = 50;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -47,10 +56,11 @@ export async function getDashboardPullPageForUser(
   deps: PullPageDeps,
 ): Promise<DashboardPullPage> {
   const query = normalizeQuery(input);
-  const offset = decodeCursor(query.cursor);
+  const cursor = decodeCursor(query.cursor);
   const makeOctokit = deps.octokitFactory ?? createInstallationOctokit;
   const openCandidates: OpenCandidate[] = [];
   const completedCandidates: CompletedCandidate[] = [];
+  const nextCompletedCursor: CompletedCursor = { repoPages: {}, remaining: [] };
 
   for (const installation of await installationsRepo.listByAccountLogin(user.login)) {
     const repoRows = (await repositoriesRepo.listByInstallation(installation.id)).filter(
@@ -68,14 +78,32 @@ export async function getDashboardPullPageForUser(
     }
 
     for (const repo of repoRows) {
+      const repoKey = `${repo.owner}/${repo.name}`;
+      if (query.bucket === "completed") {
+        for (const candidate of cursor.completed?.remaining ?? []) {
+          if (`${candidate.owner}/${candidate.repo}` === repoKey) {
+            completedCandidates.push({ ...candidate, octokit });
+          }
+        }
+      }
+
       let pulls: GitHubPullSummary[];
       try {
+        const page = cursor.completed?.repoPages[repoKey] ?? 1;
+        if (query.bucket === "completed" && page === null) {
+          continue;
+        }
         pulls = await deps.listPulls(
           octokit,
           repo.owner,
           repo.name,
           query.bucket === "completed" ? "closed" : "open",
+          query.bucket === "completed" ? page : undefined,
         );
+        if (query.bucket === "completed") {
+          nextCompletedCursor.repoPages[repoKey] =
+            pulls.length === COMPLETED_PULL_LIMIT ? (page ?? 1) + 1 : null;
+        }
       } catch {
         continue;
       }
@@ -109,61 +137,12 @@ export async function getDashboardPullPageForUser(
 
   if (query.bucket === "completed") {
     return query.ordering === "lines"
-      ? pageByLines(await completedPulls(completedCandidates), offset, query)
-      : pageCompleted(completedCandidates, offset, query);
+      ? pageCompletedByLines(completedCandidates, nextCompletedCursor, query)
+      : pageCompleted(completedCandidates, nextCompletedCursor, query);
   }
   return query.ordering === "lines"
-    ? pageByLines(await openPulls(openCandidates), offset, query)
-    : pageOpen(openCandidates, offset, query);
-}
-
-export function completedCandidate(
-  octokit: Octokit,
-  owner: string,
-  repo: string,
-  pr: GitHubPullSummary,
-): CompletedCandidate | null {
-  const completedIso = pr.merged_at ?? pr.closed_at;
-  return completedIso
-    ? {
-        owner,
-        repo,
-        octokit,
-        number: pr.number,
-        title: pr.title,
-        author: pr.user?.login ?? "unknown",
-        completedIso,
-        completedState: pr.merged_at ? "merged" : "closed",
-      }
-    : null;
-}
-
-export async function completedPulls(
-  candidates: CompletedCandidate[],
-): Promise<DashboardCompletedPull[]> {
-  const pulls: DashboardCompletedPull[] = [];
-  for (const candidate of candidates) {
-    const lineCounts = await pullLineCounts(
-      candidate.octokit,
-      candidate.owner,
-      candidate.repo,
-      candidate.number,
-    );
-    pulls.push({
-      id: `${candidate.owner}-${candidate.repo}-${candidate.number}`,
-      org: candidate.owner,
-      repo: candidate.repo,
-      number: candidate.number,
-      title: candidate.title,
-      author: candidate.author,
-      completedAt: relativeTime(candidate.completedIso),
-      completedState: candidate.completedState,
-      additions: lineCounts.additions,
-      deletions: lineCounts.deletions,
-      changedFiles: lineCounts.changedFiles,
-    });
-  }
-  return pulls;
+    ? pageByLines(await openPulls(openCandidates), cursor.offset, query)
+    : pageOpen(openCandidates, cursor.offset, query);
 }
 
 async function openPulls(candidates: OpenCandidate[]): Promise<DashboardPull[]> {
@@ -202,19 +181,6 @@ async function pageOpen(
   return page(await openPulls(sorted.slice(offset, offset + query.limit)), offset, sorted.length);
 }
 
-async function pageCompleted(
-  candidates: CompletedCandidate[],
-  offset: number,
-  query: NormalizedQuery,
-): Promise<DashboardPullPage> {
-  const sorted = candidates.sort((a, b) => dateDelta(a.completedIso, b.completedIso, query));
-  return page(
-    await completedPulls(sorted.slice(offset, offset + query.limit)),
-    offset,
-    sorted.length,
-  );
-}
-
 function pageByLines<T extends DashboardPull | DashboardCompletedPull>(
   pulls: T[],
   offset: number,
@@ -250,17 +216,21 @@ function encodeCursor(offset: number): string {
   return Buffer.from(JSON.stringify({ offset }), "utf8").toString("base64url");
 }
 
-function decodeCursor(cursor: string | undefined): number {
+function decodeCursor(cursor: string | undefined): DashboardCursor {
   if (!cursor) {
-    return 0;
+    return { offset: 0 };
   }
   try {
     const parsed = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8")) as {
       offset?: unknown;
+      completed?: CompletedCursor;
     };
-    return typeof parsed.offset === "number" && parsed.offset >= 0 ? parsed.offset : 0;
+    return {
+      offset: typeof parsed.offset === "number" && parsed.offset >= 0 ? parsed.offset : 0,
+      completed: completedCursorFrom(parsed.completed),
+    };
   } catch {
-    return 0;
+    return { offset: 0 };
   }
 }
 
