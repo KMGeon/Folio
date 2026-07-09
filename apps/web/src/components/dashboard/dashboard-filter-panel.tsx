@@ -5,6 +5,7 @@ import { ArrowDown, Grid2X2, Layers3, LayoutList, SlidersHorizontal } from "luci
 
 import { Button } from "@/components/ui/button";
 import type {
+  DashboardCardProperty,
   DashboardClosedRange,
   DashboardDirection,
   DashboardGrouping,
@@ -22,7 +23,7 @@ export interface DashboardFilterState {
   showDrafts: boolean;
   showEmptyColumns: boolean;
   highlightMyPrs: boolean;
-  visibleProperties: string[];
+  visibleProperties: DashboardCardProperty[];
 }
 
 export interface DashboardFilterPanelProps {
@@ -31,7 +32,7 @@ export interface DashboardFilterPanelProps {
   onChange: (filters: DashboardFilterState) => void;
 }
 
-const propertyOptions = [
+const propertyOptions: DashboardCardProperty[] = [
   "Repository",
   "ID",
   "Author",
@@ -51,7 +52,7 @@ export function DashboardFilterPanel({ open, filters, onChange }: DashboardFilte
   }
 
   const patch = (next: Partial<DashboardFilterState>) => onChange({ ...filters, ...next });
-  const toggleProperty = (property: string) => {
+  const toggleProperty = (property: DashboardCardProperty) => {
     patch({
       visibleProperties: filters.visibleProperties.includes(property)
         ? filters.visibleProperties.filter((item) => item !== property)
@@ -147,6 +148,7 @@ export function DashboardFilterPanel({ open, filters, onChange }: DashboardFilte
               key={property}
               type="button"
               onClick={() => toggleProperty(property)}
+              aria-pressed={filters.visibleProperties.includes(property)}
               className={cn(
                 "rounded-full px-2.5 py-1 text-xs transition-colors",
                 filters.visibleProperties.includes(property)
@@ -196,6 +198,7 @@ function SegmentButton({
     <button
       type="button"
       onClick={onClick}
+      aria-pressed={active}
       className={cn(
         "flex h-7 items-center gap-1.5 rounded px-3 text-xs",
         active ? "bg-card text-foreground" : "text-muted-foreground",

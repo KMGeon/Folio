@@ -1,5 +1,6 @@
 "use client";
 
+import { ListFilter, Search, SlidersHorizontal } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -12,6 +13,7 @@ import {
   DashboardFilterPanel,
   type DashboardFilterState,
 } from "@/components/dashboard/dashboard-filter-panel";
+import { Button } from "@/components/ui/button";
 import {
   type DashboardBucket,
   type DashboardCompletedPull,
@@ -30,6 +32,7 @@ interface ColumnLoadState {
 
 type ColumnLoadMode = "reset" | "append";
 type ColumnStateMap = Record<DashboardBucket, ColumnLoadState>;
+type DashboardInFlightMap = Map<string, symbol>;
 
 const bucketConfigs = [
   { bucket: "ready" },
@@ -77,8 +80,37 @@ function initialColumns(): ColumnStateMap {
   };
 }
 
-function inFlightKey(bucket: DashboardBucket, mode: ColumnLoadMode): string {
+export function dashboardRequestKey(bucket: DashboardBucket, mode: ColumnLoadMode): string {
   return `${bucket}:${mode}`;
+}
+
+export function beginDashboardRequest(
+  inFlight: DashboardInFlightMap,
+  bucket: DashboardBucket,
+  mode: ColumnLoadMode,
+): symbol | null {
+  const key = dashboardRequestKey(bucket, mode);
+  if (inFlight.has(key)) {
+    return null;
+  }
+  const token = Symbol(key);
+  inFlight.set(key, token);
+  return token;
+}
+
+export function finishDashboardRequest(
+  inFlight: DashboardInFlightMap,
+  bucket: DashboardBucket,
+  mode: ColumnLoadMode,
+  token: symbol | null,
+) {
+  if (!token) {
+    return;
+  }
+  const key = dashboardRequestKey(bucket, mode);
+  if (inFlight.get(key) === token) {
+    inFlight.delete(key);
+  }
 }
 
 export function DashboardBoardClient({
@@ -92,7 +124,7 @@ export function DashboardBoardClient({
   const [filterOpen, setFilterOpen] = useState(false);
   const [columns, setColumns] = useState<ColumnStateMap>(() => initialColumns());
   const columnsRef = useRef(columns);
-  const inFlightRef = useRef(new Set<string>());
+  const inFlightRef = useRef<DashboardInFlightMap>(new Map());
   const observers = useRef(new Map<DashboardBucket, IntersectionObserver>());
   const requestVersionRef = useRef(0);
 
@@ -108,15 +140,15 @@ export function DashboardBoardClient({
   const loadBucket = useCallback(
     async (bucket: DashboardBucket, mode: ColumnLoadMode, version = requestVersionRef.current) => {
       const current = columnsRef.current[bucket];
-      const key = inFlightKey(bucket, mode);
-      if (inFlightRef.current.has(key)) {
-        return;
-      }
       if (mode === "append" && (!current.nextCursor || current.isLoadingMore)) {
         return;
       }
 
-      inFlightRef.current.add(key);
+      const requestToken = beginDashboardRequest(inFlightRef.current, bucket, mode);
+      if (!requestToken) {
+        return;
+      }
+
       setColumns((prev) => ({
         ...prev,
         [bucket]: {
@@ -168,7 +200,7 @@ export function DashboardBoardClient({
           },
         }));
       } finally {
-        inFlightRef.current.delete(key);
+        finishDashboardRequest(inFlightRef.current, bucket, mode, requestToken);
       }
     },
     [
@@ -245,11 +277,9 @@ export function DashboardBoardClient({
   );
 
   return (
-    <div className="relative">
-      <DashboardBoard
+    <div className="relative space-y-6">
+      <DashboardSearchBar
         query={query}
-        showEmptyColumns={filters.showEmptyColumns}
-        columns={boardColumns}
         onQueryChange={setQuery}
         onFilterClick={() => setFilterOpen((open) => !open)}
         onSortClick={() =>
@@ -259,7 +289,61 @@ export function DashboardBoardClient({
           }))
         }
       />
+      <DashboardBoard
+        layout={filters.layout}
+        showEmptyColumns={filters.showEmptyColumns}
+        highlightMyPrs={filters.highlightMyPrs}
+        visibleProperties={filters.visibleProperties}
+        columns={boardColumns}
+      />
       <DashboardFilterPanel open={filterOpen} filters={filters} onChange={setFilters} />
+    </div>
+  );
+}
+
+function DashboardSearchBar({
+  query,
+  onQueryChange,
+  onFilterClick,
+  onSortClick,
+}: {
+  query: string;
+  onQueryChange: (value: string) => void;
+  onFilterClick: () => void;
+  onSortClick: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <div className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-lg border bg-card px-3 text-muted-foreground">
+        <Search className="size-4 shrink-0" />
+        <input
+          value={query}
+          onChange={(event) => onQueryChange(event.target.value)}
+          placeholder="Search pull requests..."
+          aria-label="Search pull requests"
+          className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+        />
+      </div>
+      <Button
+        type="button"
+        aria-label="Filter pull requests"
+        variant="ghost"
+        size="icon"
+        className="size-9 shrink-0 text-muted-foreground"
+        onClick={onFilterClick}
+      >
+        <ListFilter className="size-4" />
+      </Button>
+      <Button
+        type="button"
+        aria-label="Sort pull requests"
+        variant="ghost"
+        size="icon"
+        className="size-9 shrink-0 text-muted-foreground"
+        onClick={onSortClick}
+      >
+        <SlidersHorizontal className="size-4" />
+      </Button>
     </div>
   );
 }

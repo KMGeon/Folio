@@ -1,18 +1,16 @@
-import {
-  Check,
-  GitMerge,
-  GitPullRequest,
-  ListFilter,
-  Search,
-  SlidersHorizontal,
-  X,
-} from "lucide-react";
+import { Check, GitMerge, GitPullRequest, X } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { DashboardColumnSkeleton } from "@/components/dashboard/dashboard-skeleton";
 import { Button } from "@/components/ui/button";
-import type { DashboardBucket, DashboardCompletedPull, DashboardPull } from "@/lib/dashboard-api";
+import type {
+  DashboardBucket,
+  DashboardCardProperty,
+  DashboardCompletedPull,
+  DashboardLayoutMode,
+  DashboardPull,
+} from "@/lib/dashboard-api";
 import { cn } from "@/lib/utils";
 
 export interface DashboardBoardLabels {
@@ -38,20 +36,16 @@ export interface DashboardColumnState {
 }
 
 export interface DashboardBoardProps {
-  query: string;
+  layout: DashboardLayoutMode;
   showEmptyColumns: boolean;
+  highlightMyPrs: boolean;
+  visibleProperties: DashboardCardProperty[];
   columns: DashboardColumnState[];
-  onQueryChange: (value: string) => void;
-  onFilterClick: () => void;
-  onSortClick: () => void;
 }
 
-type SizeTone = "green" | "amber" | "red";
-
-interface SizeMeta {
-  label: string;
-  tone: SizeTone;
-}
+type SizeMeta = { label: string; tone: "green" | "amber" | "red" };
+type CardFooterPull = Pick<DashboardPull, "author" | "additions" | "deletions"> &
+  Partial<Pick<DashboardPull, "chapterCount" | "viewedChapters">>;
 
 export const defaultDashboardBoardLabels: DashboardBoardLabels = {
   ready: "Ready to review",
@@ -61,12 +55,11 @@ export const defaultDashboardBoardLabels: DashboardBoardLabels = {
 };
 
 export function DashboardBoard({
-  query,
+  layout,
   showEmptyColumns,
+  highlightMyPrs,
+  visibleProperties,
   columns,
-  onQueryChange,
-  onFilterClick,
-  onSortClick,
 }: DashboardBoardProps) {
   const visibleColumns = showEmptyColumns
     ? columns
@@ -75,23 +68,28 @@ export function DashboardBoard({
       );
 
   return (
-    <div className="space-y-6">
-      <DashboardSearchBar
-        query={query}
-        onQueryChange={onQueryChange}
-        onFilterClick={onFilterClick}
-        onSortClick={onSortClick}
-      />
-      <div className="grid gap-5 md:grid-cols-2 2xl:grid-cols-4">
-        {visibleColumns.map((column) => (
-          <DashboardColumn key={column.bucket} column={column} />
-        ))}
-      </div>
+    <div className={dashboardBoardGridClass(layout)}>
+      {visibleColumns.map((column) => (
+        <DashboardColumn
+          key={column.bucket}
+          column={column}
+          highlightMyPrs={highlightMyPrs}
+          visibleProperties={visibleProperties}
+        />
+      ))}
     </div>
   );
 }
 
-function DashboardColumn({ column }: { column: DashboardColumnState }) {
+function DashboardColumn({
+  column,
+  highlightMyPrs,
+  visibleProperties,
+}: {
+  column: DashboardColumnState;
+  highlightMyPrs: boolean;
+  visibleProperties: DashboardCardProperty[];
+}) {
   return (
     <section className="min-w-0">
       <div className="mb-3 flex items-center gap-2">
@@ -128,9 +126,18 @@ function DashboardColumn({ column }: { column: DashboardColumnState }) {
         ) : null}
         {column.items.map((pull) =>
           column.bucket === "completed" ? (
-            <CompletedPullCard key={pull.id} pull={pull as DashboardCompletedPull} />
+            <CompletedPullCard
+              key={pull.id}
+              pull={pull as DashboardCompletedPull}
+              visibleProperties={visibleProperties}
+            />
           ) : (
-            <OpenPullCard key={pull.id} pull={pull as DashboardPull} />
+            <OpenPullCard
+              key={pull.id}
+              pull={pull as DashboardPull}
+              highlighted={highlightMyPrs && column.bucket === "yours"}
+              visibleProperties={visibleProperties}
+            />
           ),
         )}
         {column.isLoadingMore ? <DashboardColumnSkeleton dashed={column.dashed} /> : null}
@@ -142,7 +149,15 @@ function DashboardColumn({ column }: { column: DashboardColumnState }) {
   );
 }
 
-function OpenPullCard({ pull }: { pull: DashboardPull }) {
+function OpenPullCard({
+  pull,
+  highlighted,
+  visibleProperties,
+}: {
+  pull: DashboardPull;
+  highlighted: boolean;
+  visibleProperties: DashboardCardProperty[];
+}) {
   const size = sizeMeta(pull.changedFiles, pull.additions + pull.deletions);
   const ready = pull.status === "ready";
   const StatusIcon = ready ? Check : X;
@@ -150,7 +165,7 @@ function OpenPullCard({ pull }: { pull: DashboardPull }) {
   return (
     <Link
       href={`/${pull.org}/${pull.repo}/pull/${pull.number}/chapters/1`}
-      className="group rounded-lg border bg-card p-4 transition-colors hover:border-primary/35"
+      className={dashboardOpenPullCardClass(highlighted)}
     >
       <CardHeader
         icon={<GitPullRequest className="size-3.5 text-warning" />}
@@ -161,13 +176,20 @@ function OpenPullCard({ pull }: { pull: DashboardPull }) {
         }
         time={pull.updatedAt}
         title={pull.title}
+        visibleProperties={visibleProperties}
       />
-      <CardFooter pull={pull} size={size} />
+      <CardFooter pull={pull} size={size} visibleProperties={visibleProperties} />
     </Link>
   );
 }
 
-function CompletedPullCard({ pull }: { pull: DashboardCompletedPull }) {
+function CompletedPullCard({
+  pull,
+  visibleProperties,
+}: {
+  pull: DashboardCompletedPull;
+  visibleProperties: DashboardCardProperty[];
+}) {
   const size = sizeMeta(pull.changedFiles, pull.additions + pull.deletions);
   const StateIcon = pull.completedState === "merged" ? GitMerge : X;
 
@@ -189,8 +211,9 @@ function CompletedPullCard({ pull }: { pull: DashboardCompletedPull }) {
         number={pull.number}
         time={pull.completedAt}
         title={pull.title}
+        visibleProperties={visibleProperties}
       />
-      <CardFooter pull={pull} size={size} />
+      <CardFooter pull={pull} size={size} visibleProperties={visibleProperties} />
     </Link>
   );
 }
@@ -202,6 +225,7 @@ function CardHeader({
   trailing,
   time,
   title,
+  visibleProperties,
 }: {
   icon: ReactNode;
   repo: string;
@@ -209,22 +233,24 @@ function CardHeader({
   trailing?: ReactNode;
   time: string;
   title: string;
+  visibleProperties: DashboardCardProperty[];
 }) {
+  const identity = dashboardCardIdentity(repo, number, visibleProperties);
+  const { updatedDate } = dashboardVisibleCardSections(visibleProperties);
+
   return (
     <div className="flex items-start justify-between gap-3">
       <div className="min-w-0">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           {icon}
-          <span className="truncate">
-            {repo}#{number}
-          </span>
+          {identity ? <span className="truncate">{identity}</span> : null}
           {trailing}
         </div>
         <h3 className="mt-3 line-clamp-2 text-sm font-semibold leading-5 group-hover:text-primary">
           {title}
         </h3>
       </div>
-      <span className="shrink-0 text-xs text-muted-foreground">{time}</span>
+      {updatedDate ? <span className="shrink-0 text-xs text-muted-foreground">{time}</span> : null}
     </div>
   );
 }
@@ -232,69 +258,72 @@ function CardHeader({
 function CardFooter({
   pull,
   size,
+  visibleProperties,
 }: {
-  pull: Pick<DashboardPull, "author" | "additions" | "deletions">;
+  pull: CardFooterPull;
   size: SizeMeta;
+  visibleProperties: DashboardCardProperty[];
 }) {
+  const { author, lines, chapters } = dashboardVisibleCardSections(visibleProperties);
+  const showChapters = chapters && typeof pull.chapterCount === "number";
+
+  if (!author && !lines && !showChapters) {
+    return null;
+  }
+
   return (
     <>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <SizePill meta={size} />
-      </div>
+      {lines ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          <SizePill meta={size} />
+        </div>
+      ) : null}
       <div className="mt-4 flex items-center gap-3 text-xs">
-        <span className="truncate text-warning">{pull.author}</span>
-        <span className="text-primary">+{pull.additions}</span>
-        <span className="text-destructive">-{pull.deletions}</span>
+        {author ? <span className="truncate text-warning">{pull.author}</span> : null}
+        {lines ? (
+          <>
+            <span className="text-primary">+{pull.additions}</span>
+            <span className="text-destructive">-{pull.deletions}</span>
+          </>
+        ) : null}
+        {showChapters ? (
+          <span className="text-muted-foreground">
+            {pull.viewedChapters ?? 0}/{pull.chapterCount} chapters
+          </span>
+        ) : null}
       </div>
     </>
   );
 }
 
-function DashboardSearchBar({
-  query,
-  onQueryChange,
-  onFilterClick,
-  onSortClick,
-}: {
-  query: string;
-  onQueryChange: (value: string) => void;
-  onFilterClick: () => void;
-  onSortClick: () => void;
-}) {
-  return (
-    <div className="flex items-center gap-3">
-      <div className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-lg border bg-card px-3 text-muted-foreground">
-        <Search className="size-4 shrink-0" />
-        <input
-          value={query}
-          onChange={(event) => onQueryChange(event.target.value)}
-          placeholder="Search pull requests..."
-          aria-label="Search pull requests"
-          className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
-        />
-      </div>
-      <Button
-        type="button"
-        aria-label="Filter pull requests"
-        variant="ghost"
-        size="icon"
-        className="size-9 shrink-0 text-muted-foreground"
-        onClick={onFilterClick}
-      >
-        <ListFilter className="size-4" />
-      </Button>
-      <Button
-        type="button"
-        aria-label="Sort pull requests"
-        variant="ghost"
-        size="icon"
-        className="size-9 shrink-0 text-muted-foreground"
-        onClick={onSortClick}
-      >
-        <SlidersHorizontal className="size-4" />
-      </Button>
-    </div>
+export function dashboardBoardGridClass(layout: DashboardLayoutMode) {
+  return layout === "list" ? "grid gap-4" : "grid gap-5 md:grid-cols-2 2xl:grid-cols-4";
+}
+
+export function dashboardOpenPullCardClass(highlighted: boolean) {
+  return cn(
+    "group rounded-lg border bg-card p-4 transition-colors hover:border-primary/35",
+    highlighted && "border-primary/45 bg-primary/5",
   );
+}
+
+export function dashboardCardIdentity(
+  repo: string,
+  number: number,
+  visibleProperties: DashboardCardProperty[],
+) {
+  const repoPart = visibleProperties.includes("Repository") ? repo : "";
+  const idPart = visibleProperties.includes("ID") ? `#${number}` : "";
+  return `${repoPart}${idPart}`;
+}
+
+export function dashboardVisibleCardSections(visibleProperties: DashboardCardProperty[]) {
+  return {
+    author: visibleProperties.includes("Author"),
+    lines: visibleProperties.includes("Lines changed"),
+    chapters: visibleProperties.includes("Chapters"),
+    updatedDate: visibleProperties.includes("Updated date"),
+  };
 }
 
 function SizePill({ meta }: { meta: SizeMeta }) {

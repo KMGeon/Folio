@@ -44,6 +44,18 @@ export type DashboardDirection = "desc" | "asc";
 export type DashboardClosedRange = "all" | "7d" | "30d" | "90d";
 export type DashboardLayoutMode = "board" | "list";
 export type DashboardGrouping = "responsibility" | "repository";
+export type DashboardCardProperty =
+  | "Repository"
+  | "ID"
+  | "Author"
+  | "Labels"
+  | "Reviewers"
+  | "Lines changed"
+  | "CI status"
+  | "Comments"
+  | "Chapters"
+  | "Preview environments"
+  | "Updated date";
 
 export interface DashboardRepo {
   id: string;
@@ -117,6 +129,10 @@ export function fetchDashboardSummary(
 }
 
 export function fetchDashboardPullPage(query: DashboardPullPageQuery): Promise<DashboardPullPage> {
+  return apiRequest<DashboardPullPage>(dashboardPullPagePath(query));
+}
+
+export function dashboardPullPagePath(query: DashboardPullPageQuery): string {
   const params = new URLSearchParams();
   params.set("bucket", query.bucket);
   if (query.limit) {
@@ -143,5 +159,5 @@ export function fetchDashboardPullPage(query: DashboardPullPageQuery): Promise<D
   if (typeof query.showDrafts === "boolean") {
     params.set("showDrafts", String(query.showDrafts));
   }
-  return apiRequest<DashboardPullPage>(`/api/v1/dashboard/pulls?${params.toString()}`);
+  return `/api/v1/dashboard/pulls?${params.toString()}`;
 }
