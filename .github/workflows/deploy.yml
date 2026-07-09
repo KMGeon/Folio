@@ -162,6 +162,7 @@ jobs:
           set -euo pipefail
           cd "$DEPLOY_PATH"
           test -f .env
+          docker builder prune -af || true
           docker compose pull
           # The SSH heredoc provides stdin; keep compose-run from consuming the
           # remaining deployment commands after migrations finish.
