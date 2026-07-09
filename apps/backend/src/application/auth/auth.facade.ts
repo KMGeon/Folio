@@ -7,6 +7,14 @@ export type LoginCompletion =
   | { status: "approved"; token: string; expiresAt: Date }
   | { status: "pending" };
 
+const DEV_ADMIN_USER = {
+  githubUserId: 1,
+  login: "KMGeon",
+  avatarUrl: "https://github.com/KMGeon.png?size=96",
+  email: null,
+  status: USER_STATUS.APPROVED,
+} as const;
+
 @Injectable()
 export class AuthFacade {
   constructor(
@@ -28,5 +36,14 @@ export class AuthFacade {
     }
     const session = await this.sessions.createForUser(user.id);
     return { status: "approved", ...session };
+  }
+
+  async completeDevLogin(): Promise<{ token: string; expiresAt: Date }> {
+    const user = await usersRepo.upsertByGithubId(DEV_ADMIN_USER);
+    const approved = user.status === USER_STATUS.APPROVED ? user : await usersRepo.approve(user.id);
+    if (!approved) {
+      throw new Error("Dev login could not approve the local admin user.");
+    }
+    return this.sessions.createForUser(approved.id);
   }
 }
