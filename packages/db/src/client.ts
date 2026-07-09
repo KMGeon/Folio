@@ -1,15 +1,15 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { type NodePgDatabase, drizzle } from "drizzle-orm/node-postgres";
-import { migrate } from "drizzle-orm/node-postgres/migrator";
-import { Pool } from "pg";
+import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
+import { migrate } from "drizzle-orm/postgres-js/migrator";
+import postgres, { type Sql } from "postgres";
 import * as schema from "./schema/index.js";
 
-export type Db = NodePgDatabase<typeof schema>;
+export type Db = PostgresJsDatabase<typeof schema>;
 
 interface CachedHandle {
-  pool: Pool;
+  client: Sql;
   db: Db;
   connectionString: string;
 }
@@ -17,17 +17,21 @@ interface CachedHandle {
 let cached: CachedHandle | null = null;
 
 function resolveConnectionString(explicit?: string): string {
-  const connectionString = explicit ?? process.env.DATABASE_URL;
+  const connectionString = explicit ?? process.env.SUPABASE_DATABASE_URL;
   if (!connectionString) {
     throw new Error(
-      "DATABASE_URL is not set. @folio/db requires a Postgres connection string (F2 runs Postgres on port 5433 in dev).",
+      [
+        "SUPABASE_DATABASE_URL is not set.",
+        "@folio/db requires a Postgres connection string",
+        "for the Supabase-hosted database.",
+      ].join(" "),
     );
   }
   return connectionString;
 }
 
 /**
- * Lazily create (and cache) a pooled Drizzle handle over a singleton `pg.Pool`.
+ * Lazily create (and cache) a Drizzle handle over a singleton postgres-js client.
  * Cached database handle; reconnects if the connection
  * string changes (e.g. between tests).
  */
@@ -37,25 +41,27 @@ export function getDb(opts: { connectionString?: string } = {}): Db {
     return cached.db;
   }
   if (cached) {
-    // Different target — drop the old pool before opening a new one.
-    void cached.pool.end();
+    // Different target: close the old client before opening a new one.
+    void cached.client.end({ timeout: 5 });
     cached = null;
   }
 
-  const pool = new Pool({ connectionString });
-  const db = drizzle(pool, { schema });
-  cached = { pool, db, connectionString };
+  // Supabase pooler modes can reject prepared statements; disabling them keeps
+  // direct and pooled connection strings interchangeable.
+  const client = postgres(connectionString, { prepare: false });
+  const db = drizzle(client, { schema });
+  cached = { client, db, connectionString };
   return db;
 }
 
-/** Close the cached pool (and clear the cache). Safe to call when none exists. */
+/** Close the cached client (and clear the cache). Safe to call when none exists. */
 export async function closeDb(): Promise<void> {
   if (!cached) {
     return;
   }
-  const { pool } = cached;
+  const { client } = cached;
   cached = null;
-  await pool.end();
+  await client.end({ timeout: 5 });
 }
 
 /**

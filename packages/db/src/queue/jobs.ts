@@ -166,7 +166,7 @@ export async function claimJob(opts: ClaimJobOptions, db: Db = getDb()): Promise
 		returning j.id;
 	`);
 
-  const claimedId = claimed.rows[0]?.id;
+  const claimedId = claimed[0]?.id;
   if (!claimedId) {
     return null;
   }

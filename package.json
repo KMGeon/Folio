@@ -17,9 +17,7 @@
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
     "test": "vitest run",
-    "prepare": "husky",
-    "db:up": "docker compose -f docker-compose.dev.yml up -d",
-    "db:down": "docker compose -f docker-compose.dev.yml down"
+    "prepare": "husky"
   },
   "devDependencies": {
     "@types/node": "^20.17.0",

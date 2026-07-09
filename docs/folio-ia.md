@@ -111,11 +111,14 @@ API calls should go through `apps/web/src/lib/api-client.ts`.
 Local development is explicit:
 
 - backend: `APP_PROFILE=dev`, `PORT=8080`, `WEB_ORIGIN=http://localhost:5173`,
-  `PUBLIC_API_BASE_URL=http://localhost:8080`, `FOLIO_WEB_BASE_URL=http://localhost:5173`
+  `PUBLIC_API_BASE_URL=http://localhost:8080`,
+  `FOLIO_WEB_BASE_URL=http://localhost:5173`, `SUPABASE_DATABASE_URL=<supabase-db-url>`
 - frontend: `APP_PROFILE=dev`, `NEXT_PUBLIC_API_BASE_URL=http://localhost:8080`
 
 Production uses:
 
 - backend/frontend: `APP_PROFILE=prd`
 
-`prd` must provide real database, GitHub App, public URL, and web URL secrets.
+`prd` must provide a real Supabase database, GitHub App, public URL, and web URL
+secrets. Dev and production both use `SUPABASE_DATABASE_URL`; local Postgres is
+not part of the runtime profile.

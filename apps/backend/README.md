@@ -41,9 +41,12 @@ curl http://localhost:8080/health
 Environment is parsed and validated in `src/config.ts` (see `.env.example` at
 the repo root). Runtime profile is selected with `APP_PROFILE=dev|prd`.
 Values are loaded from the repo root `.env`. Key vars: `APP_PROFILE`, `PORT`,
-`WEB_ORIGIN`, `PUBLIC_API_BASE_URL`, `FOLIO_WEB_BASE_URL`, `DATABASE_URL`,
-`FOLIO_DECOMP_MODEL`, `FOLIO_DECOMP_LLM`, `GITHUB_APP_ID`,
-`GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_WEBHOOK_SECRET`, `GITHUB_APP_SLUG`,
-`GITHUB_APP_CLIENT_ID`, `GITHUB_APP_CLIENT_SECRET`, and `OPENAI_API_KEY`.
-Decomposition runs through the Codex SDK, which authenticates via the local Codex
-CLI session (`~/.codex`) unless `OPENAI_API_KEY` is provided.
+`WEB_ORIGIN`, `PUBLIC_API_BASE_URL`, `FOLIO_WEB_BASE_URL`, `SUPABASE_DATABASE_URL`,
+`FOLIO_DECOMP_MODEL`, `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`,
+`GITHUB_APP_WEBHOOK_SECRET`, `GITHUB_APP_SLUG`, `GITHUB_APP_CLIENT_ID`, and
+`GITHUB_APP_CLIENT_SECRET`.
+Decomposition runs through the Codex SDK.
+
+Set `SUPABASE_DATABASE_URL` to the Supabase database connection string for both
+dev and production. Supabase API keys are not required for Folio's Drizzle
+migrations or SQL queries.

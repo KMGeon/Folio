@@ -54,18 +54,9 @@ const baseSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   // Next.js web dev origin allowed for CORS (credentialed).
   WEB_ORIGIN: z.string().default("http://localhost:5173"),
-  DATABASE_URL: z.string().optional(),
-  // Codex model used for PR decomposition into chapters. Codex auth comes from the
-  // local CLI session (~/.codex, ChatGPT subscription), so there is no API key here.
+  SUPABASE_DATABASE_URL: z.string().optional(),
+  // Codex model used for PR decomposition into chapters.
   FOLIO_DECOMP_MODEL: z.string().default("gpt-5.5"),
-  // Set to "0" to force the deterministic fallback and never spawn Codex.
-  FOLIO_DECOMP_LLM: z.enum(["0", "1"]).optional(),
-  // Ollama fallback for decomposition: tried when Codex fails. "0" disables the slot.
-  FOLIO_DECOMP_OLLAMA: z.enum(["0", "1"]).optional(),
-  FOLIO_DECOMP_OLLAMA_URL: z.string().optional(),
-  FOLIO_DECOMP_OLLAMA_MODEL: z.string().optional(),
-  // Circuit-breaker open duration (ms) after a Codex failure before it is re-probed.
-  FOLIO_DECOMP_CODEX_COOLDOWN_MS: z.coerce.number().int().positive().optional(),
   GITHUB_APP_ID: z.string().optional(),
   GITHUB_APP_PRIVATE_KEY: z.string().optional(),
   GITHUB_APP_WEBHOOK_SECRET: z.string().optional(),
@@ -81,17 +72,17 @@ const baseSchema = z.object({
 export type Config = z.infer<typeof baseSchema>;
 
 /**
- * In prd these must be present — refuse to boot otherwise so a
+ * In prd these must be present: refuse to boot otherwise so a
  * misconfigured deploy surfaces immediately rather than at first request.
  */
 const REQUIRED_IN_PRD = [
-  "DATABASE_URL",
   "GITHUB_APP_ID",
   "GITHUB_APP_PRIVATE_KEY",
   "GITHUB_APP_WEBHOOK_SECRET",
   "GITHUB_APP_SLUG",
   "GITHUB_APP_CLIENT_ID",
   "GITHUB_APP_CLIENT_SECRET",
+  "SUPABASE_DATABASE_URL",
   "PUBLIC_API_BASE_URL",
   "FOLIO_WEB_BASE_URL",
 ] as const satisfies readonly (keyof Config)[];
