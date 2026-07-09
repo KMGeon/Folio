@@ -8,7 +8,7 @@ ENV PORT=8080
 
 RUN npm install -g pnpm@10.32.1
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
+COPY .npmrc package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY apps/backend/package.json apps/backend/package.json
 COPY packages/types/package.json packages/types/package.json
 COPY packages/diff/package.json packages/diff/package.json

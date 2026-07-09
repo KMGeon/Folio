@@ -10,6 +10,13 @@ concurrency:
   group: deploy-main
   cancel-in-progress: false
 
+env:
+  AWS_REGION: ap-northeast-2
+  ECR_REGISTRY: 531546477262.dkr.ecr.ap-northeast-2.amazonaws.com
+  ECR_REPOSITORY: folio
+  IMAGE_TAG: ${{ github.sha }}
+  NEXT_PUBLIC_API_BASE_URL: https://folio.ai.kr
+
 jobs:
   verify:
     name: Verify
@@ -51,6 +58,41 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push backend images
+        run: |
+          set -euo pipefail
+          docker buildx build \
+            --platform linux/amd64 \
+            --file apps/backend/Dockerfile \
+            --tag "$ECR_REGISTRY/$ECR_REPOSITORY:backend-$IMAGE_TAG" \
+            --tag "$ECR_REGISTRY/$ECR_REPOSITORY:worker-$IMAGE_TAG" \
+            --push \
+            .
+
+      - name: Build and push web image
+        run: |
+          set -euo pipefail
+          docker buildx build \
+            --platform linux/amd64 \
+            --file apps/web/Dockerfile \
+            --build-arg NEXT_PUBLIC_API_BASE_URL="$NEXT_PUBLIC_API_BASE_URL" \
+            --tag "$ECR_REGISTRY/$ECR_REPOSITORY:web-$IMAGE_TAG" \
+            --push \
+            .
+
       - name: Configure SSH
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
@@ -90,11 +132,13 @@ jobs:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
         run: |
           set -euo pipefail
-          ssh folio-ec2 "DEPLOY_PATH='$DEPLOY_PATH' bash -s" <<'REMOTE'
+          aws ecr get-login-password --region "$AWS_REGION" |
+            ssh folio-ec2 "docker login --username AWS --password-stdin '$ECR_REGISTRY'"
+          ssh folio-ec2 "DEPLOY_PATH='$DEPLOY_PATH' ECR_REGISTRY='$ECR_REGISTRY' ECR_REPOSITORY='$ECR_REPOSITORY' IMAGE_TAG='$IMAGE_TAG' bash -s" <<'REMOTE'
           set -euo pipefail
           cd "$DEPLOY_PATH"
           test -f .env
-          docker compose build
+          docker compose pull
           docker compose run --rm --no-deps backend pnpm --filter @folio/db db:migrate
           docker compose up -d --remove-orphans
           if sudo test -f /etc/letsencrypt/live/folio.ai.kr/fullchain.pem; then
@@ -115,7 +159,7 @@ jobs:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
         run: |
           set -euo pipefail
-          ssh folio-ec2 "DEPLOY_PATH='$DEPLOY_PATH' bash -s" <<'REMOTE'
+          ssh folio-ec2 "DEPLOY_PATH='$DEPLOY_PATH' ECR_REGISTRY='$ECR_REGISTRY' ECR_REPOSITORY='$ECR_REPOSITORY' IMAGE_TAG='$IMAGE_TAG' bash -s" <<'REMOTE'
           set -euo pipefail
           for i in $(seq 1 30); do
             dashboard_status=$(curl -ksS -o /dev/null -w '%{http_code}' https://folio.ai.kr/api/v1/dashboard || true)
