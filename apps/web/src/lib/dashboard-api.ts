@@ -17,7 +17,25 @@ export interface DashboardPull {
   chapterCount: number;
   viewedChapters: number;
   changedFiles: number;
+  additions: number;
+  deletions: number;
   risk: DashboardRisk;
+}
+
+export type DashboardCompletedState = "merged" | "closed";
+
+export interface DashboardCompletedPull {
+  id: string;
+  org: string;
+  repo: string;
+  number: number;
+  title: string;
+  author: string;
+  completedAt: string;
+  completedState: DashboardCompletedState;
+  additions: number;
+  deletions: number;
+  changedFiles: number;
 }
 
 export interface DashboardRepo {
@@ -33,9 +51,16 @@ export interface ActivityDay {
 }
 
 export interface DashboardPayload {
-  metrics: { ready: number; processing: number; installedRepos: number; activeRepos: number };
+  metrics: {
+    ready: number;
+    processing: number;
+    installedRepos: number;
+    activeRepos: number;
+    completed: number;
+  };
   repos: DashboardRepo[];
   pulls: DashboardPull[];
+  completedPulls: DashboardCompletedPull[];
   activity: ActivityDay[];
 }
 

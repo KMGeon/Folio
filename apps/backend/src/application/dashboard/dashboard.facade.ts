@@ -8,46 +8,46 @@ import {
   revisionsRepo,
 } from "@folio/db";
 
-export interface ActivityDay {
-  date: string;
-  count: number;
-}
+export type ActivityDay = { date: string; count: number };
 import { createInstallationOctokit } from "@folio/github";
 import type { Octokit } from "octokit";
 import { fetchPublicContributions } from "../../infrastructure/github/github-contributions.js";
+import { pullLineCounts, relativeTime } from "./dashboard-pull-details.js";
 
 export type DashboardReviewStatus = "ready" | "processing";
 export type DashboardRisk = "low" | "medium" | "high";
+export type DashboardCompletedState = "merged" | "closed";
 
-export interface DashboardPull {
-  id: string;
-  org: string;
-  repo: string;
+type DashboardPullBase = Record<"id" | "org" | "repo" | "title" | "author", string> & {
   number: number;
-  title: string;
-  author: string;
-  updatedAt: string;
-  headBranch: string;
-  baseBranch: string;
-  status: DashboardReviewStatus;
-  chapterCount: number;
-  viewedChapters: number;
+  additions: number;
+  deletions: number;
   changedFiles: number;
-  risk: DashboardRisk;
-}
+};
 
-export interface DashboardRepo {
-  id: string;
-  fullName: string;
+export type DashboardPull = DashboardPullBase &
+  Record<"updatedAt" | "headBranch" | "baseBranch", string> & {
+    status: DashboardReviewStatus;
+    chapterCount: number;
+    viewedChapters: number;
+    risk: DashboardRisk;
+  };
+
+export type DashboardCompletedPull = DashboardPullBase & {
+  completedAt: string;
+  completedState: DashboardCompletedState;
+};
+
+export type DashboardRepo = Record<"id" | "fullName", string> & {
   openPrCount: number;
   folioEnabled: boolean;
-}
+};
 
 export interface DashboardPayload {
-  metrics: { ready: number; processing: number; installedRepos: number; activeRepos: number };
+  metrics: Record<"ready" | "processing" | "installedRepos" | "activeRepos" | "completed", number>;
   repos: DashboardRepo[];
   pulls: DashboardPull[];
-  /** Per-day chapter-view counts for the activity heatmap (days with activity only). */
+  completedPulls: DashboardCompletedPull[];
   activity: ActivityDay[];
 }
 
@@ -55,12 +55,24 @@ export interface DashboardDeps {
   octokitFactory?: (githubInstallationId: number) => Promise<Octokit>;
 }
 
-interface PullStatus {
+type PullStatus = Record<"chapterCount" | "viewedChapters" | "changedFiles", number> & {
   status: DashboardReviewStatus;
-  chapterCount: number;
-  viewedChapters: number;
-  changedFiles: number;
-}
+};
+
+type GitHubPullSummary = Record<"title" | "updated_at", string> & {
+  number: number;
+  user?: { login?: string } | null;
+  head: { ref: string };
+  base: { ref: string };
+  closed_at?: string | null;
+  merged_at?: string | null;
+};
+
+type CompletedCandidate = Record<"owner" | "repo" | "title" | "author" | "completedIso", string> & {
+  octokit: Octokit;
+  number: number;
+  completedState: DashboardCompletedState;
+};
 
 const PROCESSING: PullStatus = {
   status: "processing",
@@ -68,6 +80,8 @@ const PROCESSING: PullStatus = {
   viewedChapters: 0,
   changedFiles: 0,
 };
+
+const COMPLETED_PULL_LIMIT = 20;
 
 @Injectable()
 export class DashboardFacade {
@@ -80,6 +94,7 @@ export class DashboardFacade {
 
     const repos: DashboardRepo[] = [];
     const pulls: DashboardPull[] = [];
+    const completedCandidates: CompletedCandidate[] = [];
 
     for (const installation of installations) {
       const repoRows = await repositoriesRepo.listByInstallation(installation.id);
@@ -94,12 +109,7 @@ export class DashboardFacade {
           continue;
         }
 
-        repos.push({
-          id: repo.id,
-          fullName: repo.fullName,
-          openPrCount: 0,
-          folioEnabled: false,
-        });
+        repos.push(this.repoPayload(repo, 0, false));
       }
 
       if (enabledRepoRows.length === 0) {
@@ -115,32 +125,25 @@ export class DashboardFacade {
       }
 
       for (const repo of enabledRepoRows) {
-        let openPrs: Awaited<ReturnType<Octokit["paginate"]>>;
+        let openPrs: GitHubPullSummary[];
         try {
-          openPrs = await octokit.paginate(octokit.rest.pulls.list, {
-            owner: repo.owner,
-            repo: repo.name,
-            state: "open",
-            per_page: 100,
-          });
+          openPrs = await this.listPulls(octokit, repo.owner, repo.name, "open");
         } catch {
-          repos.push({
-            id: repo.id,
-            fullName: repo.fullName,
-            openPrCount: 0,
-            folioEnabled: true,
-          });
+          repos.push(this.repoPayload(repo, 0, true));
           continue;
         }
 
-        repos.push({
-          id: repo.id,
-          fullName: repo.fullName,
-          openPrCount: openPrs.length,
-          folioEnabled: true,
-        });
+        let closedPrs: GitHubPullSummary[] = [];
+        try {
+          closedPrs = await this.listPulls(octokit, repo.owner, repo.name, "closed");
+        } catch {
+          closedPrs = [];
+        }
+
+        repos.push(this.repoPayload(repo, openPrs.length, true));
 
         for (const pr of openPrs) {
+          const lineCounts = await pullLineCounts(octokit, repo.owner, repo.name, pr.number);
           const status = await this.resolveStatus(user.id, repo.id, pr.number);
           pulls.push({
             id: `${repo.owner}-${repo.name}-${pr.number}`,
@@ -153,13 +156,22 @@ export class DashboardFacade {
             headBranch: pr.head.ref,
             baseBranch: pr.base.ref,
             risk: "low",
+            ...lineCounts,
             ...status,
           });
+        }
+
+        for (const pr of closedPrs) {
+          const candidate = this.completedCandidate(octokit, repo.owner, repo.name, pr);
+          if (candidate) {
+            completedCandidates.push(candidate);
+          }
         }
       }
     }
 
     const ready = pulls.filter((p) => p.status === "ready").length;
+    const completedPulls = await this.completedPulls(completedCandidates);
     // Activity heatmap is the user's PUBLIC GitHub contributions, not Folio data.
     const activity = await fetchPublicContributions(user.login);
     return {
@@ -168,11 +180,47 @@ export class DashboardFacade {
         processing: pulls.length - ready,
         installedRepos: repos.length,
         activeRepos: repos.filter((repo) => repo.folioEnabled).length,
+        completed: completedPulls.length,
       },
       repos,
       pulls,
+      completedPulls,
       activity,
     };
+  }
+
+  private repoPayload(
+    repo: { id: string; fullName: string },
+    openPrCount: number,
+    folioEnabled: boolean,
+  ): DashboardRepo {
+    return { id: repo.id, fullName: repo.fullName, openPrCount, folioEnabled };
+  }
+
+  private async listPulls(
+    octokit: Octokit,
+    owner: string,
+    repo: string,
+    state: "open" | "closed",
+  ): Promise<GitHubPullSummary[]> {
+    if (state === "closed") {
+      const { data } = await octokit.rest.pulls.list({
+        owner,
+        repo,
+        state,
+        sort: "updated",
+        direction: "desc",
+        per_page: COMPLETED_PULL_LIMIT,
+      });
+      return data as GitHubPullSummary[];
+    }
+
+    return (await octokit.paginate(octokit.rest.pulls.list, {
+      owner,
+      repo,
+      state,
+      per_page: 100,
+    })) as GitHubPullSummary[];
   }
 
   private async resolveStatus(
@@ -202,19 +250,57 @@ export class DashboardFacade {
       changedFiles,
     };
   }
-}
 
-function relativeTime(iso: string): string {
-  const minutes = Math.floor((Date.now() - new Date(iso).getTime()) / 60_000);
-  if (minutes < 1) {
-    return "방금";
+  private completedCandidate(
+    octokit: Octokit,
+    owner: string,
+    repo: string,
+    pr: GitHubPullSummary,
+  ): CompletedCandidate | null {
+    const completedIso = pr.merged_at ?? pr.closed_at;
+    return completedIso
+      ? {
+          owner,
+          repo,
+          octokit,
+          number: pr.number,
+          title: pr.title,
+          author: pr.user?.login ?? "unknown",
+          completedIso,
+          completedState: pr.merged_at ? "merged" : "closed",
+        }
+      : null;
   }
-  if (minutes < 60) {
-    return `${minutes}분 전`;
+
+  private async completedPulls(
+    candidates: CompletedCandidate[],
+  ): Promise<DashboardCompletedPull[]> {
+    const pulls: DashboardCompletedPull[] = [];
+    for (const candidate of candidates
+      .sort((a, b) => new Date(b.completedIso).getTime() - new Date(a.completedIso).getTime())
+      .slice(0, COMPLETED_PULL_LIMIT)) {
+      const lineCounts = await pullLineCounts(
+        candidate.octokit,
+        candidate.owner,
+        candidate.repo,
+        candidate.number,
+      );
+
+      pulls.push({
+        id: `${candidate.owner}-${candidate.repo}-${candidate.number}`,
+        org: candidate.owner,
+        repo: candidate.repo,
+        number: candidate.number,
+        title: candidate.title,
+        author: candidate.author,
+        completedAt: relativeTime(candidate.completedIso),
+        completedState: candidate.completedState,
+        additions: lineCounts.additions,
+        deletions: lineCounts.deletions,
+        changedFiles: lineCounts.changedFiles,
+      });
+    }
+
+    return pulls;
   }
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) {
-    return `${hours}시간 전`;
-  }
-  return `${Math.floor(hours / 24)}일 전`;
 }
