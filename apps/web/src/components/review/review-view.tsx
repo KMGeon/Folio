@@ -4,9 +4,10 @@ import { ChevronLeft, ChevronRight, ChevronsUp, FileText, Search } from "lucide-
 import { useEffect, useMemo, useState } from "react";
 
 import { ChapterCards } from "@/components/review/chapter-cards";
+import { aggregateChangedFiles } from "@/components/review/changed-file-summary";
 import { buildFileScopedChapter } from "@/components/review/chapter-file-diff";
 import { ChapterPanel } from "@/components/review/chapter-panel";
-import { FileTree, type ChangedFile } from "@/components/review/changed-file-tree";
+import { FileStatusMarker, FileTree } from "@/components/review/changed-file-tree";
 import { CommitGraph } from "@/components/review/commit-graph";
 import { DiffViewer } from "@/components/review/diff-viewer";
 import { fileProgress } from "@/components/review/review-file-state";
@@ -22,33 +23,6 @@ import type {
 import { setFileViewed } from "@/lib/review-api";
 
 type ChapterPanelTab = "chapters" | "activity";
-
-/** Aggregate every chapter's files into a deduped changed-file list for the Files tab. */
-function aggregateFiles(chapters: ReviewChapter[]): ChangedFile[] {
-  const byPath = new Map<string, ChangedFile>();
-  for (const chapter of chapters) {
-    for (const file of chapter.files) {
-      const existing = byPath.get(file.path);
-      if (existing) {
-        existing.additions += file.additions;
-        existing.deletions += file.deletions;
-      } else {
-        byPath.set(file.path, {
-          path: file.path,
-          additions: file.additions,
-          deletions: file.deletions,
-          viewed: file.viewed,
-          chapterIndex: chapter.index,
-          chapterTitle: chapter.title,
-        });
-      }
-      if (existing) {
-        existing.viewed = existing.viewed || file.viewed;
-      }
-    }
-  }
-  return [...byPath.values()];
-}
 
 export function ReviewView({
   pr,
@@ -76,7 +50,7 @@ export function ReviewView({
     setReviewChapters(chapters);
   }, [chapters]);
 
-  const files = aggregateFiles(reviewChapters);
+  const files = aggregateChangedFiles(reviewChapters);
   const fileProgressValue = fileProgress(files);
   const selectedFile = useMemo(
     () => files.find((file) => file.path === selectedFilePath) ?? files[0] ?? null,
@@ -278,7 +252,7 @@ export function ReviewView({
             {selectedFile && selectedFileScopedChapter ? (
               <section className="overflow-hidden rounded-lg border bg-card">
                 <div className="flex items-center gap-3 border-b px-4 py-3">
-                  <FileText className="size-4 text-primary" />
+                  <FileStatusMarker status={selectedFile.status} active />
                   <span className="min-w-0 flex-1 truncate font-mono text-sm">
                     {selectedFile.path}
                   </span>

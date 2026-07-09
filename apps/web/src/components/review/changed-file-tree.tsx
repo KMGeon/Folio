@@ -1,14 +1,86 @@
-import { CheckCircle2, FileText, Folder } from "lucide-react";
+import {
+  CheckCircle2,
+  FileMinus2,
+  FilePenLine,
+  FilePlus2,
+  FileSymlink,
+  Folder,
+} from "lucide-react";
 
+import type { ChangedFile } from "@/components/review/changed-file-summary";
+import type { ReviewFileStatus } from "@/lib/review-api";
 import { cn } from "@/lib/utils";
 
-export interface ChangedFile {
-  path: string;
-  additions: number;
-  deletions: number;
-  viewed: boolean;
-  chapterIndex: number;
-  chapterTitle: string;
+const FILE_STATUS_META: Record<
+  ReviewFileStatus,
+  {
+    label: string;
+    chip: string;
+    icon: typeof FilePlus2;
+    className: string;
+    chipClassName: string;
+  }
+> = {
+  added: {
+    label: "Added",
+    chip: "A",
+    icon: FilePlus2,
+    className: "text-diff-add-fg",
+    chipClassName: "border-diff-add-fg/30 bg-diff-add-bg text-diff-add-fg",
+  },
+  modified: {
+    label: "Modified",
+    chip: "M",
+    icon: FilePenLine,
+    className: "text-muted-foreground",
+    chipClassName: "border-border bg-muted/60 text-muted-foreground",
+  },
+  deleted: {
+    label: "Deleted",
+    chip: "D",
+    icon: FileMinus2,
+    className: "text-diff-del-fg",
+    chipClassName: "border-diff-del-fg/30 bg-diff-del-bg text-diff-del-fg",
+  },
+  renamed: {
+    label: "Renamed",
+    chip: "R",
+    icon: FileSymlink,
+    className: "text-syntax-link",
+    chipClassName: "border-syntax-link/30 bg-syntax-link/10 text-syntax-link",
+  },
+  moved: {
+    label: "Moved",
+    chip: "V",
+    icon: FileSymlink,
+    className: "text-syntax-link",
+    chipClassName: "border-syntax-link/30 bg-syntax-link/10 text-syntax-link",
+  },
+};
+
+export function FileStatusMarker({
+  status,
+  active = false,
+}: {
+  status: ReviewFileStatus;
+  active?: boolean;
+}) {
+  const meta = FILE_STATUS_META[status];
+  const Icon = meta.icon;
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1" title={meta.label}>
+      <Icon className={cn("size-4", meta.className, active && "text-primary")} />
+      <span
+        className={cn(
+          "inline-flex h-4 min-w-4 items-center justify-center rounded border px-1 font-mono text-[10px] leading-none",
+          meta.chipClassName,
+          active && status === "modified" && "text-foreground",
+        )}
+      >
+        {meta.chip}
+      </span>
+    </span>
+  );
 }
 
 export function FileTree({
@@ -51,11 +123,8 @@ export function FileTree({
                       : "text-muted-foreground hover:bg-accent",
                   )}
                 >
-                  {file.viewed ? (
-                    <CheckCircle2 className="size-4 shrink-0 text-primary" />
-                  ) : (
-                    <FileText className={cn("size-4 shrink-0", active && "text-primary")} />
-                  )}
+                  <FileStatusMarker status={file.status} active={active} />
+                  {file.viewed ? <CheckCircle2 className="size-4 shrink-0 text-primary" /> : null}
                   <span className="min-w-0 flex-1 truncate font-mono text-[13px]">{name}</span>
                   <span className="font-mono text-diff-add-fg text-xs">+{file.additions}</span>
                   {file.deletions > 0 ? (

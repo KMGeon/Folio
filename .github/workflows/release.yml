@@ -1,0 +1,60 @@
+name: Release
+
+on:
+  workflow_run:
+    workflows:
+      - Deploy
+    types:
+      - completed
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create deployment release
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout deployed commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+
+      - name: Create deployment release
+        env:
+          DEPLOY_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          DEPLOY_RUN_NUMBER: ${{ github.event.workflow_run.run_number }}
+          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git fetch --force --tags --prune
+
+          short_sha="$(git rev-parse --short "$DEPLOY_SHA")"
+          release_tag="deploy-${DEPLOY_RUN_NUMBER}.${DEPLOY_RUN_ATTEMPT}-${short_sha}"
+          release_title="Folio deploy ${short_sha}"
+          previous_tag="$(gh release list --limit 1 --json tagName --jq '.[0].tagName // ""')"
+
+          {
+            echo "## Production deploy"
+            echo
+            echo "Folio was deployed to production from \`${DEPLOY_SHA}\` after the deployment smoke test passed."
+            echo
+            echo "## Included commits"
+            echo
+            if [ -n "$previous_tag" ] && git rev-parse --verify --quiet "$previous_tag^{commit}" >/dev/null; then
+              git log --pretty=format:'- `%h` %s' "${previous_tag}..${DEPLOY_SHA}"
+            else
+              git log -1 --pretty=format:'- `%h` %s' "$DEPLOY_SHA"
+            fi
+          } > release-notes.md
+
+          gh release create "$release_tag" \
+            --target "$DEPLOY_SHA" \
+            --title "$release_title" \
+            --notes-file release-notes.md \
+            --latest

@@ -9,8 +9,8 @@ const chapter: ReviewChapter = {
   title: "Chapter",
   summary: "Summary",
   files: [
-    { path: "a.ts", additions: 2, deletions: 0, viewed: true },
-    { path: "b.ts", additions: 0, deletions: 1, viewed: false },
+    { path: "a.ts", status: "added", additions: 2, deletions: 0, viewed: true },
+    { path: "b.ts", status: "deleted", additions: 0, deletions: 1, viewed: false },
   ],
   diffLines: [
     { path: "a.ts", n: 1, kind: "add", text: "a", newLineNumber: 1 },

@@ -1,4 +1,4 @@
-import type { LineRef } from "@folio/types";
+import type { FileStatus, LineRef } from "@folio/types";
 
 /** Web-facing diff line: file identity plus display line data for comments. */
 export interface WebDiffLine {
@@ -12,6 +12,7 @@ export interface WebDiffLine {
 
 export interface ChapterCodeFile {
   path: string;
+  status: FileStatus;
   additions: number;
   deletions: number;
 }

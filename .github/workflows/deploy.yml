@@ -10,6 +10,10 @@ concurrency:
   group: deploy-main
   cancel-in-progress: false
 
+permissions:
+  actions: write
+  contents: read
+
 env:
   AWS_REGION: ap-northeast-2
   ECR_REGISTRY: 531546477262.dkr.ecr.ap-northeast-2.amazonaws.com
