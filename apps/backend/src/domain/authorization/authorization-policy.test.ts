@@ -59,6 +59,10 @@ describe("canManageMember", () => {
     expect(canManageMember(admin, admin, "suspend").allow).toBe(false);
   });
 
+  it("forbids an admin acting on the owner (Decision 9)", () => {
+    expect(canManageMember(admin, owner, "suspend").allow).toBe(false);
+  });
+
   it("forbids an admin elevating a reviewer (owner-only)", () => {
     expect(canManageMember(admin, reviewer, "elevate").allow).toBe(false);
   });
@@ -66,11 +70,26 @@ describe("canManageMember", () => {
   it("lets an owner elevate a reviewer", () => {
     expect(canManageMember(owner, reviewer, "elevate").allow).toBe(true);
   });
+
+  it("forbids a suspended actor from managing anyone", () => {
+    const suspendedAdmin = {
+      role: WORKSPACE_ROLE.ADMIN,
+      status: MEMBERSHIP_STATUS.SUSPENDED,
+    } as const;
+    expect(canManageMember(suspendedAdmin, reviewer, "suspend").allow).toBe(false);
+  });
 });
 
 describe("canTransferOwnership", () => {
   it("allows only the owner", () => {
     expect(canTransferOwnership({ role: WORKSPACE_ROLE.OWNER, status: active }).allow).toBe(true);
     expect(canTransferOwnership({ role: WORKSPACE_ROLE.ADMIN, status: active }).allow).toBe(false);
+  });
+
+  it("forbids a suspended owner from transferring ownership", () => {
+    expect(
+      canTransferOwnership({ role: WORKSPACE_ROLE.OWNER, status: MEMBERSHIP_STATUS.SUSPENDED })
+        .allow,
+    ).toBe(false);
   });
 });
