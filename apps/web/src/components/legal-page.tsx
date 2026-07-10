@@ -20,7 +20,7 @@ export interface LegalPageProps {
 export function LegalPage({ title, effectiveDate, intro, sections }: LegalPageProps) {
   return (
     <main className="min-h-svh bg-background text-foreground">
-      <div className="mx-auto w-full max-w-2xl px-6 py-12 sm:py-16">
+      <div className="mx-auto w-full max-w-2xl px-5 py-8 sm:py-10">
         <Link
           href="/"
           className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -30,14 +30,14 @@ export function LegalPage({ title, effectiveDate, intro, sections }: LegalPagePr
         </Link>
 
         <header className="mt-10 border-b pb-6">
-          <h1 className="font-serif text-4xl font-normal leading-tight tracking-tight">{title}</h1>
+          <h1 className="font-serif text-3xl font-normal leading-tight tracking-tight">{title}</h1>
           <p className="mt-2 font-mono text-muted-foreground text-xs">
             최종 업데이트 · {effectiveDate}
           </p>
           <p className="mt-4 text-muted-foreground text-sm leading-relaxed">{intro}</p>
         </header>
 
-        <div className="mt-8 space-y-8">
+        <div className="mt-6 space-y-6">
           {sections.map((section, i) => (
             <section key={section.heading}>
               <h2 className="font-serif text-xl font-normal tracking-tight">

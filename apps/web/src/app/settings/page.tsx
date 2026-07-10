@@ -52,13 +52,13 @@ export default async function SettingsPage({
   return (
     <AppLayout user={user}>
       <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-3xl px-4 pb-16 md:px-8">
+        <div className="mx-auto w-full max-w-3xl px-4 pb-10 md:px-6">
           {/* Editorial masthead: eyebrow → serif headline → standfirst, ruled off. */}
           <header className="space-y-3 border-b pt-10 pb-7">
             <p className="font-mono text-[0.7rem] uppercase tracking-[0.25em] text-muted-foreground">
               Settings
             </p>
-            <h1 className="font-serif text-3xl font-normal leading-[1.1] tracking-tight md:text-[2.75rem]">
+            <h1 className="font-serif text-2xl font-normal leading-[1.1] tracking-tight md:text-3xl">
               <span className="italic">워크스페이스</span> 설정
             </h1>
             <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">
@@ -165,7 +165,7 @@ export default async function SettingsPage({
                     ))}
                   </ul>
                 ) : (
-                  <div className="rounded-md border border-dashed bg-background/35 px-3 py-8 text-center text-xs text-muted-foreground">
+                  <div className="rounded-md border border-dashed bg-background/35 px-3 py-5 text-center text-xs text-muted-foreground">
                     조건에 맞는 저장소가 없습니다.
                   </div>
                 )}

@@ -25,14 +25,14 @@ export function ChapterCards({
         const risk = chapterRisk(chapter);
         const inner = (
           <>
-            <span className="flex size-7 shrink-0 items-center justify-center rounded-full border font-mono text-muted-foreground text-xs">
+            <span className="flex size-6 shrink-0 items-center justify-center rounded-full border font-mono text-muted-foreground text-xs">
               {chapter.viewed ? <CheckCircle2 className="size-3.5 text-primary" /> : chapter.index}
             </span>
             <div className="min-w-0 flex-1">
-              <div className="truncate font-serif text-lg leading-snug text-foreground/95 transition-colors group-hover:text-primary">
+              <div className="truncate font-serif text-sm leading-snug text-foreground/95 transition-colors group-hover:text-primary">
                 {chapter.title}
               </div>
-              <div className="mt-2 flex flex-wrap items-center gap-2.5 font-mono text-sm tabular-nums">
+              <div className="mt-1 flex flex-wrap items-center gap-2 font-mono text-xs tabular-nums">
                 <RiskPill risk={risk} />
                 <span className="text-diff-add-fg">+{additions}</span>
                 {deletions > 0 ? <span className="text-diff-del-fg">-{deletions}</span> : null}
@@ -50,17 +50,17 @@ export function ChapterCards({
               </div>
             </div>
             {chapter.index === 1 ? (
-              <span className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-md bg-primary px-4 font-medium text-primary-foreground text-sm">
+              <span className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md bg-primary px-3 font-medium text-primary-foreground text-xs">
                 Start reviewing
                 <ArrowRight className="size-4" />
               </span>
             ) : (
-              <ArrowRight className="mt-2 size-5 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
+              <ArrowRight className="size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
             )}
           </>
         );
         const className = cn(
-          "group flex w-full items-center gap-4 border-b p-5 text-left transition-colors last:border-b-0 hover:bg-accent/55",
+          "group flex w-full items-center gap-3 border-b p-3 text-left transition-colors last:border-b-0 hover:bg-accent/55",
         );
         return onSelect ? (
           <button

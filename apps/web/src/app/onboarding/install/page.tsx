@@ -32,13 +32,13 @@ export default async function InstallPage() {
   return (
     <AppLayout user={user}>
       <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-5xl px-4 pb-16 md:px-8">
+        <div className="mx-auto w-full max-w-5xl px-4 pb-10 md:px-6">
           {/* Editorial masthead: mono eyebrow → serif headline → standfirst, ruled off. */}
           <header className="space-y-3 border-b pt-10 pb-7">
             <p className="font-mono text-[0.7rem] uppercase tracking-[0.25em] text-muted-foreground">
               온보딩 · 설치
             </p>
-            <h1 className="font-serif text-3xl font-normal leading-[1.1] tracking-tight md:text-[2.75rem]">
+            <h1 className="font-serif text-2xl font-normal leading-[1.1] tracking-tight md:text-3xl">
               GitHub App 설치
             </h1>
             <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">

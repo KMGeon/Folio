@@ -8,6 +8,11 @@ const filePanelSource = readFileSync(resolve(__dirname, "review-file-diff-panel.
 const reviewViewSource = readFileSync(resolve(__dirname, "review-view.tsx"), "utf8");
 
 describe("DiffViewer source", () => {
+  it("uses compact chapter summary spacing", () => {
+    expect(diffViewerSource).toContain('className="mb-3 rounded-lg border bg-card p-3"');
+    expect(diffViewerSource).toContain("font-serif text-lg");
+  });
+
   it("offers unified and split diff view modes", () => {
     expect(reviewViewSource).toContain("<DiffViewModeSwitch");
     expect(reviewViewSource).toContain("viewMode={diffViewMode}");

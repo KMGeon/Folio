@@ -64,7 +64,8 @@ Dedicated `--sidebar*` tokens (slightly distinct from cards, fainter border
 - **Sans:** Geist (`--font-geist-sans`) — loaded via `next/font` (`geist` pkg) in
   `app/layout.tsx`, never from a CDN.
 - **Mono:** Geist Mono (`--font-geist-mono`) — diffs, code, line numbers.
-- Scale: body `text-sm`, metadata/labels/pills `text-xs`, headings step up modestly.
+- Scale: the global body is `13px`; UI copy is `text-sm` (13px), while
+  metadata/labels/pills use `text-xs` (11px). Headings step up modestly.
   Keep weight at `font-medium`/`font-semibold`; avoid heavy display weights.
 
 ## Shape, Spacing, Motion
@@ -72,7 +73,7 @@ Dedicated `--sidebar*` tokens (slightly distinct from cards, fainter border
 - **Radius:** `--radius: 0.625rem`. Tailwind exposes `rounded-sm/md/lg/xl` derived
   from it; pills use `rounded-full`.
 - **Sidebar width:** `w-64` (256px), hidden below `lg`.
-- **Row heights:** controls/nav `h-8`–`h-9`, header bars `h-14`.
+- **Row heights:** controls/nav `h-7`–`h-8`, header bars `h-12`.
 - **Borders first, shadows minimal** (`shadow-xs` at most on buttons).
 - **Transitions:** color/box-shadow only (`transition-colors`,
   `transition-[color,box-shadow]`); no large motion.

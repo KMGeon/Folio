@@ -10,7 +10,7 @@ export default function ErrorPage({
   reset: () => void;
 }) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background px-6">
+    <main className="flex min-h-screen items-center justify-center bg-background px-4">
       <section className="w-full max-w-xl">
         {/* Vivid destructive eyebrow: the error state is the one place color speaks. */}
         <p className="mb-4 font-mono text-[0.7rem] uppercase tracking-[0.2em] text-destructive">

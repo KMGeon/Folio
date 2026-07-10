@@ -49,7 +49,7 @@ export function ChapterPanel({
 
   return (
     <aside className="flex w-full shrink-0 flex-col border-b lg:h-auto lg:w-[460px] lg:overflow-y-auto lg:border-b-0 lg:border-l">
-      <div className="flex items-center gap-1 px-4 pt-4">
+      <div className="flex items-center gap-1 px-3 pt-3">
         <ChapterViewedToggle
           org={org}
           repo={repo}
@@ -76,16 +76,16 @@ export function ChapterPanel({
         </Button>
       </div>
 
-      <div className="px-4 pt-3">
-        <h2 className="font-serif text-xl leading-snug tracking-tight">{chapter.title}</h2>
+      <div className="px-3 pt-2.5">
+        <h2 className="font-serif text-lg leading-snug tracking-tight">{chapter.title}</h2>
         <div className="mt-2 flex items-center gap-2">
           <span className="font-mono text-xs text-diff-add-fg">+ {additions}</span>
         </div>
 
-        <p className="mt-4 text-sm leading-relaxed text-muted-foreground">{chapter.summary}</p>
+        <p className="mt-3 text-sm leading-5 text-muted-foreground">{chapter.summary}</p>
       </div>
 
-      <div className="border-t px-4 py-4">
+      <div className="border-t px-3 py-3">
         <h3 className="font-mono text-[0.7rem] uppercase tracking-[0.16em] text-muted-foreground">
           검토할 사항
         </h3>
@@ -115,7 +115,7 @@ export function ChapterPanel({
                   }
                 }}
                 className={cn(
-                  "flex w-full items-start gap-2.5 rounded-md border px-3.5 py-3 text-left text-sm leading-relaxed transition-colors",
+                  "flex w-full items-start gap-2.5 rounded-md border px-3 py-2.5 text-left text-sm leading-5 transition-colors",
                   item.viewed
                     ? "border-primary/25 bg-primary/10 text-muted-foreground line-through"
                     : "border-border bg-background/35 hover:bg-accent",
@@ -138,7 +138,7 @@ export function ChapterPanel({
         </div>
       </div>
 
-      <div className="border-t px-4 py-4">
+      <div className="border-t px-3 py-3">
         <h3 className="font-mono text-[0.7rem] uppercase tracking-[0.16em] text-muted-foreground">
           파일 · {chapter.files.length}
         </h3>
@@ -148,7 +148,7 @@ export function ChapterPanel({
           <input
             type="text"
             placeholder="파일 필터링..."
-            className="h-8 w-full rounded-md border bg-transparent pr-2 pl-8 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30"
+            className="h-7 w-full rounded-md border bg-transparent pr-2 pl-8 text-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30"
           />
         </div>
 
@@ -177,7 +177,7 @@ export function ChapterPanel({
         </div>
       </div>
 
-      <div className="border-t px-4 py-4">
+      <div className="border-t px-3 py-3">
         <h3 className="font-mono text-[0.7rem] uppercase tracking-[0.16em] text-muted-foreground">
           전체 챕터
         </h3>

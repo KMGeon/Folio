@@ -65,7 +65,7 @@ export function CommitGraph({
 
   if (commits.length === 0) {
     return (
-      <div className="flex h-full min-h-40 items-center justify-center p-8 text-center text-sm text-muted-foreground">
+      <div className="flex h-full min-h-32 items-center justify-center p-5 text-center text-sm text-muted-foreground">
         커밋 정보를 불러올 수 없습니다.
       </div>
     );
@@ -118,7 +118,7 @@ export function CommitGraph({
                   <BranchBadge label={pr.baseBranch} tone="base" />
                 ) : null}
               </div>
-              <div className="relative min-h-14 overflow-hidden px-3">
+              <div className="relative min-h-12 overflow-hidden px-3">
                 <GraphLane
                   lane={lane}
                   nextLane={nextLane}

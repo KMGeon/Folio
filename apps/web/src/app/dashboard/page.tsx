@@ -29,13 +29,13 @@ export default async function DashboardPage() {
   return (
     <AppLayout user={user}>
       <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-[1600px] px-4 pb-10 md:px-8">
+        <div className="mx-auto w-full max-w-[1600px] px-4 pb-8 md:px-6">
           {/* Editorial masthead: eyebrow → serif headline → standfirst, ruled off. */}
           <header className="space-y-3 border-b pt-10 pb-7">
             <p className="font-mono text-[0.7rem] uppercase tracking-[0.25em] text-muted-foreground">
               리뷰 데스크
             </p>
-            <h1 className="font-serif text-3xl font-normal leading-[1.1] tracking-tight md:text-[2.75rem]">
+            <h1 className="font-serif text-2xl font-normal leading-[1.1] tracking-tight md:text-3xl">
               Welcome back, <span className="italic">{user?.login ?? "reviewer"}</span>
             </h1>
             <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">

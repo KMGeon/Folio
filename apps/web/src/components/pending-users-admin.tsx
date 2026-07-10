@@ -30,7 +30,7 @@ export function PendingUsersAdmin({ initialUsers }: { initialUsers: PendingUser[
   return (
     <div className="space-y-3">
       {users.length === 0 ? (
-        <div className="flex items-center gap-2 rounded-md border border-dashed bg-background/35 px-3 py-6 text-xs text-muted-foreground">
+        <div className="flex items-center gap-2 rounded-md border border-dashed bg-background/35 px-3 py-4 text-xs text-muted-foreground">
           <Clock3 className="size-4" />
           대기 중인 가입 요청이 없습니다.
         </div>
