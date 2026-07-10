@@ -24,4 +24,8 @@ describe("AppSearch", () => {
     expect(source).toContain("triggerRef.current?.focus()");
     expect(source).toContain('event.key !== "Tab"');
   });
+
+  it("gives the modal query input an accessible name", () => {
+    expect(source).toContain('aria-label="PR, repo 검색"');
+  });
 });
