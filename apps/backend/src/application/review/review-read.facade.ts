@@ -13,6 +13,7 @@ import {
   getRepositoryCommits,
   listIssueComments,
 } from "@folio/github";
+import { PrologueSchema, type Prologue } from "@folio/types";
 import { sliceChapterCode } from "../../domain/review/chapter-diff-slice.js";
 import type {
   ReviewChapter,
@@ -46,6 +47,7 @@ export class ReviewReadFacade {
       return null;
     }
 
+    const prologue = parseStoredPrologue(revision.prologue, revision.id, this.logger);
     const rawDiff = revision.rawDiff ?? "";
     const rows = await chaptersRepo.listByRevision(revision.id);
     const viewed = await reviewStateRepo.viewedForRevision(userId, revision.id);
@@ -133,12 +135,28 @@ export class ReviewReadFacade {
         baseBranch: pr.baseRef,
         headBranch: pr.headRef,
       },
+      prologue,
       chapters,
       comments,
       commits,
       commitsTruncated,
     };
   }
+}
+
+function parseStoredPrologue(value: unknown, revisionId: string, logger: Logger): Prologue | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  const parsed = PrologueSchema.safeParse(value);
+  if (!parsed.success) {
+    // Generated content is untrusted persisted data; preserve the readable review fallback.
+    logger.warn(`Ignoring invalid prologue for revision ${revisionId}`);
+    return null;
+  }
+
+  return parsed.data;
 }
 
 function mergeCommitFlow(baseCommits: ReviewCommit[], headCommits: ReviewCommit[]): ReviewCommit[] {

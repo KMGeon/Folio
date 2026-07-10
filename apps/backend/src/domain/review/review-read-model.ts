@@ -1,4 +1,4 @@
-import type { FileStatus, LineRef } from "@folio/types";
+import type { FileStatus, LineRef, Prologue } from "@folio/types";
 
 /** Web-facing diff line: file identity plus display line data for comments. */
 export interface WebDiffLine {
@@ -82,6 +82,7 @@ export interface ReviewCommit {
 
 export interface ReviewPayload {
   pr: ReviewPrMeta;
+  prologue: Prologue | null;
   chapters: ReviewChapter[];
   /** PR conversation comments from GitHub; empty when GitHub is unreachable. */
   comments: ReviewIssueComment[];
