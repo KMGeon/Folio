@@ -7,7 +7,7 @@ Review large pull requests in the order they make sense.
 </p>
 
 [![Deploy](https://github.com/KMGeon/Folio/actions/workflows/deploy.yml/badge.svg)](https://github.com/KMGeon/Folio/actions/workflows/deploy.yml)
-[![Release](https://img.shields.io/badge/release-v0.1.0-0e8a16)](https://github.com/KMGeon/Folio/releases/tag/v0.1.0)
+[![Release](https://img.shields.io/badge/release-v0.1.0-0e8a16)](https://github.com/KMGeon/Folio/releases)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178c6)](https://www.typescriptlang.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-App%20Router-000000)](https://nextjs.org/)
 [![NestJS](https://img.shields.io/badge/NestJS-API-e0234e)](https://nestjs.com/)
