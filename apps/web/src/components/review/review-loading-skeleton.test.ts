@@ -18,5 +18,8 @@ describe("ReviewLoadingSkeleton source", () => {
     expect(skeleton).toContain("ReviewChapterCardsSkeleton");
     expect(skeleton).toContain("ReviewActivitySkeleton");
     expect(loading).toContain("ReviewLoadingSkeleton");
+    expect(loading).toContain('import { AppLayout } from "@/components/app-layout"');
+    expect(loading).toContain("<AppLayout user={null}>");
+    expect(loading).toContain("<ReviewLoadingSkeleton />");
   });
 });
