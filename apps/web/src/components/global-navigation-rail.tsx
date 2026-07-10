@@ -3,7 +3,7 @@
 import { ArrowLeft, LayoutDashboard, LogOut, Search, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { type KeyboardEvent as ReactKeyboardEvent, useEffect, useRef, useState } from "react";
 
 import { BrandMark } from "@/components/brand-mark";
 import { logoutUrl, type SessionUser } from "@/lib/auth";
@@ -22,6 +22,8 @@ export function GlobalNavigationRail({ user }: { user: SessionUser | null }) {
   const settingsRoute = pathname.startsWith("/settings");
   const [accountOpen, setAccountOpen] = useState(false);
   const menuRef = useRef<HTMLElement>(null);
+  const accountTriggerRef = useRef<HTMLButtonElement>(null);
+  const firstMenuItemRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => setAccountOpen(false), [pathname]);
 
@@ -29,6 +31,7 @@ export function GlobalNavigationRail({ user }: { user: SessionUser | null }) {
     if (!accountOpen) {
       return;
     }
+    firstMenuItemRef.current?.focus();
     const onPointerDown = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setAccountOpen(false);
@@ -36,7 +39,9 @@ export function GlobalNavigationRail({ user }: { user: SessionUser | null }) {
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
+        event.preventDefault();
         setAccountOpen(false);
+        accountTriggerRef.current?.focus();
       }
     };
     document.addEventListener("mousedown", onPointerDown);
@@ -50,6 +55,40 @@ export function GlobalNavigationRail({ user }: { user: SessionUser | null }) {
   async function signOut() {
     await fetch(logoutUrl(), { method: "POST", credentials: "include" });
     window.location.href = "/login";
+  }
+
+  function onAccountMenuKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    const menuItems = Array.from(
+      event.currentTarget.querySelectorAll<HTMLElement>('[role="menuitem"]'),
+    );
+    if (menuItems.length === 0) {
+      return;
+    }
+
+    const activeItemIndex = menuItems.indexOf(document.activeElement as HTMLElement);
+    let nextItemIndex: number;
+    switch (event.key) {
+      case "ArrowDown":
+        nextItemIndex = activeItemIndex < 0 ? 0 : (activeItemIndex + 1) % menuItems.length;
+        break;
+      case "ArrowUp":
+        nextItemIndex =
+          activeItemIndex < 0
+            ? menuItems.length - 1
+            : (activeItemIndex - 1 + menuItems.length) % menuItems.length;
+        break;
+      case "Home":
+        nextItemIndex = 0;
+        break;
+      case "End":
+        nextItemIndex = menuItems.length - 1;
+        break;
+      default:
+        return;
+    }
+
+    event.preventDefault();
+    menuItems[nextItemIndex]?.focus();
   }
 
   return (
@@ -66,6 +105,7 @@ export function GlobalNavigationRail({ user }: { user: SessionUser | null }) {
           </Link>
         ) : (
           <button
+            ref={accountTriggerRef}
             type="button"
             aria-haspopup="menu"
             aria-expanded={accountOpen}
@@ -111,10 +151,7 @@ export function GlobalNavigationRail({ user }: { user: SessionUser | null }) {
       </div>
 
       {accountOpen && !settingsRoute ? (
-        <div
-          role="menu"
-          className="absolute top-2 left-12 w-56 overflow-hidden rounded-lg border bg-popover shadow-lg"
-        >
+        <div className="absolute top-2 left-12 w-56 overflow-hidden rounded-lg border bg-popover shadow-lg">
           <div className="border-b px-3 py-3">
             <p className="font-mono text-[0.7rem] uppercase tracking-[0.16em] text-muted-foreground">
               Workspaces
@@ -142,10 +179,12 @@ export function GlobalNavigationRail({ user }: { user: SessionUser | null }) {
               </div>
             </div>
           </div>
-          <div className="p-1">
+          <div className="p-1" role="menu" onKeyDown={onAccountMenuKeyDown}>
             <button
+              ref={firstMenuItemRef}
               type="button"
               role="menuitem"
+              tabIndex={-1}
               onClick={signOut}
               className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-sm text-destructive transition-colors hover:bg-destructive/10"
             >

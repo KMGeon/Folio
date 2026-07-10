@@ -31,6 +31,20 @@ describe("global navigation rail", () => {
     expect(railSource).toContain("aria-current");
   });
 
+  it("moves focus through the scoped account menu and restores its trigger", () => {
+    expect(railSource).toContain("const accountTriggerRef = useRef<HTMLButtonElement>(null)");
+    expect(railSource).toContain("const firstMenuItemRef = useRef<HTMLButtonElement>(null)");
+    expect(railSource).toContain("firstMenuItemRef.current?.focus()");
+    expect(railSource).toContain("accountTriggerRef.current?.focus()");
+    expect(railSource).toContain('case "ArrowDown":');
+    expect(railSource).toContain('case "ArrowUp":');
+    expect(railSource).toContain('case "Home":');
+    expect(railSource).toContain('case "End":');
+    expect(railSource).toContain("onKeyDown={onAccountMenuKeyDown}");
+    expect(railSource).toContain('className="p-1" role="menu"');
+    expect(railSource.indexOf('role="menu"')).toBeGreaterThan(railSource.indexOf("Workspaces"));
+  });
+
   it("is owned by AppLayout instead of the old header dropdown", () => {
     expect(layoutSource).toContain("<GlobalNavigationRail user={user}");
     expect(layoutSource).not.toContain("<NavMenu");
