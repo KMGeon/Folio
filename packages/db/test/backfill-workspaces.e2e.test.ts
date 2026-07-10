@@ -48,11 +48,16 @@ d("backfillWorkspaces (e2e)", () => {
       db,
     );
     const legacyUser = await usersRepo.create(
-      { githubUserId: 1, login: "old", avatarUrl: "x" },
+      {
+        githubUserId: 1,
+        login: "old",
+        avatarUrl: "x",
+        status: USER_STATUS.APPROVED,
+      },
       db,
     );
-    const approvedUser = await usersRepo.approve(legacyUser.id, db);
-    expect(approvedUser?.status).toBe(USER_STATUS.APPROVED);
+    expect(legacyUser.status).toBe(USER_STATUS.APPROVED);
+    expect(legacyUser.globalStatus).toBe(GLOBAL_STATUS.PENDING);
 
     const resolveAccountId = vi.fn(async (_githubInstallationId: number) => 4242);
     await backfillWorkspaces(db, { resolveAccountId });

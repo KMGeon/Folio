@@ -1,9 +1,8 @@
 import { usersRepo } from "@folio/db";
 import type { usersRepo as DbUsersRepo } from "@folio/db";
-import { GLOBAL_STATUS } from "@folio/types";
+import { GLOBAL_STATUS, type GlobalStatus } from "@folio/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SessionService } from "../../domain/auth/session.service.js";
-import { bootstrapSystemAdmin } from "../../domain/authorization/system-admin-bootstrap.js";
 import type { GitHubOAuthAdapter } from "../../infrastructure/github/github-oauth.adapter.js";
 import { AuthFacade } from "./auth.facade.js";
 
@@ -18,6 +17,7 @@ vi.mock("@folio/db", async (importOriginal) => {
       upsertByGithubId: vi.fn(),
       getByGithubId: vi.fn(),
       setGlobalStatus: vi.fn(),
+      bootstrapInitialSystemAdmin: vi.fn(),
       approve: vi.fn(),
     },
   };
@@ -25,10 +25,6 @@ vi.mock("@folio/db", async (importOriginal) => {
 
 vi.mock("../../config.js", () => ({
   config: { SYSTEM_ADMIN_BOOTSTRAP_GITHUB_ID: 42 },
-}));
-
-vi.mock("../../domain/authorization/system-admin-bootstrap.js", () => ({
-  bootstrapSystemAdmin: vi.fn(),
 }));
 
 const github = {
@@ -75,7 +71,7 @@ describe("AuthFacade", () => {
       ...session,
     });
 
-    expect(bootstrapSystemAdmin).toHaveBeenCalledWith(42, 42);
+    expect(usersRepo.bootstrapInitialSystemAdmin).toHaveBeenCalledWith(42);
     expect(usersRepo.getByGithubId).toHaveBeenCalledWith(42);
     expect(sessions.createForUser).toHaveBeenCalledWith("active-user");
   });
@@ -94,8 +90,43 @@ describe("AuthFacade", () => {
 
     await expect(facade.completeLogin("oauth-code")).resolves.toEqual({ status: "pending" });
 
-    expect(bootstrapSystemAdmin).toHaveBeenCalledWith(42, 42);
+    expect(usersRepo.bootstrapInitialSystemAdmin).toHaveBeenCalledWith(42);
     expect(sessions.createForUser).not.toHaveBeenCalled();
+  });
+
+  it("opens a usable session after the repository bootstraps a fresh configured user", async () => {
+    let storedUser: {
+      id: string;
+      githubUserId: number;
+      status: string;
+      globalStatus: GlobalStatus;
+      isSystemAdmin: boolean;
+    } = {
+      id: "fresh-user",
+      githubUserId: 42,
+      status: "pending",
+      globalStatus: GLOBAL_STATUS.PENDING,
+      isSystemAdmin: false,
+    };
+    vi.mocked(usersRepo.upsertByGithubId).mockImplementation(async () => storedUser as never);
+    vi.mocked(usersRepo.bootstrapInitialSystemAdmin).mockImplementation(async () => {
+      storedUser = {
+        ...storedUser,
+        globalStatus: GLOBAL_STATUS.ACTIVE,
+        isSystemAdmin: true,
+      };
+      return storedUser as never;
+    });
+    vi.mocked(usersRepo.getByGithubId).mockImplementation(async () => storedUser as never);
+
+    await expect(facade.completeLogin("oauth-code")).resolves.toEqual({
+      status: "approved",
+      ...session,
+    });
+
+    expect(usersRepo.bootstrapInitialSystemAdmin).toHaveBeenCalledWith(42);
+    expect(usersRepo.getByGithubId).toHaveBeenCalledWith(42);
+    expect(sessions.createForUser).toHaveBeenCalledWith("fresh-user");
   });
 
   it("keeps dev login working while writing active global status", async () => {

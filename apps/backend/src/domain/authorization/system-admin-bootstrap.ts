@@ -10,13 +10,5 @@ export async function bootstrapSystemAdmin(
     return;
   }
 
-  const existingAdmin = await usersRepo.getSystemAdmin();
-  if (existingAdmin) {
-    return;
-  }
-
-  const user = await usersRepo.getByGithubId(githubUserId);
-  if (user) {
-    await usersRepo.setSystemAdmin(user.id, true);
-  }
+  await usersRepo.bootstrapInitialSystemAdmin(githubUserId);
 }

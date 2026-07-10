@@ -1,5 +1,5 @@
-import type { GlobalStatus } from "@folio/types";
-import { asc, eq } from "drizzle-orm";
+import { GLOBAL_STATUS, type GlobalStatus } from "@folio/types";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { type Db, getDb } from "../client.js";
 import { type UserInsert, type UserRow, USER_STATUS, users } from "../schema/users.js";
 
@@ -77,6 +77,37 @@ export const usersRepo = {
     return row ?? null;
   },
 
+  async bootstrapInitialSystemAdmin(
+    githubUserId: number,
+    db: Db = getDb(),
+  ): Promise<UserRow | null> {
+    return db.transaction(async (tx) => {
+      // Serialize the one-time seed across all configured identities before checking authority.
+      await tx.execute(sql`select pg_advisory_xact_lock(464650, 15)`);
+      const transactionDb = tx as Db;
+      const existingAdmin = await usersRepo.getSystemAdmin(transactionDb);
+      if (existingAdmin) {
+        return null;
+      }
+
+      const user = await usersRepo.getByGithubId(githubUserId, transactionDb);
+      if (!user) {
+        return null;
+      }
+
+      const active = await usersRepo.setGlobalStatus(user.id, GLOBAL_STATUS.ACTIVE, transactionDb);
+      if (!active) {
+        throw new Error("usersRepo.bootstrapInitialSystemAdmin: activation returned no row");
+      }
+
+      const admin = await usersRepo.setSystemAdmin(user.id, true, transactionDb);
+      if (!admin) {
+        throw new Error("usersRepo.bootstrapInitialSystemAdmin: promotion returned no row");
+      }
+      return admin;
+    });
+  },
+
   async listPending(db: Db = getDb()): Promise<UserRow[]> {
     return db
       .select()
@@ -88,8 +119,18 @@ export const usersRepo = {
   async approve(id: string, db: Db = getDb()): Promise<UserRow | null> {
     const [row] = await db
       .update(users)
-      .set({ status: USER_STATUS.APPROVED, updatedAt: new Date() })
-      .where(eq(users.id, id))
+      .set({
+        status: USER_STATUS.APPROVED,
+        globalStatus: GLOBAL_STATUS.ACTIVE,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(users.id, id),
+          eq(users.status, USER_STATUS.PENDING),
+          eq(users.globalStatus, GLOBAL_STATUS.PENDING),
+        ),
+      )
       .returning();
     return row ?? null;
   },

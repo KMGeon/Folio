@@ -399,6 +399,51 @@ describe("auth routes", () => {
     await app.close();
   });
 
+  it("lets a legacy-approved user create a session on the next OAuth login", async () => {
+    const admin = {
+      id: "admin",
+      login: "KMGeon",
+      avatarUrl: "https://a",
+      status: "approved",
+      globalStatus: "active",
+    };
+    const approvedUser = {
+      id: "u2",
+      login: "octocat",
+      avatarUrl: "https://avatars/octocat",
+      status: "approved",
+      globalStatus: "active",
+    };
+    getById.mockResolvedValue(admin);
+    upsertByGithubId.mockResolvedValueOnce(admin).mockResolvedValueOnce(approvedUser);
+    approve.mockResolvedValue(approvedUser);
+
+    const app = await createServer();
+    const adminLogin = await request(app.getHttpServer())
+      .get("/api/v1/auth/github/callback?code=admin&state=s1")
+      .set("Cookie", "folio_oauth_state=s1|/");
+    const adminCookie = (adminLogin.headers["set-cookie"] as unknown as string[]).find((cookie) =>
+      cookie.startsWith("folio_session="),
+    );
+
+    await request(app.getHttpServer())
+      .post("/api/v1/auth/admin/users/u2/approve")
+      .set("Cookie", adminCookie ?? "")
+      .expect(201);
+
+    const approvedLogin = await request(app.getHttpServer())
+      .get("/api/v1/auth/github/callback?code=approved&state=s2")
+      .set("Cookie", "folio_oauth_state=s2|/");
+
+    expect(approvedLogin.status).toBe(302);
+    expect(approvedLogin.headers.location).toBe("http://localhost:5173/");
+    expect((approvedLogin.headers["set-cookie"] as unknown as string[]).join()).toContain(
+      "folio_session",
+    );
+    expect(sessionStore.size).toBe(2);
+    await app.close();
+  });
+
   // Extra test (carried over from Task 7 review): a malformed/non-string folio_session
   // cookie value must not cause a 500 — the guard must return 401 cleanly.
   //
