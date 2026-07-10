@@ -1,3 +1,4 @@
+import type { GlobalStatus } from "@folio/types";
 import { asc, eq } from "drizzle-orm";
 import { type Db, getDb } from "../client.js";
 import { type UserInsert, type UserRow, USER_STATUS, users } from "../schema/users.js";
@@ -43,6 +44,37 @@ export const usersRepo = {
       throw new Error("usersRepo.upsertByGithubId: insert returned no row");
     }
     return row;
+  },
+
+  async listAll(db: Db = getDb()): Promise<UserRow[]> {
+    return db.select().from(users).orderBy(asc(users.createdAt));
+  },
+
+  async setGlobalStatus(
+    id: string,
+    globalStatus: GlobalStatus,
+    db: Db = getDb(),
+  ): Promise<UserRow | null> {
+    const [row] = await db
+      .update(users)
+      .set({ globalStatus, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return row ?? null;
+  },
+
+  async getSystemAdmin(db: Db = getDb()): Promise<UserRow | null> {
+    const [row] = await db.select().from(users).where(eq(users.isSystemAdmin, true)).limit(1);
+    return row ?? null;
+  },
+
+  async setSystemAdmin(id: string, value: boolean, db: Db = getDb()): Promise<UserRow | null> {
+    const [row] = await db
+      .update(users)
+      .set({ isSystemAdmin: value, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return row ?? null;
   },
 
   async listPending(db: Db = getDb()): Promise<UserRow[]> {

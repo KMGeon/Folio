@@ -71,6 +71,13 @@
       "when": 1783692156487,
       "tag": "0009_sour_taskmaster",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1783692904572,
+      "tag": "0010_living_veda",
+      "breakpoints": true
     }
   ]
 }
