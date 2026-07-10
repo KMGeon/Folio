@@ -27,7 +27,7 @@ const STATUS_META: Record<
   },
   draft: {
     label: "초안",
-    className: "border-border bg-muted text-muted-foreground",
+    className: "border-border bg-secondary text-muted-foreground",
     icon: GitPullRequest,
   },
 };
@@ -95,11 +95,11 @@ export function ReviewTopBar({
       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-muted-foreground text-xs">
         <span className="flex items-center gap-1.5">
           <GitMerge className="size-3.5" />
-          <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-foreground text-xs">
+          <code className="rounded bg-secondary px-1.5 py-0.5 font-mono text-foreground text-xs">
             {pr.headBranch}
           </code>
           <span className="text-muted-foreground/60">→</span>
-          <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-foreground text-xs">
+          <code className="rounded bg-secondary px-1.5 py-0.5 font-mono text-foreground text-xs">
             {pr.baseBranch}
           </code>
         </span>
