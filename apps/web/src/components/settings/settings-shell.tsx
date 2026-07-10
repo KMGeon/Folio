@@ -26,7 +26,7 @@ export function SettingsShell({
 }) {
   const pathname = usePathname();
   return (
-    <div className="grid min-h-0 flex-1 overflow-y-auto lg:grid-cols-[16rem_minmax(0,1fr)] lg:overflow-hidden">
+    <div className="grid min-h-0 flex-1 overflow-y-auto lg:grid-cols-[266px_minmax(0,1fr)] lg:overflow-hidden">
       <aside className="border-b px-4 py-5 lg:overflow-y-auto lg:border-b-0 lg:border-r lg:px-5">
         <SettingsNavGroup label="User settings" items={userItems} pathname={pathname} />
         <div className="mt-5">

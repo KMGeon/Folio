@@ -22,7 +22,7 @@ describe("settings routes", () => {
     expect(shell).not.toContain("Members");
     expect(shell).not.toContain("Integrations");
     expect(shell).not.toContain("Advanced");
-    expect(shell).toContain("lg:grid-cols-[16rem_minmax(0,1fr)]");
+    expect(shell).toContain("lg:grid-cols-[266px_minmax(0,1fr)]");
     expect(shell).not.toContain("GlobalNavigationRail");
   });
 
@@ -44,5 +44,13 @@ describe("settings routes", () => {
     expect(source).not.toContain("Webhook URL");
     expect(source).not.toContain("Renderer");
     expect(source).not.toContain("PendingUsersAdmin");
+  });
+
+  it("opens the Stage Folio GitHub App installation page", () => {
+    const workspacesPage = readFileSync(resolve(settingsRoot, "workspaces/page.tsx"), "utf8");
+
+    expect(workspacesPage).toContain(
+      '<a href="https://github.com/apps/stage-folio">GitHub App 설치</a>',
+    );
   });
 });

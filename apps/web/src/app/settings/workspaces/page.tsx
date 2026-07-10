@@ -1,5 +1,4 @@
 import { Github, Settings2 } from "lucide-react";
-import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -45,7 +44,7 @@ export default async function WorkspacesPage() {
           icon={<Github className="size-4" />}
         >
           <Button asChild>
-            <Link href="/onboarding/install">GitHub App 설치</Link>
+            <a href="https://github.com/apps/stage-folio">GitHub App 설치</a>
           </Button>
         </SettingsCard>
       </div>

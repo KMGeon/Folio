@@ -27,7 +27,7 @@ const STATUS_META: Record<
   },
   draft: {
     label: "초안",
-    className: "border-border bg-muted text-muted-foreground",
+    className: "border-warning/30 bg-warning/15 text-warning",
     icon: GitPullRequest,
   },
 };
@@ -57,9 +57,9 @@ export function ReviewTopBar({
   const StatusIcon = status.icon;
 
   return (
-    <div className="shrink-0 px-4 pt-3 md:px-6">
+    <div className="shrink-0 px-4 py-4 md:px-6">
       <div className="flex items-start justify-between gap-4">
-        <div className="flex min-w-0 flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-2.5">
           <div className="flex flex-wrap items-center gap-2.5">
             <span
               className={cn(
@@ -92,14 +92,14 @@ export function ReviewTopBar({
         </Button>
       </div>
 
-      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-muted-foreground text-xs">
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-muted-foreground text-xs">
         <span className="flex items-center gap-1.5">
           <GitMerge className="size-3.5" />
-          <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-foreground text-xs">
+          <code className="rounded border border-info/30 bg-info/15 px-1.5 py-0.5 font-mono text-info text-xs">
             {pr.headBranch}
           </code>
           <span className="text-muted-foreground/60">→</span>
-          <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-foreground text-xs">
+          <code className="rounded border border-primary/30 bg-primary/15 px-1.5 py-0.5 font-mono text-primary text-xs">
             {pr.baseBranch}
           </code>
         </span>
@@ -117,7 +117,7 @@ export function ReviewTopBar({
         </span>
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-2 border-b">
+      <div className="mt-4 flex items-center justify-between gap-2 border-b">
         <nav className="flex items-center gap-1 overflow-x-auto">
           <TabButton
             active={activeTab === "chapters"}
