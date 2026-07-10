@@ -57,6 +57,13 @@
       "when": 1783688500964,
       "tag": "0007_nappy_nebula",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1783690477833,
+      "tag": "0008_fantastic_deathstrike",
+      "breakpoints": true
     }
   ]
 }

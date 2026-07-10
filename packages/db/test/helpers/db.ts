@@ -23,6 +23,7 @@ export async function getTestDb(): Promise<Db> {
  */
 export async function resetDb(db: Db): Promise<void> {
   const tables = [
+    "audit_logs",
     "foliant_messages",
     "foliant_threads",
     "subscriptions",
