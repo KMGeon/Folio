@@ -13,6 +13,14 @@ import {
   DashboardFilterPanel,
   type DashboardFilterState,
 } from "@/components/dashboard/dashboard-filter-panel";
+import {
+  beginDashboardRequest,
+  type DashboardInFlightMap,
+  type DashboardLoadMode,
+  type DashboardRequestEpochs,
+  finishDashboardRequest,
+  resetDashboardRequestScope,
+} from "@/components/dashboard/dashboard-request-scope";
 import { Button } from "@/components/ui/button";
 import {
   type DashboardBucket,
@@ -32,10 +40,7 @@ interface ColumnLoadState {
   error: string | null;
 }
 
-type ColumnLoadMode = "reset" | "append";
 type ColumnStateMap = Record<DashboardBucket, ColumnLoadState>;
-type DashboardInFlightMap = Map<string, symbol>;
-type DashboardRequestTarget = DashboardBucket | "open";
 
 const openBuckets = ["ready", "yours", "other"] satisfies DashboardOpenBucket[];
 
@@ -85,39 +90,6 @@ function initialColumns(): ColumnStateMap {
   };
 }
 
-export function dashboardRequestKey(target: DashboardRequestTarget, mode: ColumnLoadMode): string {
-  return `${target}:${mode}`;
-}
-
-export function beginDashboardRequest(
-  inFlight: DashboardInFlightMap,
-  target: DashboardRequestTarget,
-  mode: ColumnLoadMode,
-): symbol | null {
-  const key = dashboardRequestKey(target, mode);
-  if (inFlight.has(key)) {
-    return null;
-  }
-  const token = Symbol(key);
-  inFlight.set(key, token);
-  return token;
-}
-
-export function finishDashboardRequest(
-  inFlight: DashboardInFlightMap,
-  target: DashboardRequestTarget,
-  mode: ColumnLoadMode,
-  token: symbol | null,
-) {
-  if (!token) {
-    return;
-  }
-  const key = dashboardRequestKey(target, mode);
-  if (inFlight.get(key) === token) {
-    inFlight.delete(key);
-  }
-}
-
 export function DashboardBoardClient({
   labels = defaultDashboardBoardLabels,
 }: {
@@ -131,7 +103,7 @@ export function DashboardBoardClient({
   const columnsRef = useRef(columns);
   const inFlightRef = useRef<DashboardInFlightMap>(new Map());
   const observers = useRef(new Map<DashboardBucket, IntersectionObserver>());
-  const requestVersionRef = useRef(0);
+  const requestEpochsRef = useRef<DashboardRequestEpochs>({ open: 0, completed: 0 });
 
   useEffect(() => {
     columnsRef.current = columns;
@@ -143,7 +115,12 @@ export function DashboardBoardClient({
   }, [query]);
 
   const loadBucket = useCallback(
-    async (bucket: DashboardBucket, mode: ColumnLoadMode, version = requestVersionRef.current) => {
+    async (
+      bucket: DashboardBucket,
+      mode: DashboardLoadMode,
+      version = requestEpochsRef.current[bucket === "completed" ? "completed" : "open"],
+    ) => {
+      const requestScope = bucket === "completed" ? "completed" : "open";
       const current = columnsRef.current[bucket];
       if (mode === "append" && (!current.nextCursor || current.isLoadingMore)) {
         return;
@@ -174,10 +151,9 @@ export function DashboardBoardClient({
           ordering: filters.ordering,
           direction: filters.direction,
           closedRange: filters.closedRange,
-          grouping: filters.grouping,
           showDrafts: filters.showDrafts,
         });
-        if (version !== requestVersionRef.current) {
+        if (version !== requestEpochsRef.current[requestScope]) {
           return;
         }
         setColumns((prev) => ({
@@ -192,7 +168,7 @@ export function DashboardBoardClient({
           },
         }));
       } catch {
-        if (version !== requestVersionRef.current) {
+        if (version !== requestEpochsRef.current[requestScope]) {
           return;
         }
         setColumns((prev) => ({
@@ -208,18 +184,11 @@ export function DashboardBoardClient({
         finishDashboardRequest(inFlightRef.current, bucket, mode, requestToken);
       }
     },
-    [
-      debouncedQuery,
-      filters.closedRange,
-      filters.direction,
-      filters.grouping,
-      filters.ordering,
-      filters.showDrafts,
-    ],
+    [debouncedQuery, filters.closedRange, filters.direction, filters.ordering, filters.showDrafts],
   );
 
   const loadOpenBuckets = useCallback(
-    async (version = requestVersionRef.current) => {
+    async (version = requestEpochsRef.current.open) => {
       const requestToken = beginDashboardRequest(inFlightRef.current, "open", "reset");
       if (!requestToken) {
         return;
@@ -245,10 +214,9 @@ export function DashboardBoardClient({
           q: debouncedQuery || undefined,
           ordering: filters.ordering,
           direction: filters.direction,
-          grouping: filters.grouping,
           showDrafts: filters.showDrafts,
         });
-        if (version !== requestVersionRef.current) {
+        if (version !== requestEpochsRef.current.open) {
           return;
         }
         setColumns((prev) => {
@@ -267,7 +235,7 @@ export function DashboardBoardClient({
           return next;
         });
       } catch {
-        if (version !== requestVersionRef.current) {
+        if (version !== requestEpochsRef.current.open) {
           return;
         }
         setColumns((prev) => {
@@ -286,24 +254,40 @@ export function DashboardBoardClient({
         finishDashboardRequest(inFlightRef.current, "open", "reset", requestToken);
       }
     },
-    [debouncedQuery, filters.direction, filters.grouping, filters.ordering, filters.showDrafts],
+    [debouncedQuery, filters.direction, filters.ordering, filters.showDrafts],
   );
 
   useEffect(() => {
-    const version = requestVersionRef.current + 1;
-    requestVersionRef.current = version;
-    inFlightRef.current.clear();
-    setColumns(initialColumns());
     const activeObservers = observers.current;
+    const openEpoch = resetDashboardRequestScope(
+      inFlightRef.current,
+      requestEpochsRef.current,
+      "open",
+    );
 
-    void loadOpenBuckets(version);
-    void loadBucket("completed", "reset", version);
+    void loadOpenBuckets(openEpoch);
 
     return () => {
-      for (const observer of activeObservers.values()) {
-        observer.disconnect();
+      for (const bucket of openBuckets) {
+        activeObservers.get(bucket)?.disconnect();
+        activeObservers.delete(bucket);
       }
-      activeObservers.clear();
+    };
+  }, [debouncedQuery, filters.direction, filters.ordering, filters.showDrafts, loadOpenBuckets]);
+
+  useEffect(() => {
+    const activeObservers = observers.current;
+    const completedEpoch = resetDashboardRequestScope(
+      inFlightRef.current,
+      requestEpochsRef.current,
+      "completed",
+    );
+
+    void loadBucket("completed", "reset", completedEpoch);
+
+    return () => {
+      activeObservers.get("completed")?.disconnect();
+      activeObservers.delete("completed");
     };
   }, [
     debouncedQuery,
@@ -312,7 +296,6 @@ export function DashboardBoardClient({
     filters.ordering,
     filters.showDrafts,
     loadBucket,
-    loadOpenBuckets,
   ]);
 
   const sentinelRef = useCallback(

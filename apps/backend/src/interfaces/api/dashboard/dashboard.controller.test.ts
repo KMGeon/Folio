@@ -57,6 +57,45 @@ describe("DashboardController", () => {
     await app.close();
   });
 
+  it.each([
+    ["limit", "0"],
+    ["ordering", "bogus"],
+    ["direction", "sideways"],
+    ["showDrafts", "yes"],
+  ])("rejects invalid %s on the open pull route", async (name, value) => {
+    const getOpenPullPagesForUser = vi.fn();
+    const moduleRef = await Test.createTestingModule({
+      controllers: [DashboardController],
+      providers: [
+        {
+          provide: DashboardFacade,
+          useValue: { getOpenPullPagesForUser, getPullPageForUser: vi.fn() },
+        },
+        { provide: LOGGER_PORT, useValue: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } },
+        { provide: APP_FILTER, useClass: CoreExceptionFilter },
+        { provide: APP_INTERCEPTOR, useClass: ApiResponseInterceptor },
+      ],
+    })
+      .overrideGuard(SessionAuthGuard)
+      .useValue(dashboardAllowGuard)
+      .compile();
+    const app = moduleRef.createNestApplication();
+    await app.init();
+
+    const path = `/api/v1/dashboard/pulls/open?${name}=${value}`;
+    const res = await request(app.getHttpServer()).get(path);
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({
+      success: false,
+      error: { code: "bad_request", message: "The request is invalid." },
+      path,
+    });
+    expect(res.body.timestamp).toEqual(expect.any(String));
+    expect(getOpenPullPagesForUser).not.toHaveBeenCalled();
+    await app.close();
+  });
+
   it("wraps invalid dashboard pull query errors in the common API envelope", async () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [DashboardController],
