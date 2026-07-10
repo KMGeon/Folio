@@ -1,6 +1,14 @@
-import { auditLogsRepo, getDb, usersRepo, workspaceMembersRepo } from "@folio/db";
+import {
+  type Db,
+  type WorkspaceMemberRow,
+  auditLogsRepo,
+  getDb,
+  usersRepo,
+  workspaceMembersRepo,
+} from "@folio/db";
 import {
   AUDIT_ACTION,
+  MEMBERSHIP_STATUS,
   WORKSPACE_ROLE,
   type MembershipStatus,
   type WorkspaceRole,
@@ -27,6 +35,12 @@ export type WorkspaceMemberDto = {
   email: string | null;
   role: WorkspaceRole;
   status: MembershipStatus;
+};
+
+type LockedPair = {
+  actor: WorkspaceMemberRow;
+  target: WorkspaceMemberRow;
+  transaction: Db;
 };
 
 @Injectable()
@@ -57,74 +71,122 @@ export class WorkspaceMembersFacade {
     );
   }
 
-  async suspend(command: MemberCommand): Promise<void> {
-    const { actor, target } = await this.loadPair(command);
-    if (target.role === WORKSPACE_ROLE.OWNER || !canManageMember(actor, target, "suspend").allow) {
-      this.forbid();
-    }
-    await this.membership.suspendReviewer(this.actionInput(command, target.id));
+  suspend(command: MemberCommand): Promise<void> {
+    return this.withLockedPair(command, async ({ actor, target, transaction }) => {
+      if (
+        target.role === WORKSPACE_ROLE.OWNER ||
+        !canManageMember(actor, target, "suspend").allow
+      ) {
+        this.forbid();
+      }
+      if (target.status === MEMBERSHIP_STATUS.SUSPENDED) {
+        return;
+      }
+      const updated = await this.membership.suspendReviewer(
+        this.actionInput(command, target),
+        transaction,
+      );
+      if (!updated) {
+        this.conflict();
+      }
+    });
   }
 
-  async restore(command: MemberCommand): Promise<void> {
-    const { actor, target } = await this.loadPair(command);
-    if (!canManageMember(actor, target, "restore").allow) {
-      this.forbid();
-    }
-    await this.membership.restoreReviewer(this.actionInput(command, target.id));
+  restore(command: MemberCommand): Promise<void> {
+    return this.withLockedPair(command, async ({ actor, target, transaction }) => {
+      if (!canManageMember(actor, target, "restore").allow) {
+        this.forbid();
+      }
+      if (target.status === MEMBERSHIP_STATUS.ACTIVE) {
+        return;
+      }
+      const updated = await this.membership.restoreReviewer(
+        this.actionInput(command, target),
+        transaction,
+      );
+      if (!updated) {
+        this.conflict();
+      }
+    });
   }
 
-  async remove(command: MemberCommand): Promise<void> {
-    const { actor, target } = await this.loadPair(command);
-    if (target.role === WORKSPACE_ROLE.OWNER || !canManageMember(actor, target, "remove").allow) {
-      this.forbid();
-    }
-    await this.membership.removeReviewer(this.actionInput(command, target.id));
+  remove(command: MemberCommand): Promise<void> {
+    return this.withLockedPair(command, async ({ actor, target, transaction }) => {
+      if (target.role === WORKSPACE_ROLE.OWNER || !canManageMember(actor, target, "remove").allow) {
+        this.forbid();
+      }
+      if (target.status === MEMBERSHIP_STATUS.SUSPENDED) {
+        return;
+      }
+      const updated = await this.membership.removeReviewer(
+        this.actionInput(command, target),
+        transaction,
+      );
+      if (!updated) {
+        this.conflict();
+      }
+    });
   }
 
-  async changeRole(command: MemberCommand & { toRole: WorkspaceRole }): Promise<void> {
-    const { actor, target } = await this.loadPair(command);
-    // Owner changes have a dedicated atomic path so the workspace never has zero owners.
-    if (target.role === WORKSPACE_ROLE.OWNER || command.toRole === WORKSPACE_ROLE.OWNER) {
-      this.forbid();
-    }
-    const operation = command.toRole === WORKSPACE_ROLE.REVIEWER ? "demote" : "elevate";
-    if (!canManageMember(actor, target, operation).allow) {
-      this.forbid();
-    }
-    await this.membership.changeRole({
-      ...this.actionInput(command, target.id),
-      fromRole: target.role,
-      toRole: command.toRole,
+  changeRole(command: MemberCommand & { toRole: WorkspaceRole }): Promise<void> {
+    return this.withLockedPair(command, async ({ actor, target, transaction }) => {
+      // Owner changes have a dedicated atomic path so the workspace never has zero owners.
+      if (target.role === WORKSPACE_ROLE.OWNER || command.toRole === WORKSPACE_ROLE.OWNER) {
+        this.forbid();
+      }
+      const operation = command.toRole === WORKSPACE_ROLE.REVIEWER ? "demote" : "elevate";
+      if (!canManageMember(actor, target, operation).allow) {
+        this.forbid();
+      }
+      if (target.role === command.toRole) {
+        return;
+      }
+      const updated = await this.membership.changeRole(
+        {
+          ...this.actionInput(command, target),
+          expectedStatus: target.status,
+          fromRole: target.role,
+          toRole: command.toRole,
+        },
+        transaction,
+      );
+      if (!updated) {
+        this.conflict();
+      }
     });
   }
 
   async transferOwnership(command: MemberCommand): Promise<void> {
-    const { actor, target } = await this.loadPair(command);
-    if (command.actorUserId === command.targetUserId || !canTransferOwnership(actor).allow) {
+    if (command.actorUserId === command.targetUserId) {
       this.forbid();
     }
+    return this.withLockedPair(command, async ({ actor, target, transaction }) => {
+      if (!canTransferOwnership(actor).allow || target.status !== MEMBERSHIP_STATUS.ACTIVE) {
+        this.forbid();
+      }
 
-    await getDb().transaction(async (transaction) => {
       const demoted = await workspaceMembersRepo.updateRoleIfCurrent(
         actor.id,
         WORKSPACE_ROLE.OWNER,
+        MEMBERSHIP_STATUS.ACTIVE,
         WORKSPACE_ROLE.ADMIN,
         command.actorUserId,
         transaction,
       );
       if (!demoted) {
-        throw new Error("ownership transfer role update returned no row");
+        this.conflict();
       }
 
       const promoted = await workspaceMembersRepo.updateRoleIfCurrent(
         target.id,
         target.role,
+        MEMBERSHIP_STATUS.ACTIVE,
         WORKSPACE_ROLE.OWNER,
         command.actorUserId,
         transaction,
       );
       if (!promoted) {
-        throw new Error("ownership transfer role update returned no row");
+        this.conflict();
       }
 
       await auditLogsRepo.record(
@@ -142,27 +204,42 @@ export class WorkspaceMembersFacade {
     });
   }
 
-  private async loadPair(command: MemberCommand) {
-    const [actor, target] = await Promise.all([
-      workspaceMembersRepo.getMembership(command.workspaceId, command.actorUserId),
-      workspaceMembersRepo.getMembership(command.workspaceId, command.targetUserId),
-    ]);
-    if (!actor || !target) {
-      this.forbid();
-    }
-    return { actor, target };
+  private withLockedPair<T>(
+    command: MemberCommand,
+    operation: (pair: LockedPair) => Promise<T>,
+  ): Promise<T> {
+    return getDb().transaction(async (transaction) => {
+      const orderedUserIds = [command.actorUserId, command.targetUserId].sort();
+      const rows = await workspaceMembersRepo.getMembershipsForUpdate(
+        command.workspaceId,
+        orderedUserIds,
+        transaction,
+      );
+      const actor = rows.find((row) => row.userId === command.actorUserId);
+      const target = rows.find((row) => row.userId === command.targetUserId);
+      if (!actor || !target) {
+        this.forbid();
+      }
+      // Authorization uses the locked current rows, not the controller guard's earlier snapshot.
+      return operation({ actor, target, transaction });
+    });
   }
 
-  private actionInput(command: MemberCommand, membershipId: string) {
+  private actionInput(command: MemberCommand, target: WorkspaceMemberRow) {
     return {
       workspaceId: command.workspaceId,
-      membershipId,
+      membershipId: target.id,
       actorUserId: command.actorUserId,
       targetUserId: command.targetUserId,
+      expectedRole: target.role,
     };
   }
 
   private forbid(): never {
     throw new CoreException(ErrorType.Forbidden);
+  }
+
+  private conflict(): never {
+    throw new CoreException(ErrorType.WorkspaceMembershipConflict);
   }
 }

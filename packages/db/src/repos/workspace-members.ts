@@ -1,5 +1,5 @@
 import type { MembershipStatus, WorkspaceRole } from "@folio/types";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { type Db, getDb } from "../client.js";
 import {
   type WorkspaceMemberInsert,
@@ -31,6 +31,29 @@ export const workspaceMembersRepo = {
     return row ?? null;
   },
 
+  async getMembershipsForUpdate(
+    workspaceId: string,
+    userIds: readonly string[],
+    db: Db = getDb(),
+  ): Promise<WorkspaceMemberRow[]> {
+    const orderedUserIds = [...new Set(userIds)].sort();
+    if (orderedUserIds.length === 0) {
+      return [];
+    }
+    // Every member command locks the same user-id order so competing role/status writes cannot deadlock.
+    return db
+      .select()
+      .from(workspaceMembers)
+      .where(
+        and(
+          eq(workspaceMembers.workspaceId, workspaceId),
+          inArray(workspaceMembers.userId, orderedUserIds),
+        ),
+      )
+      .orderBy(asc(workspaceMembers.userId))
+      .for("update");
+  },
+
   async listByWorkspace(workspaceId: string, db: Db = getDb()): Promise<WorkspaceMemberRow[]> {
     return db
       .select()
@@ -56,6 +79,7 @@ export const workspaceMembersRepo = {
   async updateRoleIfCurrent(
     id: string,
     currentRole: WorkspaceRole,
+    currentStatus: MembershipStatus,
     role: WorkspaceRole,
     elevatedBy: string,
     db: Db = getDb(),
@@ -63,7 +87,13 @@ export const workspaceMembersRepo = {
     const [row] = await db
       .update(workspaceMembers)
       .set({ role, elevatedBy, updatedAt: new Date() })
-      .where(and(eq(workspaceMembers.id, id), eq(workspaceMembers.role, currentRole)))
+      .where(
+        and(
+          eq(workspaceMembers.id, id),
+          eq(workspaceMembers.role, currentRole),
+          eq(workspaceMembers.status, currentStatus),
+        ),
+      )
       .returning();
     return row ?? null;
   },
@@ -84,6 +114,7 @@ export const workspaceMembersRepo = {
 
   async updateStatusIfCurrent(
     id: string,
+    currentRole: WorkspaceRole,
     currentStatus: MembershipStatus,
     status: MembershipStatus,
     suspendedBy: string | null,
@@ -92,7 +123,13 @@ export const workspaceMembersRepo = {
     const [row] = await db
       .update(workspaceMembers)
       .set({ status, suspendedBy, updatedAt: new Date() })
-      .where(and(eq(workspaceMembers.id, id), eq(workspaceMembers.status, currentStatus)))
+      .where(
+        and(
+          eq(workspaceMembers.id, id),
+          eq(workspaceMembers.role, currentRole),
+          eq(workspaceMembers.status, currentStatus),
+        ),
+      )
       .returning();
     return row ?? null;
   },

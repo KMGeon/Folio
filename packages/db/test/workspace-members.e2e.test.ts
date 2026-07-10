@@ -66,6 +66,7 @@ d("workspaceMembersRepo (e2e)", () => {
 
     const suspended = await workspaceMembersRepo.updateStatusIfCurrent(
       membership.id,
+      WORKSPACE_ROLE.REVIEWER,
       MEMBERSHIP_STATUS.ACTIVE,
       MEMBERSHIP_STATUS.SUSPENDED,
       userId,
@@ -73,6 +74,7 @@ d("workspaceMembersRepo (e2e)", () => {
     );
     const repeated = await workspaceMembersRepo.updateStatusIfCurrent(
       membership.id,
+      WORKSPACE_ROLE.REVIEWER,
       MEMBERSHIP_STATUS.ACTIVE,
       MEMBERSHIP_STATUS.SUSPENDED,
       userId,
@@ -84,6 +86,30 @@ d("workspaceMembersRepo (e2e)", () => {
     expect(repeated).toBeNull();
   });
 
+  it("requires both the expected role and status for status transitions", async () => {
+    const membership = await workspaceMembersRepo.create(
+      { workspaceId, userId, role: WORKSPACE_ROLE.REVIEWER, status: MEMBERSHIP_STATUS.ACTIVE },
+      db,
+    );
+
+    const wrongRole = await workspaceMembersRepo.updateStatusIfCurrent(
+      membership.id,
+      WORKSPACE_ROLE.ADMIN,
+      MEMBERSHIP_STATUS.ACTIVE,
+      MEMBERSHIP_STATUS.SUSPENDED,
+      userId,
+      db,
+    );
+
+    expect(wrongRole).toBeNull();
+    await expect(
+      workspaceMembersRepo.getMembership(workspaceId, userId, db),
+    ).resolves.toMatchObject({
+      role: WORKSPACE_ROLE.REVIEWER,
+      status: MEMBERSHIP_STATUS.ACTIVE,
+    });
+  });
+
   it("updates role only from the expected current role", async () => {
     const membership = await workspaceMembersRepo.create(
       { workspaceId, userId, role: WORKSPACE_ROLE.REVIEWER, status: MEMBERSHIP_STATUS.ACTIVE },
@@ -93,6 +119,7 @@ d("workspaceMembersRepo (e2e)", () => {
     const elevated = await workspaceMembersRepo.updateRoleIfCurrent(
       membership.id,
       WORKSPACE_ROLE.REVIEWER,
+      MEMBERSHIP_STATUS.ACTIVE,
       WORKSPACE_ROLE.ADMIN,
       userId,
       db,
@@ -100,6 +127,7 @@ d("workspaceMembersRepo (e2e)", () => {
     const stale = await workspaceMembersRepo.updateRoleIfCurrent(
       membership.id,
       WORKSPACE_ROLE.REVIEWER,
+      MEMBERSHIP_STATUS.ACTIVE,
       WORKSPACE_ROLE.OWNER,
       userId,
       db,
@@ -108,5 +136,60 @@ d("workspaceMembersRepo (e2e)", () => {
     expect(elevated?.role).toBe(WORKSPACE_ROLE.ADMIN);
     expect(elevated?.elevatedBy).toBe(userId);
     expect(stale).toBeNull();
+  });
+
+  it("requires both the expected role and status for role transitions", async () => {
+    const membership = await workspaceMembersRepo.create(
+      {
+        workspaceId,
+        userId,
+        role: WORKSPACE_ROLE.REVIEWER,
+        status: MEMBERSHIP_STATUS.SUSPENDED,
+      },
+      db,
+    );
+
+    const inactive = await workspaceMembersRepo.updateRoleIfCurrent(
+      membership.id,
+      WORKSPACE_ROLE.REVIEWER,
+      MEMBERSHIP_STATUS.ACTIVE,
+      WORKSPACE_ROLE.OWNER,
+      userId,
+      db,
+    );
+
+    expect(inactive).toBeNull();
+    await expect(
+      workspaceMembersRepo.getMembership(workspaceId, userId, db),
+    ).resolves.toMatchObject({
+      role: WORKSPACE_ROLE.REVIEWER,
+      status: MEMBERSHIP_STATUS.SUSPENDED,
+    });
+  });
+
+  it("locks requested memberships in deterministic user-id order", async () => {
+    const other = await usersRepo.create({ githubUserId: 200, login: "hubot", avatarUrl: "x" }, db);
+    await workspaceMembersRepo.create(
+      { workspaceId, userId, role: WORKSPACE_ROLE.OWNER, status: MEMBERSHIP_STATUS.ACTIVE },
+      db,
+    );
+    await workspaceMembersRepo.create(
+      {
+        workspaceId,
+        userId: other.id,
+        role: WORKSPACE_ROLE.REVIEWER,
+        status: MEMBERSHIP_STATUS.ACTIVE,
+      },
+      db,
+    );
+
+    await db.transaction(async (transaction) => {
+      const rows = await workspaceMembersRepo.getMembershipsForUpdate(
+        workspaceId,
+        [other.id, userId],
+        transaction,
+      );
+      expect(rows.map((row) => row.userId)).toEqual([other.id, userId].sort());
+    });
   });
 });

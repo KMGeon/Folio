@@ -40,6 +40,11 @@ export const ErrorType = {
     statusCode: 404,
     message: "Workspace not found.",
   },
+  WorkspaceMembershipConflict: {
+    code: "workspace_membership_conflict",
+    statusCode: 409,
+    message: "Workspace membership changed. Refresh and try again.",
+  },
   NotEntitled: {
     code: "not_entitled",
     statusCode: 403,

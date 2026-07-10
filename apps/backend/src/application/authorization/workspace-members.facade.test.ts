@@ -20,16 +20,14 @@ import { CoreException } from "../../support/error/core-exception.js";
 import { ErrorType } from "../../support/error/error-type.js";
 import { WorkspaceMembersFacade } from "./workspace-members.facade.js";
 
-const dbDouble = vi.hoisted(() => ({
-  transaction: vi.fn(),
-}));
+const dbDouble = vi.hoisted(() => ({ transaction: vi.fn() }));
 
 vi.mock("@folio/db", () => ({
   auditLogsRepo: { record: vi.fn() },
   getDb: () => ({ transaction: dbDouble.transaction }),
   usersRepo: { getById: vi.fn() },
   workspaceMembersRepo: {
-    getMembership: vi.fn(),
+    getMembershipsForUpdate: vi.fn(),
     listByWorkspace: vi.fn(),
     updateRoleIfCurrent: vi.fn(),
   },
@@ -42,6 +40,7 @@ const membership = {
   changeRole: vi.fn(),
 };
 
+const transactionHandle = { kind: "transaction" };
 const now = new Date("2026-07-11T00:00:00.000Z");
 
 function member(
@@ -55,8 +54,8 @@ function member(
     userId,
     role,
     status,
-    elevatedBy: "private-elevator",
-    suspendedBy: "private-suspender",
+    elevatedBy: null,
+    suspendedBy: null,
     joinedAt: now,
     createdAt: now,
     updatedAt: now,
@@ -78,9 +77,28 @@ function user(id: string): UserRow {
   };
 }
 
-function expectForbidden(error: unknown): void {
+function auditRow(input: Parameters<typeof auditLogsRepo.record>[0]): AuditLogRow {
+  return {
+    id: "audit-1",
+    actorUserId: input.actorUserId,
+    action: input.action,
+    targetType: input.targetType,
+    targetId: input.targetId,
+    workspaceId: input.workspaceId ?? null,
+    before: input.before,
+    after: input.after,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+function lockPair(actor: WorkspaceMemberRow, target: WorkspaceMemberRow): void {
+  vi.mocked(workspaceMembersRepo.getMembershipsForUpdate).mockResolvedValue([actor, target]);
+}
+
+function expectCoreError(error: unknown, errorType: (typeof ErrorType)[keyof typeof ErrorType]) {
   expect(error).toBeInstanceOf(CoreException);
-  expect((error as CoreException).errorType).toBe(ErrorType.Forbidden);
+  expect((error as CoreException).errorType).toBe(errorType);
 }
 
 describe("WorkspaceMembersFacade", () => {
@@ -88,6 +106,7 @@ describe("WorkspaceMembersFacade", () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
+    dbDouble.transaction.mockImplementation(async (callback) => callback(transactionHandle));
     facade = new WorkspaceMembersFacade(membership as unknown as WorkspaceMembershipService);
   });
 
@@ -117,12 +136,9 @@ describe("WorkspaceMembersFacade", () => {
           status: MEMBERSHIP_STATUS.SUSPENDED,
         },
       ]);
-      expect(usersRepo.getById).toHaveBeenCalledTimes(2);
-      expect(usersRepo.getById).toHaveBeenNthCalledWith(1, "owner-1");
-      expect(usersRepo.getById).toHaveBeenNthCalledWith(2, "reviewer-1");
     });
 
-    it("reports an internal error instead of returning a partial row when identity is missing", async () => {
+    it("fails closed when a membership identity row is missing", async () => {
       vi.mocked(workspaceMembersRepo.listByWorkspace).mockResolvedValue([
         member("missing-1", WORKSPACE_ROLE.REVIEWER),
       ]);
@@ -130,8 +146,7 @@ describe("WorkspaceMembersFacade", () => {
 
       const error = await facade.list("workspace-1").catch((caught: unknown) => caught);
 
-      expect(error).toBeInstanceOf(CoreException);
-      expect((error as CoreException).errorType).toBe(ErrorType.InternalError);
+      expectCoreError(error, ErrorType.InternalError);
     });
   });
 
@@ -140,12 +155,15 @@ describe("WorkspaceMembersFacade", () => {
     ["restore", "restoreReviewer", MEMBERSHIP_STATUS.SUSPENDED],
     ["remove", "removeReviewer", MEMBERSHIP_STATUS.ACTIVE],
   ] as const)("%s", (operation, serviceMethod, targetStatus) => {
-    it("lets an admin manage a reviewer", async () => {
+    it("locks current rows, authorizes, and passes the transaction through state and audit", async () => {
       const actor = member("admin-1", WORKSPACE_ROLE.ADMIN);
       const target = member("reviewer-1", WORKSPACE_ROLE.REVIEWER, targetStatus);
-      vi.mocked(workspaceMembersRepo.getMembership)
-        .mockResolvedValueOnce(actor)
-        .mockResolvedValueOnce(target);
+      const updated = {
+        ...target,
+        status: operation === "restore" ? MEMBERSHIP_STATUS.ACTIVE : MEMBERSHIP_STATUS.SUSPENDED,
+      };
+      lockPair(actor, target);
+      membership[serviceMethod].mockResolvedValue(updated);
 
       await facade[operation]({
         workspaceId: "workspace-1",
@@ -153,18 +171,44 @@ describe("WorkspaceMembersFacade", () => {
         targetUserId: "reviewer-1",
       });
 
-      expect(membership[serviceMethod]).toHaveBeenCalledWith({
-        workspaceId: "workspace-1",
-        membershipId: "membership-reviewer-1",
-        actorUserId: "admin-1",
-        targetUserId: "reviewer-1",
-      });
+      expect(workspaceMembersRepo.getMembershipsForUpdate).toHaveBeenCalledWith(
+        "workspace-1",
+        ["admin-1", "reviewer-1"],
+        transactionHandle,
+      );
+      expect(membership[serviceMethod]).toHaveBeenCalledWith(
+        {
+          workspaceId: "workspace-1",
+          membershipId: target.id,
+          actorUserId: "admin-1",
+          targetUserId: "reviewer-1",
+          expectedRole: WORKSPACE_ROLE.REVIEWER,
+        },
+        transactionHandle,
+      );
     });
 
-    it("rejects an admin managing another admin with the exact forbidden error", async () => {
-      vi.mocked(workspaceMembersRepo.getMembership)
-        .mockResolvedValueOnce(member("admin-1", WORKSPACE_ROLE.ADMIN))
-        .mockResolvedValueOnce(member("admin-2", WORKSPACE_ROLE.ADMIN, targetStatus));
+    it("denies a concurrently suspended actor from the locked row", async () => {
+      lockPair(
+        member("admin-1", WORKSPACE_ROLE.ADMIN, MEMBERSHIP_STATUS.SUSPENDED),
+        member("reviewer-1", WORKSPACE_ROLE.REVIEWER, targetStatus),
+      );
+
+      const error = await facade[operation]({
+        workspaceId: "workspace-1",
+        actorUserId: "admin-1",
+        targetUserId: "reviewer-1",
+      }).catch((caught: unknown) => caught);
+
+      expectCoreError(error, ErrorType.Forbidden);
+      expect(membership[serviceMethod]).not.toHaveBeenCalled();
+    });
+
+    it("denies an admin managing a currently locked admin target", async () => {
+      lockPair(
+        member("admin-1", WORKSPACE_ROLE.ADMIN),
+        member("admin-2", WORKSPACE_ROLE.ADMIN, targetStatus),
+      );
 
       const error = await facade[operation]({
         workspaceId: "workspace-1",
@@ -172,17 +216,37 @@ describe("WorkspaceMembersFacade", () => {
         targetUserId: "admin-2",
       }).catch((caught: unknown) => caught);
 
-      expectForbidden(error);
+      expectCoreError(error, ErrorType.Forbidden);
       expect(membership[serviceMethod]).not.toHaveBeenCalled();
     });
   });
 
+  it("sorts actor and target user ids before acquiring row locks", async () => {
+    const actor = member("z-admin", WORKSPACE_ROLE.ADMIN);
+    const target = member("a-reviewer", WORKSPACE_ROLE.REVIEWER);
+    lockPair(actor, target);
+    membership.suspendReviewer.mockResolvedValue({
+      ...target,
+      status: MEMBERSHIP_STATUS.SUSPENDED,
+    });
+
+    await facade.suspend({
+      workspaceId: "workspace-1",
+      actorUserId: "z-admin",
+      targetUserId: "a-reviewer",
+    });
+
+    expect(workspaceMembersRepo.getMembershipsForUpdate).toHaveBeenCalledWith(
+      "workspace-1",
+      ["a-reviewer", "z-admin"],
+      transactionHandle,
+    );
+  });
+
   it.each(["suspend", "remove"] as const)(
-    "rejects %s against the current owner even when the actor is the owner",
+    "keeps %s from disabling the owner",
     async (operation) => {
-      vi.mocked(workspaceMembersRepo.getMembership)
-        .mockResolvedValueOnce(member("owner-1", WORKSPACE_ROLE.OWNER))
-        .mockResolvedValueOnce(member("owner-1", WORKSPACE_ROLE.OWNER));
+      lockPair(member("owner-1", WORKSPACE_ROLE.OWNER), member("owner-1", WORKSPACE_ROLE.OWNER));
 
       const error = await facade[operation]({
         workspaceId: "workspace-1",
@@ -190,16 +254,17 @@ describe("WorkspaceMembersFacade", () => {
         targetUserId: "owner-1",
       }).catch((caught: unknown) => caught);
 
-      expectForbidden(error);
-      expect(membership.suspendReviewer).not.toHaveBeenCalled();
-      expect(membership.removeReviewer).not.toHaveBeenCalled();
+      expectCoreError(error, ErrorType.Forbidden);
+      expect(
+        membership[operation === "suspend" ? "suspendReviewer" : "removeReviewer"],
+      ).not.toHaveBeenCalled();
     },
   );
 
-  it("rejects member actions when either membership is missing", async () => {
-    vi.mocked(workspaceMembersRepo.getMembership)
-      .mockResolvedValueOnce(member("admin-1", WORKSPACE_ROLE.ADMIN))
-      .mockResolvedValueOnce(null);
+  it("denies a command when a locked membership is missing", async () => {
+    vi.mocked(workspaceMembersRepo.getMembershipsForUpdate).mockResolvedValue([
+      member("admin-1", WORKSPACE_ROLE.ADMIN),
+    ]);
 
     const error = await facade
       .suspend({
@@ -209,32 +274,61 @@ describe("WorkspaceMembersFacade", () => {
       })
       .catch((caught: unknown) => caught);
 
-    expectForbidden(error);
+    expectCoreError(error, ErrorType.Forbidden);
     expect(membership.suspendReviewer).not.toHaveBeenCalled();
   });
 
-  it("rejects member actions from a suspended actor", async () => {
-    vi.mocked(workspaceMembersRepo.getMembership)
-      .mockResolvedValueOnce(member("admin-1", WORKSPACE_ROLE.ADMIN, MEMBERSHIP_STATUS.SUSPENDED))
-      .mockResolvedValueOnce(member("reviewer-1", WORKSPACE_ROLE.REVIEWER));
+  it.each([
+    ["suspend", "suspendReviewer", MEMBERSHIP_STATUS.SUSPENDED],
+    ["restore", "restoreReviewer", MEMBERSHIP_STATUS.ACTIVE],
+    ["remove", "removeReviewer", MEMBERSHIP_STATUS.SUSPENDED],
+  ] as const)(
+    "treats locked desired-state %s as idempotent success",
+    async (operation, serviceMethod, status) => {
+      lockPair(
+        member("admin-1", WORKSPACE_ROLE.ADMIN),
+        member("reviewer-1", WORKSPACE_ROLE.REVIEWER, status),
+      );
 
-    const error = await facade
-      .remove({
+      await expect(
+        facade[operation]({
+          workspaceId: "workspace-1",
+          actorUserId: "admin-1",
+          targetUserId: "reviewer-1",
+        }),
+      ).resolves.toBeUndefined();
+      expect(membership[serviceMethod]).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    ["suspend", "suspendReviewer", MEMBERSHIP_STATUS.ACTIVE],
+    ["restore", "restoreReviewer", MEMBERSHIP_STATUS.SUSPENDED],
+    ["remove", "removeReviewer", MEMBERSHIP_STATUS.ACTIVE],
+  ] as const)(
+    "reports a null %s mutation as a public conflict",
+    async (operation, serviceMethod, status) => {
+      lockPair(
+        member("admin-1", WORKSPACE_ROLE.ADMIN),
+        member("reviewer-1", WORKSPACE_ROLE.REVIEWER, status),
+      );
+      membership[serviceMethod].mockResolvedValue(null);
+
+      const error = await facade[operation]({
         workspaceId: "workspace-1",
         actorUserId: "admin-1",
         targetUserId: "reviewer-1",
-      })
-      .catch((caught: unknown) => caught);
+      }).catch((caught: unknown) => caught);
 
-    expectForbidden(error);
-    expect(membership.removeReviewer).not.toHaveBeenCalled();
-  });
+      expectCoreError(error, ErrorType.WorkspaceMembershipConflict);
+    },
+  );
 
   describe("changeRole", () => {
-    it("lets the owner elevate a reviewer to admin", async () => {
-      vi.mocked(workspaceMembersRepo.getMembership)
-        .mockResolvedValueOnce(member("owner-1", WORKSPACE_ROLE.OWNER))
-        .mockResolvedValueOnce(member("reviewer-1", WORKSPACE_ROLE.REVIEWER));
+    it("uses the locked owner authority and passes the same transaction", async () => {
+      const target = member("reviewer-1", WORKSPACE_ROLE.REVIEWER);
+      lockPair(member("owner-1", WORKSPACE_ROLE.OWNER), target);
+      membership.changeRole.mockResolvedValue({ ...target, role: WORKSPACE_ROLE.ADMIN });
 
       await facade.changeRole({
         workspaceId: "workspace-1",
@@ -243,85 +337,99 @@ describe("WorkspaceMembersFacade", () => {
         toRole: WORKSPACE_ROLE.ADMIN,
       });
 
-      expect(membership.changeRole).toHaveBeenCalledWith({
-        workspaceId: "workspace-1",
-        membershipId: "membership-reviewer-1",
-        actorUserId: "owner-1",
-        targetUserId: "reviewer-1",
-        fromRole: WORKSPACE_ROLE.REVIEWER,
-        toRole: WORKSPACE_ROLE.ADMIN,
-      });
+      expect(membership.changeRole).toHaveBeenCalledWith(
+        {
+          workspaceId: "workspace-1",
+          membershipId: target.id,
+          actorUserId: "owner-1",
+          targetUserId: "reviewer-1",
+          expectedRole: WORKSPACE_ROLE.REVIEWER,
+          expectedStatus: MEMBERSHIP_STATUS.ACTIVE,
+          fromRole: WORKSPACE_ROLE.REVIEWER,
+          toRole: WORKSPACE_ROLE.ADMIN,
+        },
+        transactionHandle,
+      );
     });
 
-    it("rejects role changes by admins", async () => {
-      vi.mocked(workspaceMembersRepo.getMembership)
-        .mockResolvedValueOnce(member("admin-1", WORKSPACE_ROLE.ADMIN))
-        .mockResolvedValueOnce(member("reviewer-1", WORKSPACE_ROLE.REVIEWER));
+    it("denies an owner-only change after the actor is concurrently demoted", async () => {
+      lockPair(
+        member("owner-1", WORKSPACE_ROLE.ADMIN),
+        member("reviewer-1", WORKSPACE_ROLE.REVIEWER),
+      );
 
       const error = await facade
         .changeRole({
           workspaceId: "workspace-1",
-          actorUserId: "admin-1",
+          actorUserId: "owner-1",
           targetUserId: "reviewer-1",
           toRole: WORKSPACE_ROLE.ADMIN,
         })
         .catch((caught: unknown) => caught);
 
-      expectForbidden(error);
+      expectCoreError(error, ErrorType.Forbidden);
       expect(membership.changeRole).not.toHaveBeenCalled();
     });
 
-    it("rejects changing an existing owner outside ownership transfer", async () => {
-      vi.mocked(workspaceMembersRepo.getMembership)
-        .mockResolvedValueOnce(member("owner-1", WORKSPACE_ROLE.OWNER))
-        .mockResolvedValueOnce(member("owner-1", WORKSPACE_ROLE.OWNER));
+    it.each([
+      [WORKSPACE_ROLE.OWNER, WORKSPACE_ROLE.ADMIN],
+      [WORKSPACE_ROLE.ADMIN, WORKSPACE_ROLE.OWNER],
+    ] as const)("rejects owner role paths from %s to %s", async (fromRole, toRole) => {
+      lockPair(member("owner-1", WORKSPACE_ROLE.OWNER), member("target-1", fromRole));
 
       const error = await facade
         .changeRole({
           workspaceId: "workspace-1",
           actorUserId: "owner-1",
-          targetUserId: "owner-1",
+          targetUserId: "target-1",
+          toRole,
+        })
+        .catch((caught: unknown) => caught);
+
+      expectCoreError(error, ErrorType.Forbidden);
+      expect(membership.changeRole).not.toHaveBeenCalled();
+    });
+
+    it("treats a locked same-role request as idempotent success", async () => {
+      lockPair(member("owner-1", WORKSPACE_ROLE.OWNER), member("admin-1", WORKSPACE_ROLE.ADMIN));
+
+      await expect(
+        facade.changeRole({
+          workspaceId: "workspace-1",
+          actorUserId: "owner-1",
+          targetUserId: "admin-1",
+          toRole: WORKSPACE_ROLE.ADMIN,
+        }),
+      ).resolves.toBeUndefined();
+      expect(membership.changeRole).not.toHaveBeenCalled();
+    });
+
+    it("reports a null role mutation as a public conflict", async () => {
+      lockPair(
+        member("owner-1", WORKSPACE_ROLE.OWNER),
+        member("reviewer-1", WORKSPACE_ROLE.REVIEWER),
+      );
+      membership.changeRole.mockResolvedValue(null);
+
+      const error = await facade
+        .changeRole({
+          workspaceId: "workspace-1",
+          actorUserId: "owner-1",
+          targetUserId: "reviewer-1",
           toRole: WORKSPACE_ROLE.ADMIN,
         })
         .catch((caught: unknown) => caught);
 
-      expectForbidden(error);
-      expect(membership.changeRole).not.toHaveBeenCalled();
-    });
-
-    it("rejects assigning owner outside ownership transfer", async () => {
-      vi.mocked(workspaceMembersRepo.getMembership)
-        .mockResolvedValueOnce(member("owner-1", WORKSPACE_ROLE.OWNER))
-        .mockResolvedValueOnce(member("admin-1", WORKSPACE_ROLE.ADMIN));
-
-      const error = await facade
-        .changeRole({
-          workspaceId: "workspace-1",
-          actorUserId: "owner-1",
-          targetUserId: "admin-1",
-          toRole: WORKSPACE_ROLE.OWNER,
-        })
-        .catch((caught: unknown) => caught);
-
-      expectForbidden(error);
-      expect(membership.changeRole).not.toHaveBeenCalled();
+      expectCoreError(error, ErrorType.WorkspaceMembershipConflict);
     });
   });
 
   describe("transferOwnership", () => {
-    const transactionHandle = { kind: "transaction" };
-
-    beforeEach(() => {
-      dbDouble.transaction.mockImplementation(async (callback) => callback(transactionHandle));
-    });
-
-    it("updates both roles and writes the exact audit in one transaction", async () => {
+    it("locks current active rows, conditionally updates both, and writes the exact audit", async () => {
       const actor = member("owner-1", WORKSPACE_ROLE.OWNER);
       const target = member("admin-1", WORKSPACE_ROLE.ADMIN);
       const order: string[] = [];
-      vi.mocked(workspaceMembersRepo.getMembership)
-        .mockResolvedValueOnce(actor)
-        .mockResolvedValueOnce(target);
+      lockPair(actor, target);
       vi.mocked(workspaceMembersRepo.updateRoleIfCurrent)
         .mockImplementationOnce(async () => {
           order.push("demote-owner");
@@ -333,18 +441,7 @@ describe("WorkspaceMembersFacade", () => {
         });
       vi.mocked(auditLogsRepo.record).mockImplementation(async (input) => {
         order.push("audit");
-        return {
-          id: "audit-1",
-          actorUserId: input.actorUserId,
-          action: input.action,
-          targetType: input.targetType,
-          targetId: input.targetId,
-          workspaceId: input.workspaceId ?? null,
-          before: input.before,
-          after: input.after,
-          createdAt: now,
-          updatedAt: now,
-        } satisfies AuditLogRow;
+        return auditRow(input);
       });
 
       await facade.transferOwnership({
@@ -358,6 +455,7 @@ describe("WorkspaceMembersFacade", () => {
         1,
         actor.id,
         WORKSPACE_ROLE.OWNER,
+        MEMBERSHIP_STATUS.ACTIVE,
         WORKSPACE_ROLE.ADMIN,
         "owner-1",
         transactionHandle,
@@ -366,6 +464,7 @@ describe("WorkspaceMembersFacade", () => {
         2,
         target.id,
         WORKSPACE_ROLE.ADMIN,
+        MEMBERSHIP_STATUS.ACTIVE,
         WORKSPACE_ROLE.OWNER,
         "owner-1",
         transactionHandle,
@@ -384,11 +483,25 @@ describe("WorkspaceMembersFacade", () => {
       );
     });
 
-    it("rejects transfer to self", async () => {
-      vi.mocked(workspaceMembersRepo.getMembership)
-        .mockResolvedValueOnce(member("owner-1", WORKSPACE_ROLE.OWNER))
-        .mockResolvedValueOnce(member("owner-1", WORKSPACE_ROLE.OWNER));
+    it("rejects an initially suspended transfer target", async () => {
+      lockPair(
+        member("owner-1", WORKSPACE_ROLE.OWNER),
+        member("admin-1", WORKSPACE_ROLE.ADMIN, MEMBERSHIP_STATUS.SUSPENDED),
+      );
 
+      const error = await facade
+        .transferOwnership({
+          workspaceId: "workspace-1",
+          actorUserId: "owner-1",
+          targetUserId: "admin-1",
+        })
+        .catch((caught: unknown) => caught);
+
+      expectCoreError(error, ErrorType.Forbidden);
+      expect(workspaceMembersRepo.updateRoleIfCurrent).not.toHaveBeenCalled();
+    });
+
+    it("rejects transfer to self before opening a transaction", async () => {
       const error = await facade
         .transferOwnership({
           workspaceId: "workspace-1",
@@ -397,63 +510,62 @@ describe("WorkspaceMembersFacade", () => {
         })
         .catch((caught: unknown) => caught);
 
-      expectForbidden(error);
+      expectCoreError(error, ErrorType.Forbidden);
       expect(dbDouble.transaction).not.toHaveBeenCalled();
     });
 
-    it("rejects transfer by a non-owner", async () => {
-      vi.mocked(workspaceMembersRepo.getMembership)
-        .mockResolvedValueOnce(member("admin-1", WORKSPACE_ROLE.ADMIN))
-        .mockResolvedValueOnce(member("reviewer-1", WORKSPACE_ROLE.REVIEWER));
+    it("denies transfer after the actor is concurrently demoted", async () => {
+      lockPair(
+        member("owner-1", WORKSPACE_ROLE.ADMIN),
+        member("reviewer-1", WORKSPACE_ROLE.REVIEWER),
+      );
 
       const error = await facade
         .transferOwnership({
           workspaceId: "workspace-1",
-          actorUserId: "admin-1",
+          actorUserId: "owner-1",
           targetUserId: "reviewer-1",
         })
         .catch((caught: unknown) => caught);
 
-      expectForbidden(error);
-      expect(dbDouble.transaction).not.toHaveBeenCalled();
+      expectCoreError(error, ErrorType.Forbidden);
+      expect(workspaceMembersRepo.updateRoleIfCurrent).not.toHaveBeenCalled();
     });
 
-    it.each([
-      ["current owner", 1],
-      ["target owner", 2],
-    ] as const)("rolls back and omits audit when the %s update is stale", async (_label, call) => {
-      const actor = member("owner-1", WORKSPACE_ROLE.OWNER);
-      const target = member("admin-1", WORKSPACE_ROLE.ADMIN);
-      const transactionEvents: string[] = [];
-      vi.mocked(workspaceMembersRepo.getMembership)
-        .mockResolvedValueOnce(actor)
-        .mockResolvedValueOnce(target);
-      vi.mocked(workspaceMembersRepo.updateRoleIfCurrent)
-        .mockResolvedValueOnce(call === 1 ? null : { ...actor, role: WORKSPACE_ROLE.ADMIN })
-        .mockResolvedValueOnce(call === 2 ? null : { ...target, role: WORKSPACE_ROLE.OWNER });
-      dbDouble.transaction.mockImplementation(async (callback) => {
-        transactionEvents.push("begin");
-        try {
-          const result = await callback(transactionHandle);
-          transactionEvents.push("commit");
-          return result;
-        } catch (error) {
-          transactionEvents.push("rollback");
-          throw error;
-        }
-      });
+    it.each([1, 2] as const)(
+      "rolls back and reports conflict when role update %s is stale",
+      async (call) => {
+        const actor = member("owner-1", WORKSPACE_ROLE.OWNER);
+        const target = member("admin-1", WORKSPACE_ROLE.ADMIN);
+        const events: string[] = [];
+        lockPair(actor, target);
+        vi.mocked(workspaceMembersRepo.updateRoleIfCurrent)
+          .mockResolvedValueOnce(call === 1 ? null : { ...actor, role: WORKSPACE_ROLE.ADMIN })
+          .mockResolvedValueOnce(call === 2 ? null : { ...target, role: WORKSPACE_ROLE.OWNER });
+        dbDouble.transaction.mockImplementation(async (callback) => {
+          events.push("begin");
+          try {
+            const result = await callback(transactionHandle);
+            events.push("commit");
+            return result;
+          } catch (error) {
+            events.push("rollback");
+            throw error;
+          }
+        });
 
-      await expect(
-        facade.transferOwnership({
-          workspaceId: "workspace-1",
-          actorUserId: "owner-1",
-          targetUserId: "admin-1",
-        }),
-      ).rejects.toThrow("ownership transfer role update returned no row");
+        const error = await facade
+          .transferOwnership({
+            workspaceId: "workspace-1",
+            actorUserId: "owner-1",
+            targetUserId: "admin-1",
+          })
+          .catch((caught: unknown) => caught);
 
-      expect(transactionEvents).toEqual(["begin", "rollback"]);
-      expect(workspaceMembersRepo.updateRoleIfCurrent).toHaveBeenCalledTimes(call);
-      expect(auditLogsRepo.record).not.toHaveBeenCalled();
-    });
+        expectCoreError(error, ErrorType.WorkspaceMembershipConflict);
+        expect(events).toEqual(["begin", "rollback"]);
+        expect(auditLogsRepo.record).not.toHaveBeenCalled();
+      },
+    );
   });
 });

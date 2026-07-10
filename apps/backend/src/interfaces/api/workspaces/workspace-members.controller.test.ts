@@ -4,6 +4,8 @@ import { BadRequestException, RequestMethod } from "@nestjs/common";
 import { GUARDS_METADATA, METHOD_METADATA, PATH_METADATA } from "@nestjs/common/constants.js";
 import { describe, expect, it, vi } from "vitest";
 import type { WorkspaceMembersFacade } from "../../../application/authorization/workspace-members.facade.js";
+import { CoreException } from "../../../support/error/core-exception.js";
+import { ErrorType } from "../../../support/error/error-type.js";
 import { REQUIRE_WORKSPACE_ROLE } from "../authorization/require-workspace-role.decorator.js";
 import { WorkspaceRoleGuard } from "../authorization/workspace-role.guard.js";
 import { SessionAuthGuard, type AuthedUser } from "../common/session-auth.guard.js";
@@ -89,6 +91,16 @@ describe("WorkspaceMembersController", () => {
       actorUserId: "owner-1",
       targetUserId: "reviewer-1",
     });
+  });
+
+  it("propagates the semantic membership conflict instead of returning ok", async () => {
+    const { controller, facade } = createController();
+    const conflict = new CoreException(ErrorType.WorkspaceMembershipConflict);
+    facade.suspend.mockRejectedValue(conflict);
+
+    await expect(controller.suspend("workspace-1", "reviewer-1", authedUser)).rejects.toBe(
+      conflict,
+    );
   });
 
   it("dispatches a valid role change and returns ok", async () => {
