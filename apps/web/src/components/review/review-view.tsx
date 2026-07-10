@@ -8,9 +8,10 @@ import {
   FileText,
   Search,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ChapterCards } from "@/components/review/chapter-cards";
+import { getChapterNavigationShortcut } from "@/components/review/chapter-navigation-shortcut";
 import { aggregateChangedFiles } from "@/components/review/changed-file-summary";
 import { buildFileScopedChapter } from "@/components/review/chapter-file-diff";
 import { ChapterPanel } from "@/components/review/chapter-panel";
@@ -103,15 +104,45 @@ export function ReviewView({
   const totalDeletions = files.reduce((sum, file) => sum + file.deletions, 0);
 
   const openChapter = openIndex === null ? null : reviewChapters.find((c) => c.index === openIndex);
-  const nextChapter = openChapter
-    ? reviewChapters.find((c) => c.index === openChapter.index + 1)
-    : undefined;
-  const prevChapter = openChapter
-    ? reviewChapters.find((c) => c.index === openChapter.index - 1)
-    : undefined;
+  const openChapterPosition = openChapter
+    ? reviewChapters.findIndex((chapter) => chapter.index === openChapter.index)
+    : -1;
+  const nextChapter = reviewChapters[openChapterPosition + 1];
+  const prevChapter = openChapterPosition > 0 ? reviewChapters[openChapterPosition - 1] : undefined;
   const prPath = `/${pr.org}/${pr.repo}/pull/${pr.number}`;
   const openChapterFilePaths = openChapter?.files.map((file) => file.path) ?? [];
   const allOpenChapterFilesCollapsed = areFilePathsCollapsed(collapsedFiles, openChapterFilePaths);
+
+  const navigateChapter = useCallback(
+    (direction: "previous" | "next") => {
+      if (openChapterPosition < 0) {
+        return;
+      }
+
+      const offset = direction === "previous" ? -1 : 1;
+      const targetChapter = reviewChapters[openChapterPosition + offset];
+      if (targetChapter) {
+        setOpenIndex(targetChapter.index);
+      }
+    },
+    [openChapterPosition, reviewChapters],
+  );
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      const shortcut = getChapterNavigationShortcut(event);
+      if (!shortcut || tab !== "chapters" || openChapterPosition < 0) {
+        return;
+      }
+
+      // Keep brackets available while a reviewer is typing a search or comment.
+      event.preventDefault();
+      navigateChapter(shortcut);
+    }
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [navigateChapter, openChapterPosition, tab]);
 
   async function updateFileViewed(path: string, viewed: boolean) {
     setReviewChapters((prev) =>
@@ -211,7 +242,7 @@ export function ReviewView({
                   size="icon"
                   className="size-8 text-muted-foreground"
                   disabled={!prevChapter}
-                  onClick={() => prevChapter && setOpenIndex(prevChapter.index)}
+                  onClick={() => navigateChapter("previous")}
                   aria-label="이전 장"
                 >
                   <ChevronLeft className="size-4" />
@@ -221,7 +252,7 @@ export function ReviewView({
                   size="icon"
                   className="size-8 text-muted-foreground"
                   disabled={!nextChapter}
-                  onClick={() => nextChapter && setOpenIndex(nextChapter.index)}
+                  onClick={() => navigateChapter("next")}
                   aria-label="다음 장"
                 >
                   <ChevronRight className="size-4" />
