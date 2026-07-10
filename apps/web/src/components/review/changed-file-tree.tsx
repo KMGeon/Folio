@@ -1,15 +1,23 @@
+"use client";
+
 import {
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   FileMinus2,
   FilePenLine,
   FilePlus2,
   FileSymlink,
   Folder,
+  FolderOpen,
 } from "lucide-react";
+import { useState } from "react";
 
 import type { ChangedFile } from "@/components/review/changed-file-summary";
 import type { ReviewFileStatus } from "@/lib/review-api";
 import { cn } from "@/lib/utils";
+
+import { buildChangedFileTree, type ChangedFileDirectoryNode } from "./changed-file-tree-model";
 
 const FILE_STATUS_META: Record<
   ReviewFileStatus,
@@ -92,48 +100,123 @@ export function FileTree({
   selectedPath: string;
   onSelect: (path: string) => void;
 }) {
-  const groups = new Map<string, ChangedFile[]>();
-  for (const file of files) {
-    const parts = file.path.split("/");
-    const dir = parts.length > 1 ? parts.slice(0, -1).join("/") : ".";
-    groups.set(dir, [...(groups.get(dir) ?? []), file]);
+  const tree = buildChangedFileTree(files);
+  const [collapsedDirectories, setCollapsedDirectories] = useState<Set<string>>(new Set());
+
+  function toggleDirectory(path: string) {
+    setCollapsedDirectories((current) => {
+      const next = new Set(current);
+      if (next.has(path)) {
+        next.delete(path);
+      } else {
+        next.add(path);
+      }
+      return next;
+    });
   }
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto p-3">
-      {[...groups.entries()].map(([dir, dirFiles]) => (
-        <div key={dir} className="mb-3 last:mb-0">
-          <div className="mb-1 flex items-center gap-2 px-2 py-1 text-muted-foreground">
-            <Folder className="size-4" />
-            <span className="min-w-0 truncate font-mono text-xs tracking-tight">{dir}</span>
-          </div>
-          <div className="space-y-1">
-            {dirFiles.map((file) => {
-              const name = file.path.split("/").at(-1) ?? file.path;
-              const active = file.path === selectedPath;
-              return (
-                <button
-                  key={file.path}
-                  type="button"
-                  onClick={() => onSelect(file.path)}
-                  className={cn(
-                    "flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors",
-                    active ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent",
-                  )}
-                >
-                  <FileStatusMarker status={file.status} active={active} />
-                  {file.viewed ? <CheckCircle2 className="size-4 shrink-0 text-primary" /> : null}
-                  <span className="min-w-0 flex-1 truncate font-mono text-[13px]">{name}</span>
-                  <span className="font-mono text-diff-add-fg text-xs">+{file.additions}</span>
-                  {file.deletions > 0 ? (
-                    <span className="font-mono text-diff-del-fg text-xs">-{file.deletions}</span>
-                  ) : null}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+      {tree.directories.map((directory) => (
+        <DirectoryBranch
+          key={directory.path}
+          directory={directory}
+          collapsedDirectories={collapsedDirectories}
+          selectedPath={selectedPath}
+          onSelect={onSelect}
+          onToggle={toggleDirectory}
+        />
+      ))}
+      {tree.files.map((file) => (
+        <FileTreeRow key={file.path} file={file} selectedPath={selectedPath} onSelect={onSelect} />
       ))}
     </div>
+  );
+}
+
+function DirectoryBranch({
+  directory,
+  collapsedDirectories,
+  selectedPath,
+  onSelect,
+  onToggle,
+}: {
+  directory: ChangedFileDirectoryNode;
+  collapsedDirectories: Set<string>;
+  selectedPath: string;
+  onSelect: (path: string) => void;
+  onToggle: (path: string) => void;
+}) {
+  const collapsed = collapsedDirectories.has(directory.path);
+  const FolderIcon = collapsed ? Folder : FolderOpen;
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => onToggle(directory.path)}
+        className="flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left text-muted-foreground text-xs hover:bg-accent hover:text-foreground"
+        aria-expanded={!collapsed}
+        title={directory.path}
+      >
+        {collapsed ? <ChevronRight className="size-3.5" /> : <ChevronDown className="size-3.5" />}
+        <FolderIcon className="size-3.5" />
+        <span className="min-w-0 truncate font-mono tracking-tight">{directory.name}</span>
+      </button>
+      {collapsed ? null : (
+        <div className="ml-2.5 border-border/60 border-l pl-1.5">
+          {directory.directories.map((child) => (
+            <DirectoryBranch
+              key={child.path}
+              directory={child}
+              collapsedDirectories={collapsedDirectories}
+              selectedPath={selectedPath}
+              onSelect={onSelect}
+              onToggle={onToggle}
+            />
+          ))}
+          {directory.files.map((file) => (
+            <FileTreeRow
+              key={file.path}
+              file={file}
+              selectedPath={selectedPath}
+              onSelect={onSelect}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FileTreeRow({
+  file,
+  selectedPath,
+  onSelect,
+}: {
+  file: ChangedFile;
+  selectedPath: string;
+  onSelect: (path: string) => void;
+}) {
+  const name = file.path.split("/").at(-1) ?? file.path;
+  const active = file.path === selectedPath;
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(file.path)}
+      className={cn(
+        "flex w-full items-center gap-2 rounded-md px-1.5 py-1.5 text-left text-sm transition-colors",
+        active ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent",
+      )}
+    >
+      <FileStatusMarker status={file.status} active={active} />
+      {file.viewed ? <CheckCircle2 className="size-4 shrink-0 text-primary" /> : null}
+      <span className="min-w-0 flex-1 truncate font-mono text-[13px]">{name}</span>
+      <span className="shrink-0 font-mono text-diff-add-fg text-xs">+{file.additions}</span>
+      {file.deletions > 0 ? (
+        <span className="shrink-0 font-mono text-diff-del-fg text-xs">-{file.deletions}</span>
+      ) : null}
+    </button>
   );
 }
