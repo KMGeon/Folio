@@ -1,6 +1,6 @@
 "use client";
 
-import { LayoutDashboard, LogOut, PlugZap, Search, Settings } from "lucide-react";
+import { ArrowLeft, LayoutDashboard, LogOut, Search, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -11,29 +11,32 @@ import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "대시보드", icon: LayoutDashboard },
-  { href: "/onboarding/install", label: "설치", icon: PlugZap },
   { href: "/settings/preferences", label: "설정", icon: Settings },
 ];
 
+const railControlClassName =
+  "flex size-8 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50";
+
 export function GlobalNavigationRail({ user }: { user: SessionUser | null }) {
   const pathname = usePathname();
-  const [open, setOpen] = useState(false);
-  const disclosureRef = useRef<HTMLDivElement>(null);
+  const settingsRoute = pathname.startsWith("/settings");
+  const [accountOpen, setAccountOpen] = useState(false);
+  const menuRef = useRef<HTMLElement>(null);
 
-  useEffect(() => setOpen(false), [pathname]);
+  useEffect(() => setAccountOpen(false), [pathname]);
 
   useEffect(() => {
-    if (!open) {
+    if (!accountOpen) {
       return;
     }
     const onPointerDown = (event: MouseEvent) => {
-      if (disclosureRef.current && !disclosureRef.current.contains(event.target as Node)) {
-        setOpen(false);
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setAccountOpen(false);
       }
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        setOpen(false);
+        setAccountOpen(false);
       }
     };
     document.addEventListener("mousedown", onPointerDown);
@@ -42,7 +45,7 @@ export function GlobalNavigationRail({ user }: { user: SessionUser | null }) {
       document.removeEventListener("mousedown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [open]);
+  }, [accountOpen]);
 
   async function signOut() {
     await fetch(logoutUrl(), { method: "POST", credentials: "include" });
@@ -50,33 +53,42 @@ export function GlobalNavigationRail({ user }: { user: SessionUser | null }) {
   }
 
   return (
-    <div ref={disclosureRef} className="relative z-50 flex h-svh w-12 shrink-0 lg:w-72">
-      {/* Keep the primary rail in normal flow so it remains visible before the drawer is opened. */}
-      <aside className="flex h-svh w-12 flex-col items-center border-r bg-card/70 py-2">
-        <button
-          type="button"
-          aria-controls="global-navigation-drawer"
-          aria-expanded={open}
-          aria-label={open ? "메뉴 닫기" : "메뉴 열기"}
-          onClick={() => setOpen((current) => !current)}
-          className="flex size-8 items-center justify-center rounded-md outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50"
-        >
-          {user ? (
-            <img
-              src={user.avatarUrl}
-              alt=""
-              width={24}
-              height={24}
-              referrerPolicy="no-referrer"
-              className="size-6 rounded-md"
-            />
-          ) : (
-            <BrandMark className="size-7" imageClassName="size-5" />
-          )}
-        </button>
-
+    <aside ref={menuRef} className="relative z-50 h-svh w-12 shrink-0">
+      <div className="flex h-full w-full flex-col items-center border-r bg-card/70 py-2">
+        {settingsRoute ? (
+          <Link
+            href="/dashboard"
+            aria-label="앱으로 돌아가기"
+            title="앱으로 돌아가기"
+            className={railControlClassName}
+          >
+            <ArrowLeft className="size-4" />
+          </Link>
+        ) : (
+          <button
+            type="button"
+            aria-haspopup="menu"
+            aria-expanded={accountOpen}
+            aria-label="계정 메뉴"
+            onClick={() => setAccountOpen((value) => !value)}
+            className={railControlClassName}
+          >
+            {user ? (
+              <img
+                src={user.avatarUrl}
+                alt=""
+                width={24}
+                height={24}
+                referrerPolicy="no-referrer"
+                className="size-6 rounded-md"
+              />
+            ) : (
+              <BrandMark className="size-7" imageClassName="size-5" />
+            )}
+          </button>
+        )}
         <nav className="mt-4 grid gap-1">
-          {NAV_ITEMS.filter((item) => item.href !== "/onboarding/install").map((item) => (
+          {NAV_ITEMS.map((item) => (
             <RailLink key={item.href} item={item} pathname={pathname} />
           ))}
         </nav>
@@ -92,61 +104,58 @@ export function GlobalNavigationRail({ user }: { user: SessionUser | null }) {
               }),
             )
           }
-          className="flex size-8 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          className={railControlClassName}
         >
           <Search className="size-4" />
         </button>
-      </aside>
+      </div>
 
-      <div
-        id="global-navigation-drawer"
-        className={cn(
-          "absolute inset-y-0 left-12 flex h-svh w-60 max-w-[calc(100vw-3rem)] flex-col border-r bg-popover shadow-lg transition-transform duration-150 motion-reduce:transition-none lg:static lg:pointer-events-auto lg:translate-x-0",
-          open ? "translate-x-0" : "pointer-events-none -translate-x-full",
-        )}
-      >
-        <div className="flex h-12 items-center gap-2 border-b px-3">
-          <BrandMark className="size-7" imageClassName="size-5" />
-          <span className="font-serif text-base italic">Folio</span>
-        </div>
-        <nav className="grid gap-1 p-2">
-          {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-            const active = isActivePath(pathname, href);
-            return (
-              <Link
-                key={href}
-                href={href}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  "flex h-9 items-center gap-2.5 rounded-md px-3 text-sm transition-colors",
-                  active
-                    ? "bg-accent font-medium text-foreground"
-                    : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-                )}
-              >
-                <Icon className="size-4" />
-                {label}
-              </Link>
-            );
-          })}
-        </nav>
-        <div className="mt-auto border-t p-2">
-          <div className="flex items-center gap-2 px-2 py-2">
-            <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-              {user?.login ?? "Folio"}
-            </span>
+      {accountOpen && !settingsRoute ? (
+        <div
+          role="menu"
+          className="absolute top-2 left-12 w-56 overflow-hidden rounded-lg border bg-popover shadow-lg"
+        >
+          <div className="border-b px-3 py-3">
+            <p className="font-mono text-[0.7rem] uppercase tracking-[0.16em] text-muted-foreground">
+              Workspaces
+            </p>
+            <div className="mt-2 flex items-center gap-2">
+              {user ? (
+                <img
+                  src={user.avatarUrl}
+                  alt=""
+                  width={28}
+                  height={28}
+                  referrerPolicy="no-referrer"
+                  className="size-7 rounded-md"
+                />
+              ) : (
+                <BrandMark className="size-7" imageClassName="size-5" />
+              )}
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-foreground">
+                  {user?.login ?? "Folio"}
+                </p>
+                {user ? (
+                  <p className="truncate font-mono text-xs text-muted-foreground">@{user.login}</p>
+                ) : null}
+              </div>
+            </div>
+          </div>
+          <div className="p-1">
             <button
               type="button"
+              role="menuitem"
               onClick={signOut}
-              aria-label="로그아웃"
-              className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+              className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-sm text-destructive transition-colors hover:bg-destructive/10"
             >
-              <LogOut className="size-3.5" />
+              <LogOut className="size-4" />
+              로그아웃
             </button>
           </div>
         </div>
-      </div>
-    </div>
+      ) : null}
+    </aside>
   );
 }
 
