@@ -174,7 +174,9 @@ export function ReviewView({
                 <span className="font-mono text-xs text-muted-foreground">
                   제{openChapter.index}장 ·{" "}
                 </span>
-                <span className="font-serif text-base text-foreground">{openChapter.title}</span>
+                <span className="font-sans text-base font-medium text-foreground">
+                  {openChapter.title}
+                </span>
               </span>
               <div className="ml-auto flex items-center gap-1">
                 <DiffViewModeSwitch value={diffViewMode} onChange={setDiffViewMode} />
@@ -234,7 +236,7 @@ export function ReviewView({
             </div>
           </div>
         ) : (
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 md:px-5">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 md:px-6">
             <div className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.35fr)]">
               <section className="min-w-0">
                 <ReviewPrologue pr={pr} prologue={prologue} comments={comments} />

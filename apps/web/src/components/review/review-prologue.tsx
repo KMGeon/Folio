@@ -169,21 +169,21 @@ function MarkdownText({ text }: { text: string }) {
         const line = block.lines[0] ?? "";
         if (line.startsWith("### ")) {
           return (
-            <h4 key={key} className="pt-1.5 font-serif text-base text-foreground">
+            <h4 key={key} className="pt-1.5 font-sans text-base font-medium text-foreground">
               {line.slice(4)}
             </h4>
           );
         }
         if (line.startsWith("## ")) {
           return (
-            <h3 key={key} className="border-b pb-1.5 font-serif text-lg text-foreground">
+            <h3 key={key} className="border-b pb-1.5 font-sans text-lg font-medium text-foreground">
               {line.slice(3)}
             </h3>
           );
         }
         if (line.startsWith("# ")) {
           return (
-            <h2 key={key} className="border-b pb-1.5 font-serif text-xl text-foreground">
+            <h2 key={key} className="border-b pb-1.5 font-sans text-xl font-medium text-foreground">
               {line.slice(2)}
             </h2>
           );

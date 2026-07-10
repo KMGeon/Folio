@@ -138,7 +138,7 @@ export function DiffViewer({
           <div className="font-mono text-[0.7rem] uppercase tracking-[0.18em] text-muted-foreground">
             챕터 개요
           </div>
-          <h2 className="mt-2 font-serif text-lg font-normal leading-snug tracking-tight">
+          <h2 className="mt-2 font-sans text-lg font-medium leading-snug tracking-tight">
             {chapter.title}
           </h2>
           <p className="mt-2 text-sm leading-5 text-muted-foreground">{chapter.summary}</p>

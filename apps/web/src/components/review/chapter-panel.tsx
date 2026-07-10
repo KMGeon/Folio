@@ -77,7 +77,9 @@ export function ChapterPanel({
       </div>
 
       <div className="px-3 pt-2.5">
-        <h2 className="font-serif text-lg leading-snug tracking-tight">{chapter.title}</h2>
+        <h2 className="font-sans text-lg font-medium leading-snug tracking-tight">
+          {chapter.title}
+        </h2>
         <div className="mt-2 flex items-center gap-2">
           <span className="font-mono text-xs text-diff-add-fg">+ {additions}</span>
         </div>

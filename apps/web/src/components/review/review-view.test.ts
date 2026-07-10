@@ -12,9 +12,11 @@ const topBarSource = readFileSync(resolve(__dirname, "review-top-bar.tsx"), "utf
 describe("ReviewView source", () => {
   it("matches the compact review density reference", () => {
     expect(chapterCardsSource).toContain("gap-3 border-b p-3");
-    expect(chapterCardsSource).toContain("font-serif text-sm");
+    expect(chapterCardsSource).toContain("font-sans text-sm");
     expect(chapterCardsSource).toContain("font-mono text-xs");
-    expect(topBarSource).toContain("font-serif text-2xl");
+    expect(topBarSource).toContain("font-sans text-2xl");
+    expect(topBarSource).toContain("px-4 pt-3 md:px-6");
+    expect(source).toContain("overflow-y-auto px-4 py-3 md:px-6");
   });
 
   it("can collapse and expand every file from the chapter toolbar", () => {

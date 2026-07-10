@@ -57,7 +57,7 @@ export function ReviewTopBar({
   const StatusIcon = status.icon;
 
   return (
-    <div className="shrink-0 px-4 pt-3 md:px-5">
+    <div className="shrink-0 px-4 pt-3 md:px-6">
       <div className="flex items-start justify-between gap-4">
         <div className="flex min-w-0 flex-col gap-1.5">
           <div className="flex flex-wrap items-center gap-2.5">
@@ -74,7 +74,7 @@ export function ReviewTopBar({
               Pull Request
             </span>
           </div>
-          <h1 className="min-w-0 font-serif text-2xl font-normal leading-tight tracking-tight">
+          <h1 className="min-w-0 font-sans text-2xl font-medium leading-tight tracking-tight">
             {pr.title}
             <span className="ml-2 font-mono text-sm text-muted-foreground">#{pr.number}</span>
           </h1>

@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 export function ReviewLoadingSkeleton() {
   return (
     <div className="flex h-svh flex-col overflow-hidden bg-background text-foreground">
-      <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b px-4 md:px-5">
+      <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b px-4 md:px-6">
         <div className="flex min-w-0 items-center gap-3">
           <SkeletonBlock className="size-8 rounded-md" />
           <SkeletonBlock className="hidden h-4 w-14 sm:block" />
@@ -20,7 +20,7 @@ export function ReviewLoadingSkeleton() {
 
       <main className="flex min-h-0 flex-1 flex-col">
         <ReviewTopBarSkeleton />
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 md:px-5">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 md:px-6">
           {/* Live "generating" cue: mono eyebrow + a pulsing vivid primary dot. */}
           <div className="mb-5 inline-flex items-center gap-2 rounded-md border bg-card/60 px-3 py-1.5">
             <SkeletonBlock className="size-2 rounded-full bg-primary/70" />
@@ -63,7 +63,7 @@ export function ReviewLoadingSkeleton() {
 
 function ReviewTopBarSkeleton() {
   return (
-    <div className="shrink-0 px-4 pt-3 md:px-5">
+    <div className="shrink-0 px-4 pt-3 md:px-6">
       <div className="flex items-start justify-between gap-4">
         <div className="flex min-w-0 flex-1 flex-col gap-2.5">
           <div className="flex items-center gap-2.5">
