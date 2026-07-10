@@ -30,6 +30,21 @@ export const ErrorType = {
     statusCode: 403,
     message: "You do not have access to this repository.",
   },
+  Forbidden: {
+    code: "forbidden",
+    statusCode: 403,
+    message: "You are not allowed to perform this action.",
+  },
+  WorkspaceNotFound: {
+    code: "workspace_not_found",
+    statusCode: 404,
+    message: "Workspace not found.",
+  },
+  NotEntitled: {
+    code: "not_entitled",
+    statusCode: 403,
+    message: "Your plan does not include this feature.",
+  },
   AdminOnly: {
     code: "admin_only",
     statusCode: 403,
