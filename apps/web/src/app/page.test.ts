@@ -3,6 +3,29 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 describe("HomePage (site root)", () => {
+  it("uses the compact application density scale", async () => {
+    const [globals, buttons, layout] = await Promise.all([
+      readFile(new URL("./globals.css", import.meta.url), "utf8"),
+      readFile(new URL("../components/ui/button.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../components/app-layout.tsx", import.meta.url), "utf8"),
+    ]);
+
+    expect(globals).toContain("font-size: 13px");
+    expect(buttons).toContain("rounded-md text-xs font-medium");
+    expect(buttons).toContain('default: "h-8');
+    expect(layout).toContain('<header className="flex h-12');
+  });
+
+  it("keeps public sections compact", async () => {
+    const source = await readFile(
+      new URL("./homepage/homepage-sections.tsx", import.meta.url),
+      "utf8",
+    );
+
+    expect(source).not.toContain("py-16");
+    expect(source).toContain("h-12 max-w-7xl");
+  });
+
   it("renders Folio's public product story and GitHub CTA at the site root", async () => {
     const source = [
       await readFile(new URL("./page.tsx", import.meta.url), "utf8"),

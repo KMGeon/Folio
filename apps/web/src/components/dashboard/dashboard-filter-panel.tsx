@@ -141,7 +141,7 @@ export function DashboardFilterPanel({ open, filters, onChange }: DashboardFilte
         checked={filters.highlightMyPrs}
         onChange={(highlightMyPrs) => patch({ highlightMyPrs })}
       />
-      <div className="border-t p-4">
+      <div className="border-t p-3">
         <div className="mb-3 font-mono text-[0.7rem] uppercase tracking-[0.16em] text-muted-foreground">
           Display properties
         </div>
@@ -178,7 +178,7 @@ function FilterRow({
   children: ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 border-b p-4">
+    <div className="flex items-center justify-between gap-3 border-b p-3">
       <div className="flex items-center gap-2.5 text-muted-foreground">
         {icon}
         <span className="font-mono text-[0.7rem] uppercase tracking-[0.16em]">{label}</span>
@@ -222,7 +222,7 @@ function ToggleRow({
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <label className="flex cursor-pointer items-center justify-between gap-4 border-b p-4">
+    <label className="flex cursor-pointer items-center justify-between gap-3 border-b p-3">
       <span className="font-mono text-[0.7rem] uppercase tracking-[0.16em] text-muted-foreground">
         {label}
       </span>

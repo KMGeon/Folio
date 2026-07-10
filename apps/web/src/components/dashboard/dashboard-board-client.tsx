@@ -337,7 +337,7 @@ export function DashboardBoardClient({
   );
 
   return (
-    <div className="relative space-y-6">
+    <div className="relative space-y-4">
       <DashboardSearchBar
         query={query}
         onQueryChange={setQuery}
@@ -374,7 +374,7 @@ function DashboardSearchBar({
 }) {
   return (
     <div className="flex items-center gap-3">
-      <div className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-lg border bg-card px-3 text-muted-foreground">
+      <div className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-lg border bg-card px-3 text-muted-foreground">
         <Search className="size-4 shrink-0" />
         <input
           value={query}

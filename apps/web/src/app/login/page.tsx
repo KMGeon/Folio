@@ -72,7 +72,7 @@ function ChapterSpine() {
             <p className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-muted-foreground">
               Pull Request&nbsp;·&nbsp;#1284
             </p>
-            <h1 className="mt-5 font-serif text-4xl font-normal leading-[1.08] tracking-tight xl:text-5xl">
+            <h1 className="mt-4 font-serif text-3xl font-normal leading-[1.08] tracking-tight xl:text-4xl">
               이제 중요한 건 코드가 아니라
               <br />
               <span className="italic">리뷰</span>입니다.
@@ -152,7 +152,7 @@ function ChapterRow({
 
 function AuthPanel({ redirectPath, isPending }: { redirectPath: string; isPending: boolean }) {
   return (
-    <section className="flex items-center justify-center p-6 sm:p-10">
+    <section className="flex items-center justify-center p-4 sm:p-6">
       <div className="w-full max-w-sm">
         {/* brand shown here too — the 3D spine is hidden on small screens */}
         <div className="flex items-center gap-2.5 lg:hidden">
@@ -164,7 +164,7 @@ function AuthPanel({ redirectPath, isPending }: { redirectPath: string; isPendin
           <p className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-muted-foreground">
             로그인
           </p>
-          <h2 className="mt-3 font-serif text-3xl font-normal leading-[1.1] tracking-tight">
+          <h2 className="mt-2.5 font-serif text-2xl font-normal leading-[1.1] tracking-tight">
             <span className="italic">Folio</span> 시작하기
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-muted-foreground">

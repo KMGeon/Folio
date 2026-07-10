@@ -25,7 +25,7 @@ export function HeroSection() {
         className="pointer-events-none absolute inset-x-0 bottom-0 h-36 bg-gradient-to-t from-background to-transparent"
       />
       <HomepageHeader />
-      <div className="relative z-10 mx-auto grid min-h-[calc(100svh-4rem)] max-w-7xl items-center gap-10 px-5 py-10 md:px-8 lg:grid-cols-[minmax(0,0.88fr)_minmax(460px,0.92fr)]">
+      <div className="relative z-10 mx-auto grid min-h-[calc(100svh-3rem)] max-w-7xl items-center gap-8 px-5 py-8 md:px-6 lg:grid-cols-[minmax(0,0.88fr)_minmax(460px,0.92fr)]">
         <HeroCopy />
         <LiveReviewBoard />
       </div>
@@ -35,12 +35,12 @@ export function HeroSection() {
 
 function HomepageHeader() {
   return (
-    <header className="relative z-10 mx-auto flex h-16 max-w-7xl items-center justify-between px-5 md:px-8">
+    <header className="relative z-10 mx-auto flex h-12 max-w-7xl items-center justify-between px-5 md:px-6">
       <Link href="/" className="flex items-center gap-2.5">
         <BrandMark />
         <span className="font-serif text-xl italic leading-none">Folio</span>
       </Link>
-      <nav className="hidden items-center gap-6 text-muted-foreground text-xs md:flex">
+      <nav className="hidden items-center gap-4 text-muted-foreground text-xs md:flex">
         {[
           ["Product", "#product"],
           ["Workflow", "#workflow"],
@@ -69,14 +69,14 @@ function HeroCopy() {
         <Split className="size-3.5 text-primary" />
         GitHub-native PR review
       </div>
-      <h1 className="mt-6 text-balance font-serif text-[2.6rem] font-normal leading-[1.05] tracking-tight md:text-[4.2rem]">
+      <h1 className="mt-4 text-balance font-serif text-[2.25rem] font-normal leading-[1.05] tracking-tight md:text-[3.25rem]">
         PR을 읽는 순서까지 설계하는 리뷰 워크스페이스
       </h1>
       <p className="mt-5 max-w-2xl text-muted-foreground text-sm leading-6 md:text-base">
         Folio는 큰 pull request를 논리적인 리뷰 챕터로 나누고, 팀이 같은 순서로 변경 의도와 위험도를
         확인하게 합니다.
       </p>
-      <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+      <div className="mt-6 flex flex-col gap-2.5 sm:flex-row">
         <Button asChild size="lg">
           <a href={loginUrl("/dashboard")}>
             <Github className="size-4" />
@@ -104,7 +104,7 @@ function HeroCopy() {
 
 export function ProductSection() {
   return (
-    <section id="product" className="border-b px-5 py-16 md:px-8">
+    <section id="product" className="border-b px-5 py-10 md:px-6">
       <div className="mx-auto max-w-7xl">
         <SectionIntro eyebrow="PRODUCT" title="리뷰어가 먼저 봐야 할 것부터 보여줍니다." />
         <div className="mt-8 grid gap-3 md:grid-cols-3">
@@ -127,7 +127,7 @@ function FeatureCard({
   icon: LucideIcon;
 }) {
   return (
-    <article className="rounded-lg border bg-card p-5">
+    <article className="rounded-lg border bg-card p-4">
       <div className="flex size-9 items-center justify-center rounded-md border bg-background/50 text-primary">
         <Icon className="size-4" />
       </div>
@@ -139,7 +139,7 @@ function FeatureCard({
 
 export function WorkflowSection() {
   return (
-    <section id="workflow" className="border-b px-5 py-16 md:px-8">
+    <section id="workflow" className="border-b px-5 py-10 md:px-6">
       <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.8fr_1fr]">
         <div>
           <SectionIntro eyebrow="WORKFLOW" title="PR이 열리면 Folio가 리뷰 지도를 만듭니다." />
@@ -170,7 +170,7 @@ function WorkflowRow({
   icon: LucideIcon;
 }) {
   return (
-    <div className="grid grid-cols-[2.5rem_2.75rem_minmax(0,1fr)] items-center gap-3 rounded-lg border bg-card p-4">
+    <div className="grid grid-cols-[2.25rem_2.5rem_minmax(0,1fr)] items-center gap-2.5 rounded-lg border bg-card p-3">
       <span className="font-mono text-muted-foreground text-xs tabular-nums">
         {String(index).padStart(2, "0")}
       </span>
@@ -187,7 +187,7 @@ function WorkflowRow({
 
 export function PricingSection() {
   return (
-    <section id="pricing" className="border-b px-5 py-16 md:px-8">
+    <section id="pricing" className="border-b px-5 py-10 md:px-6">
       <div className="mx-auto max-w-7xl">
         <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
           <div className="max-w-2xl">
@@ -231,7 +231,7 @@ function PricingCard({
   return (
     <article
       className={cn(
-        "flex min-h-[27rem] flex-col rounded-lg border bg-card p-6",
+        "flex min-h-[23rem] flex-col rounded-lg border bg-card p-4",
         featured && "border-primary/35 bg-primary/5",
       )}
     >
@@ -273,8 +273,8 @@ function PricingCard({
 
 export function SecuritySection() {
   return (
-    <section id="security" className="px-5 py-16 md:px-8">
-      <div className="mx-auto grid max-w-7xl gap-8 rounded-lg border bg-card p-6 md:p-8 lg:grid-cols-[1fr_0.8fr]">
+    <section id="security" className="px-5 py-10 md:px-6">
+      <div className="mx-auto grid max-w-7xl gap-6 rounded-lg border bg-card p-4 md:p-6 lg:grid-cols-[1fr_0.8fr]">
         <div>
           <SectionIntro eyebrow="SECURITY" title="Folio는 GitHub 데이터 도구입니다." />
           <p className="mt-4 max-w-2xl text-muted-foreground text-sm leading-6">
@@ -304,7 +304,7 @@ function SectionIntro({ eyebrow, title }: { eyebrow: string; title: string }) {
       <p className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-muted-foreground">
         {eyebrow}
       </p>
-      <h2 className="mt-3.5 font-serif text-3xl font-normal leading-tight tracking-tight md:text-[2.4rem]">
+      <h2 className="mt-2.5 font-serif text-2xl font-normal leading-tight tracking-tight md:text-3xl">
         {title}
       </h2>
     </div>
