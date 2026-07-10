@@ -8,9 +8,9 @@ const filePanelSource = readFileSync(resolve(__dirname, "review-file-diff-panel.
 const reviewViewSource = readFileSync(resolve(__dirname, "review-view.tsx"), "utf8");
 
 describe("DiffViewer source", () => {
-  it("uses compact chapter summary spacing", () => {
-    expect(diffViewerSource).toContain('className="mb-3 rounded-lg border bg-card p-3"');
-    expect(diffViewerSource).toContain("font-sans text-lg");
+  it("does not duplicate the chapter summary shown in the sidebar", () => {
+    expect(diffViewerSource).not.toContain("챕터 개요");
+    expect(diffViewerSource).not.toContain('className="mb-3 rounded-lg border bg-card p-3"');
   });
 
   it("offers unified and split diff view modes", () => {

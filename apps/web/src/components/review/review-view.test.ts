@@ -79,4 +79,25 @@ describe("ReviewView source", () => {
     );
     expect(changedFileTreeSource).toContain("min-h-0 flex-1 overflow-y-auto p-3");
   });
+
+  it("supports chapter-panel tree filtering and file activation", () => {
+    expect(changedFileTreeSource).toContain("filterChangedFileTree(tree, query)");
+    expect(changedFileTreeSource).toContain("query?: string");
+    expect(changedFileTreeSource).toContain("onSelect(file.path)");
+  });
+
+  it("keeps chapter context in the sidebar and removes the duplicate diff overview", () => {
+    const diffViewerSource = readFileSync(resolve(__dirname, "diff-viewer.tsx"), "utf8");
+
+    expect(chapterPanelSource).toContain("<FileTree");
+    expect(chapterPanelSource).toContain("query={fileQuery}");
+    expect(chapterPanelSource).toContain('scrollIntoView({ block: "start", behavior: "smooth" })');
+    expect(diffViewerSource).not.toContain("챕터 개요");
+  });
+
+  it("keeps next-chapter navigation in the toolbar instead of the sidebar", () => {
+    expect(chapterPanelSource).not.toContain('aria-label="다음 장"');
+    expect(chapterPanelSource).not.toContain("nextChapter");
+    expect(source).toContain('aria-label="다음 장"');
+  });
 });

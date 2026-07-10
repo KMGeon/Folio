@@ -9,8 +9,6 @@ import {
   type ReviewDiffLine,
 } from "@/lib/review-api";
 import { type TokenizedLines, tokenizeDiffLines } from "@/lib/syntax-highlight";
-import { cn } from "@/lib/utils";
-
 import { commentTargetForLine } from "./diff-comment-target";
 import type { DiffViewMode } from "./diff-view-mode-switch";
 import { type ActiveDiffLine, FileDiffPanel } from "./review-file-diff-panel";
@@ -132,19 +130,11 @@ export function DiffViewer({
   }
 
   return (
-    <div className={cn("min-w-0 flex-1 overflow-y-auto", compact ? "p-0" : "p-3")}>
-      {compact ? null : (
-        <section className="mb-3 rounded-lg border bg-card p-3">
-          <div className="font-mono text-[0.7rem] uppercase tracking-[0.18em] text-muted-foreground">
-            챕터 개요
-          </div>
-          <h2 className="mt-2 font-sans text-lg font-medium leading-snug tracking-tight">
-            {chapter.title}
-          </h2>
-          <p className="mt-2 text-sm leading-5 text-muted-foreground">{chapter.summary}</p>
-        </section>
-      )}
-
+    <div
+      className={
+        compact ? "min-w-0 flex-1 overflow-y-auto p-0" : "min-w-0 flex-1 overflow-y-auto p-3"
+      }
+    >
       <div className="space-y-3">
         {fileGroups.map(({ file, lines }) => (
           <FileDiffPanel
