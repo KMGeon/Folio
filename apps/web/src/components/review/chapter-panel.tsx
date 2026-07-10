@@ -1,10 +1,10 @@
 "use client";
 
-import { Check, CheckCircle2, ChevronRight, Folder, Search } from "lucide-react";
+import { Check, CheckCircle2, ChevronRight, Search } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { FileStatusMarker } from "@/components/review/changed-file-tree";
+import { FileTree } from "@/components/review/changed-file-tree";
 import { ChapterSwitcher } from "@/components/review/chapter-switcher";
 import { ChapterViewedToggle } from "@/components/review/chapter-viewed-toggle";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,7 @@ export function ChapterPanel({
 }) {
   const chapter = chapters.find((c) => c.index === activeIndex) ?? chapters[0];
   const [keyChanges, setKeyChanges] = useState(chapter?.keyChanges ?? []);
+  const [fileQuery, setFileQuery] = useState("");
 
   useEffect(() => {
     setKeyChanges(chapter?.keyChanges ?? []);
@@ -46,6 +47,11 @@ export function ChapterPanel({
 
   const additions = chapter.files.reduce((sum, file) => sum + file.additions, 0);
   const nextChapter = chapters.find((c) => c.index > chapter.index);
+  const chapterFiles = chapter.files.map((file) => ({
+    ...file,
+    chapterIndex: chapter.index,
+    chapterTitle: chapter.title,
+  }));
 
   return (
     <aside className="flex w-full shrink-0 flex-col border-b lg:h-auto lg:w-[460px] lg:overflow-y-auto lg:border-b-0 lg:border-l">
@@ -150,33 +156,22 @@ export function ChapterPanel({
           <input
             type="text"
             placeholder="파일 필터링..."
+            value={fileQuery}
+            onChange={(event) => setFileQuery(event.target.value)}
             className="h-7 w-full rounded-md border bg-transparent pr-2 pl-8 text-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30"
           />
         </div>
 
-        <div className="mt-3 flex flex-col gap-0.5 text-sm">
-          <div className="flex items-center gap-1.5 rounded px-1.5 py-1 text-muted-foreground">
-            <Folder className="size-3.5" />
-            <span>changed files</span>
-          </div>
-          {chapter.files.map((file) => (
-            <button
-              type="button"
-              key={file.path}
-              onClick={() => {
-                document
-                  .getElementById(filePanelId(chapter.index, file.path))
-                  ?.scrollIntoView({ block: "start", behavior: "smooth" });
-              }}
-              className="ml-3 flex items-center gap-1.5 rounded px-1.5 py-1 text-left hover:bg-accent"
-            >
-              <FileStatusMarker status={file.status} />
-              {file.viewed ? <CheckCircle2 className="size-3.5 shrink-0 text-primary" /> : null}
-              <span className="min-w-0 flex-1 truncate">{file.path}</span>
-              <span className="shrink-0 font-mono text-xs text-diff-add-fg">+{file.additions}</span>
-            </button>
-          ))}
-        </div>
+        <FileTree
+          files={chapterFiles}
+          query={fileQuery}
+          selectedPath=""
+          onSelect={(path) =>
+            document
+              .getElementById(filePanelId(chapter.index, path))
+              ?.scrollIntoView({ block: "start", behavior: "smooth" })
+          }
+        />
       </div>
 
       <div className="border-t px-3 py-3">

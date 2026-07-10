@@ -77,4 +77,13 @@ describe("ReviewView source", () => {
     expect(changedFileTreeSource).toContain("query?: string");
     expect(changedFileTreeSource).toContain("onSelect(file.path)");
   });
+
+  it("keeps chapter context in the sidebar and removes the duplicate diff overview", () => {
+    const diffViewerSource = readFileSync(resolve(__dirname, "diff-viewer.tsx"), "utf8");
+
+    expect(chapterPanelSource).toContain("<FileTree");
+    expect(chapterPanelSource).toContain("query={fileQuery}");
+    expect(chapterPanelSource).toContain('scrollIntoView({ block: "start", behavior: "smooth" })');
+    expect(diffViewerSource).not.toContain("챕터 개요");
+  });
 });
