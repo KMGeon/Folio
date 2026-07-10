@@ -236,7 +236,7 @@ export function ReviewView({
         )
       ) : (
         <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[24rem_minmax(0,1fr)]">
-          <aside className="min-h-72 border-b bg-card/35 lg:min-h-0 lg:border-r lg:border-b-0">
+          <aside className="flex min-h-72 flex-col overflow-hidden border-b bg-card/35 lg:min-h-0 lg:border-r lg:border-b-0">
             <div className="flex h-14 items-center justify-between border-b px-4">
               <div className="flex items-center gap-2 font-medium">
                 <FileText className="size-4 text-muted-foreground" />
