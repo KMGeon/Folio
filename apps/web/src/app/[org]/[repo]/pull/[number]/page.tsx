@@ -38,6 +38,7 @@ export default async function PrOverviewPage({
     <AppLayout user={user} breadcrumb={{ org, repo, number: Number(number) }}>
       <ReviewView
         pr={review.pr}
+        prologue={review.prologue}
         chapters={review.chapters}
         comments={review.comments}
         commits={review.commits}

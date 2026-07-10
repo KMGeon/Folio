@@ -1,4 +1,5 @@
 import { ApiError, apiRequest } from "./api-client";
+import type { Prologue } from "@folio/types";
 
 export interface ReviewDiffLine {
   path: string;
@@ -177,6 +178,7 @@ export interface ReviewCommit {
 
 export interface ReviewPayload {
   pr: ReviewPrMeta;
+  prologue: Prologue | null;
   chapters: ReviewChapter[];
   comments: ReviewIssueComment[];
   /** Oldest→newest PR commits; may be empty if GitHub was unreachable. */

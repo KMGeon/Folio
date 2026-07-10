@@ -34,11 +34,13 @@ import type {
   ReviewPrMeta,
 } from "@/lib/review-api";
 import { setFileViewed } from "@/lib/review-api";
+import type { Prologue } from "@folio/types";
 
 type ChapterPanelTab = "chapters" | "activity";
 
 export function ReviewView({
   pr,
+  prologue,
   chapters,
   comments,
   commits,
@@ -46,6 +48,7 @@ export function ReviewView({
   initialChapterIndex,
 }: {
   pr: ReviewPrMeta;
+  prologue: Prologue | null;
   chapters: ReviewChapter[];
   comments: ReviewIssueComment[];
   commits: ReviewCommit[];
@@ -234,7 +237,7 @@ export function ReviewView({
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 md:px-6">
             <div className="grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.35fr)]">
               <section>
-                <ReviewPrologue pr={pr} comments={comments} />
+                <ReviewPrologue pr={pr} prologue={prologue} comments={comments} />
               </section>
               <section>
                 <div className="mb-3 flex items-center justify-between gap-3">
