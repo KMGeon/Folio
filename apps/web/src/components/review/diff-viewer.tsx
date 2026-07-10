@@ -42,7 +42,7 @@ export function DiffViewer({
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<Record<string, CreatedReviewComment>>({});
   const [collapsedFiles, setCollapsedFiles] = useState<Record<string, boolean>>({});
-  const [viewMode, setViewMode] = useState<DiffViewMode>("unified");
+  const [viewMode, setViewMode] = useState<DiffViewMode>("split");
 
   const canComment = Boolean(commentContext);
   const fileGroups = groupLinesByFile(chapter);

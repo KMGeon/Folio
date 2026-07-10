@@ -17,4 +17,8 @@ describe("DiffViewer source", () => {
     expect(filePanelSource).toContain("buildSplitDiffRows(props.lines)");
     expect(diffViewerSource).toContain("commentTargetForLine(activeLine.line)");
   });
+
+  it("defaults every diff panel to split mode", () => {
+    expect(diffViewerSource).toContain('useState<DiffViewMode>("split")');
+  });
 });
