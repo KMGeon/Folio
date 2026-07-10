@@ -71,4 +71,10 @@ describe("ReviewView source", () => {
     );
     expect(changedFileTreeSource).toContain("min-h-0 flex-1 overflow-y-auto p-3");
   });
+
+  it("supports chapter-panel tree filtering and file activation", () => {
+    expect(changedFileTreeSource).toContain("filterChangedFileTree(tree, query)");
+    expect(changedFileTreeSource).toContain("query?: string");
+    expect(changedFileTreeSource).toContain("onSelect(file.path)");
+  });
 });

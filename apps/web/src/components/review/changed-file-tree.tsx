@@ -17,7 +17,11 @@ import type { ChangedFile } from "@/components/review/changed-file-summary";
 import type { ReviewFileStatus } from "@/lib/review-api";
 import { cn } from "@/lib/utils";
 
-import { buildChangedFileTree, type ChangedFileDirectoryNode } from "./changed-file-tree-model";
+import {
+  buildChangedFileTree,
+  filterChangedFileTree,
+  type ChangedFileDirectoryNode,
+} from "./changed-file-tree-model";
 
 const FILE_STATUS_META: Record<
   ReviewFileStatus,
@@ -93,14 +97,17 @@ export function FileStatusMarker({
 
 export function FileTree({
   files,
+  query = "",
   selectedPath,
   onSelect,
 }: {
   files: ChangedFile[];
+  query?: string;
   selectedPath: string;
   onSelect: (path: string) => void;
 }) {
   const tree = buildChangedFileTree(files);
+  const filteredTree = filterChangedFileTree(tree, query);
   const [collapsedDirectories, setCollapsedDirectories] = useState<Set<string>>(new Set());
 
   function toggleDirectory(path: string) {
@@ -117,7 +124,7 @@ export function FileTree({
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto p-3">
-      {tree.directories.map((directory) => (
+      {filteredTree.directories.map((directory) => (
         <DirectoryBranch
           key={directory.path}
           directory={directory}
@@ -127,7 +134,7 @@ export function FileTree({
           onToggle={toggleDirectory}
         />
       ))}
-      {tree.files.map((file) => (
+      {filteredTree.files.map((file) => (
         <FileTreeRow key={file.path} file={file} selectedPath={selectedPath} onSelect={onSelect} />
       ))}
     </div>
