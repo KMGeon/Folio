@@ -22,6 +22,7 @@ export function GlobalNavigationRail({ user }: { user: SessionUser | null }) {
   const settingsRoute = pathname.startsWith("/settings");
   const [accountOpen, setAccountOpen] = useState(false);
   const menuRef = useRef<HTMLElement>(null);
+  const accountMenuRef = useRef<HTMLDivElement>(null);
   const accountTriggerRef = useRef<HTMLButtonElement>(null);
   const firstMenuItemRef = useRef<HTMLButtonElement>(null);
 
@@ -44,11 +45,21 @@ export function GlobalNavigationRail({ user }: { user: SessionUser | null }) {
         accountTriggerRef.current?.focus();
       }
     };
+    const onFocusIn = (event: FocusEvent) => {
+      const target = event.target as Node;
+      if (accountTriggerRef.current?.contains(target) || accountMenuRef.current?.contains(target)) {
+        return;
+      }
+      // Observe the browser's Tab destination without overriding normal focus movement.
+      setAccountOpen(false);
+    };
     document.addEventListener("mousedown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("focusin", onFocusIn);
     return () => {
       document.removeEventListener("mousedown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("focusin", onFocusIn);
     };
   }, [accountOpen]);
 
@@ -151,7 +162,10 @@ export function GlobalNavigationRail({ user }: { user: SessionUser | null }) {
       </div>
 
       {accountOpen && !settingsRoute ? (
-        <div className="absolute top-2 left-12 w-56 overflow-hidden rounded-lg border bg-popover shadow-lg">
+        <div
+          ref={accountMenuRef}
+          className="absolute top-2 left-12 w-56 overflow-hidden rounded-lg border bg-popover shadow-lg"
+        >
           <div className="border-b px-3 py-3">
             <p className="font-mono text-[0.7rem] uppercase tracking-[0.16em] text-muted-foreground">
               Workspaces

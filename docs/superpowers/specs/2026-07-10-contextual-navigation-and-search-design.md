@@ -1,5 +1,9 @@
 # Contextual Navigation and Search Design
 
+> **Superseded:** The
+> [Stage-style sidebar reset](./2026-07-10-stage-sidebar-reset-design.md) replaces
+> this design. This document is retained only as historical context.
+
 ## Goal
 
 Restore the compact global icon rail as Folio's default navigation, show the

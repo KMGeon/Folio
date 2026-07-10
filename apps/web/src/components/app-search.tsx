@@ -20,7 +20,7 @@ interface SearchItem {
 
 // Static app routes are always reachable; PR paths are loaded lazily.
 const ROUTES: SearchItem[] = [
-  { label: "대시보드", href: "/", group: "페이지" },
+  { label: "대시보드", href: "/dashboard", group: "페이지" },
   { label: "설치", href: "/onboarding/install", group: "페이지" },
   { label: "설정", href: "/settings", group: "페이지" },
 ];
@@ -176,11 +176,7 @@ export function AppSearch() {
                   <button
                     key={`${item.group}-${item.href}`}
                     type="button"
-                    // mousedown keeps route selection ahead of a browser focus change.
-                    onMouseDown={(event) => {
-                      event.preventDefault();
-                      go(item.href);
-                    }}
+                    onClick={() => go(item.href)}
                     className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-accent"
                   >
                     <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-[0.6rem] uppercase tracking-[0.12em] text-muted-foreground">

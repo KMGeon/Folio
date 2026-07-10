@@ -1,32 +1,173 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+// @vitest-environment happy-dom
 
-import { describe, expect, it } from "vitest";
+import React, { act } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-const source = readFileSync(resolve(__dirname, "app-search.tsx"), "utf8");
+const navigation = vi.hoisted(() => ({
+  pathname: "/dashboard",
+  push: vi.fn(),
+}));
+
+vi.mock("next/navigation", () => ({
+  usePathname: () => navigation.pathname,
+  useRouter: () => ({ push: navigation.push }),
+}));
+
+vi.mock("@/lib/dashboard-api", () => ({
+  fetchDashboard: vi.fn(() => new Promise(() => {})),
+}));
+
+import { AppSearch } from "./app-search";
+import { GlobalNavigationRail } from "./global-navigation-rail";
+
+const mountedRoots: Root[] = [];
+
+Object.assign(globalThis, { React });
+(
+  globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
+
+afterEach(async () => {
+  await act(async () => {
+    mountedRoots.splice(0).forEach((root) => root.unmount());
+  });
+  document.body.replaceChildren();
+  navigation.pathname = "/dashboard";
+  vi.clearAllMocks();
+});
 
 describe("AppSearch", () => {
-  it("opens search as a dismissible modal", () => {
-    expect(source).toContain('role="dialog"');
-    expect(source).toContain('aria-modal="true"');
-    expect(source).toContain('event.key === "Escape"');
-    expect(source).toContain("setOpen(false)");
+  it("uses normal button activation for Enter and Space dashboard navigation", async () => {
+    const container = await mount(React.createElement(AppSearch));
+    const trigger = getButton(container, "검색");
+
+    for (const key of ["Enter", " "]) {
+      await click(trigger);
+      const dashboardResult = getButton(container, "대시보드");
+
+      await activateButtonWithKeyboard(dashboardResult, key);
+
+      expect(navigation.push).toHaveBeenLastCalledWith("/dashboard");
+      expect(container.querySelector('[role="dialog"]')).toBeNull();
+    }
+    expect(navigation.push).toHaveBeenCalledTimes(2);
   });
 
-  it("opens from the shared rail search event and retains its invoking control", () => {
-    expect(source).toContain('window.addEventListener("folio:focus-search"');
-    expect(source).toContain("returnFocusRef.current = source ?? triggerRef.current");
-    expect(source).toContain("setOpen(true)");
-    expect(source).toContain("inputRef.current?.focus()");
+  it("autofocuses, dismisses, and returns focus to the invoking rail control", async () => {
+    const container = await mount(
+      React.createElement(
+        React.Fragment,
+        null,
+        React.createElement(GlobalNavigationRail, { user: null }),
+        React.createElement(AppSearch),
+      ),
+    );
+    const railSearch = container.querySelector<HTMLButtonElement>(
+      'aside button[aria-label="검색"]',
+    );
+    expect(railSearch).not.toBeNull();
+
+    await click(railSearch!);
+
+    const input = container.querySelector<HTMLInputElement>('input[aria-label="PR, repo 검색"]');
+    expect(document.activeElement).toBe(input);
+
+    await pressKey(document, "Escape");
+
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.activeElement).toBe(railSearch);
   });
 
-  it("contains focus within the modal and returns it to its invoking control on close", () => {
-    expect(source).toContain("const triggerRef = useRef<HTMLButtonElement>(null)");
-    expect(source).toContain("returnFocusRef.current?.focus()");
-    expect(source).toContain('event.key !== "Tab"');
+  it("keeps Tab focus within the open search dialog", async () => {
+    const container = await mount(React.createElement(AppSearch));
+    await click(getButton(container, "검색"));
+    const input = container.querySelector<HTMLInputElement>('input[aria-label="PR, repo 검색"]');
+    const results = Array.from(
+      container.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'),
+    );
+    const lastResult = results.at(-1);
+    expect(input).not.toBeNull();
+    expect(lastResult).not.toBeUndefined();
+
+    await pressKey(input!, "Tab", { shiftKey: true });
+    expect(document.activeElement).toBe(lastResult);
+
+    await pressKey(lastResult!, "Tab");
+    expect(document.activeElement).toBe(input);
   });
 
-  it("gives the modal query input an accessible name", () => {
-    expect(source).toContain('aria-label="PR, repo 검색"');
+  it("renders an accessible modal and dismisses it from the backdrop", async () => {
+    const container = await mount(React.createElement(AppSearch));
+    const trigger = getButton(container, "검색");
+    await click(trigger);
+    const dialog = container.querySelector<HTMLElement>('[role="dialog"][aria-modal="true"]');
+    expect(dialog?.getAttribute("aria-label")).toBe("검색");
+
+    const backdrop = dialog?.parentElement;
+    expect(backdrop).not.toBeNull();
+    await act(async () => {
+      backdrop!.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    });
+
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
   });
 });
+
+async function mount(element: React.ReactNode) {
+  const container = document.createElement("div");
+  document.body.append(container);
+  const root = createRoot(container);
+  mountedRoots.push(root);
+  await act(async () => {
+    root.render(element);
+  });
+  return container;
+}
+
+function getButton(container: ParentNode, name: string) {
+  const button = Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find(
+    (candidate) =>
+      candidate.getAttribute("aria-label") === name || candidate.textContent?.includes(name),
+  );
+  if (!button) {
+    throw new Error(`Button not found: ${name}`);
+  }
+  return button;
+}
+
+async function click(element: HTMLElement) {
+  await act(async () => {
+    element.click();
+  });
+}
+
+async function pressKey(
+  target: Pick<EventTarget, "dispatchEvent">,
+  key: string,
+  init: KeyboardEventInit = {},
+) {
+  await act(async () => {
+    target.dispatchEvent(
+      new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true, ...init }),
+    );
+  });
+}
+
+async function activateButtonWithKeyboard(button: HTMLButtonElement, key: string) {
+  // Happy DOM omits native key-to-click activation, so mirror the browser's event timing.
+  await act(async () => {
+    const keydown = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true });
+    button.dispatchEvent(keydown);
+    if (key === "Enter" && !keydown.defaultPrevented) {
+      button.click();
+    }
+
+    const keyup = new KeyboardEvent("keyup", { key, bubbles: true, cancelable: true });
+    button.dispatchEvent(keyup);
+    if (key === " " && !keyup.defaultPrevented) {
+      button.click();
+    }
+  });
+}
