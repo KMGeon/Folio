@@ -57,4 +57,56 @@ d("workspaceMembersRepo (e2e)", () => {
       ),
     ).rejects.toThrow();
   });
+
+  it("updates status only from the expected current status", async () => {
+    const membership = await workspaceMembersRepo.create(
+      { workspaceId, userId, role: WORKSPACE_ROLE.REVIEWER, status: MEMBERSHIP_STATUS.ACTIVE },
+      db,
+    );
+
+    const suspended = await workspaceMembersRepo.updateStatusIfCurrent(
+      membership.id,
+      MEMBERSHIP_STATUS.ACTIVE,
+      MEMBERSHIP_STATUS.SUSPENDED,
+      userId,
+      db,
+    );
+    const repeated = await workspaceMembersRepo.updateStatusIfCurrent(
+      membership.id,
+      MEMBERSHIP_STATUS.ACTIVE,
+      MEMBERSHIP_STATUS.SUSPENDED,
+      userId,
+      db,
+    );
+
+    expect(suspended?.status).toBe(MEMBERSHIP_STATUS.SUSPENDED);
+    expect(suspended?.suspendedBy).toBe(userId);
+    expect(repeated).toBeNull();
+  });
+
+  it("updates role only from the expected current role", async () => {
+    const membership = await workspaceMembersRepo.create(
+      { workspaceId, userId, role: WORKSPACE_ROLE.REVIEWER, status: MEMBERSHIP_STATUS.ACTIVE },
+      db,
+    );
+
+    const elevated = await workspaceMembersRepo.updateRoleIfCurrent(
+      membership.id,
+      WORKSPACE_ROLE.REVIEWER,
+      WORKSPACE_ROLE.ADMIN,
+      userId,
+      db,
+    );
+    const stale = await workspaceMembersRepo.updateRoleIfCurrent(
+      membership.id,
+      WORKSPACE_ROLE.REVIEWER,
+      WORKSPACE_ROLE.OWNER,
+      userId,
+      db,
+    );
+
+    expect(elevated?.role).toBe(WORKSPACE_ROLE.ADMIN);
+    expect(elevated?.elevatedBy).toBe(userId);
+    expect(stale).toBeNull();
+  });
 });

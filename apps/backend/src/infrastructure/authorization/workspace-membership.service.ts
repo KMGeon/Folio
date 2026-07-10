@@ -30,11 +30,16 @@ export class WorkspaceMembershipService {
   }
 
   async suspendReviewer(input: MemberActionInput): Promise<WorkspaceMemberRow | null> {
-    const row = await workspaceMembersRepo.updateStatus(
+    const row = await workspaceMembersRepo.updateStatusIfCurrent(
       input.membershipId,
+      MEMBERSHIP_STATUS.ACTIVE,
       MEMBERSHIP_STATUS.SUSPENDED,
       input.actorUserId,
     );
+    // The conditional update establishes the audited source state and rejects stale commands.
+    if (!row) {
+      return null;
+    }
     await auditLogsRepo.record({
       actorUserId: input.actorUserId,
       action: AUDIT_ACTION.MEMBER_SUSPEND,
@@ -48,11 +53,15 @@ export class WorkspaceMembershipService {
   }
 
   async restoreReviewer(input: MemberActionInput): Promise<WorkspaceMemberRow | null> {
-    const row = await workspaceMembersRepo.updateStatus(
+    const row = await workspaceMembersRepo.updateStatusIfCurrent(
       input.membershipId,
+      MEMBERSHIP_STATUS.SUSPENDED,
       MEMBERSHIP_STATUS.ACTIVE,
       null,
     );
+    if (!row) {
+      return null;
+    }
     await auditLogsRepo.record({
       actorUserId: input.actorUserId,
       action: AUDIT_ACTION.MEMBER_RESTORE,
@@ -73,11 +82,18 @@ export class WorkspaceMembershipService {
   async changeRole(
     input: MemberActionInput & { fromRole: WorkspaceRole; toRole: WorkspaceRole },
   ): Promise<WorkspaceMemberRow | null> {
-    const row = await workspaceMembersRepo.updateRole(
+    if (input.fromRole === input.toRole) {
+      return null;
+    }
+    const row = await workspaceMembersRepo.updateRoleIfCurrent(
       input.membershipId,
+      input.fromRole,
       input.toRole,
       input.actorUserId,
     );
+    if (!row) {
+      return null;
+    }
     await auditLogsRepo.record({
       actorUserId: input.actorUserId,
       action: AUDIT_ACTION.ROLE_CHANGE,

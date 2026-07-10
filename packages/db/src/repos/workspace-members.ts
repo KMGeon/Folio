@@ -53,6 +53,21 @@ export const workspaceMembersRepo = {
     return row ?? null;
   },
 
+  async updateRoleIfCurrent(
+    id: string,
+    currentRole: WorkspaceRole,
+    role: WorkspaceRole,
+    elevatedBy: string,
+    db: Db = getDb(),
+  ): Promise<WorkspaceMemberRow | null> {
+    const [row] = await db
+      .update(workspaceMembers)
+      .set({ role, elevatedBy, updatedAt: new Date() })
+      .where(and(eq(workspaceMembers.id, id), eq(workspaceMembers.role, currentRole)))
+      .returning();
+    return row ?? null;
+  },
+
   async updateStatus(
     id: string,
     status: MembershipStatus,
@@ -63,6 +78,21 @@ export const workspaceMembersRepo = {
       .update(workspaceMembers)
       .set({ status, suspendedBy, updatedAt: new Date() })
       .where(eq(workspaceMembers.id, id))
+      .returning();
+    return row ?? null;
+  },
+
+  async updateStatusIfCurrent(
+    id: string,
+    currentStatus: MembershipStatus,
+    status: MembershipStatus,
+    suspendedBy: string | null,
+    db: Db = getDb(),
+  ): Promise<WorkspaceMemberRow | null> {
+    const [row] = await db
+      .update(workspaceMembers)
+      .set({ status, suspendedBy, updatedAt: new Date() })
+      .where(and(eq(workspaceMembers.id, id), eq(workspaceMembers.status, currentStatus)))
       .returning();
     return row ?? null;
   },
