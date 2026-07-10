@@ -13,13 +13,22 @@ import { EntitlementGuard } from "../../interfaces/api/authorization/entitlement
 import { GlobalStatusGuard } from "../../interfaces/api/authorization/global-status.guard.js";
 import { SystemAdminGuard } from "../../interfaces/api/authorization/system-admin.guard.js";
 import { WorkspaceRoleGuard } from "../../interfaces/api/authorization/workspace-role.guard.js";
+import { WorkspaceMembersController } from "../../interfaces/api/workspaces/workspace-members.controller.js";
+import { AuthModule } from "../auth/auth.module.js";
 import { AuthorizationModule } from "./authorization.module.js";
+import { WorkspaceMembersFacade } from "./workspace-members.facade.js";
 
 const guards = [WorkspaceRoleGuard, GlobalStatusGuard, SystemAdminGuard, EntitlementGuard];
-const services = [WorkspaceResolver, WorkspaceMembershipService, EntitlementService];
+const services = [
+  WorkspaceResolver,
+  WorkspaceMembershipService,
+  WorkspaceMembersFacade,
+  EntitlementService,
+];
 
 describe("AuthorizationModule", () => {
   it("registers and exports the shared authorization stack", () => {
+    const imports = Reflect.getMetadata(MODULE_METADATA.IMPORTS, AuthorizationModule) as unknown[];
     const providers = Reflect.getMetadata(MODULE_METADATA.PROVIDERS, AuthorizationModule) as (
       | object
       | (new (...args: never[]) => unknown)
@@ -28,23 +37,30 @@ describe("AuthorizationModule", () => {
       | object
       | (new (...args: never[]) => unknown)
     )[];
+    const controllers = Reflect.getMetadata(
+      MODULE_METADATA.CONTROLLERS,
+      AuthorizationModule,
+    ) as (new (...args: never[]) => unknown)[];
 
     expect(providers).toEqual(
       expect.arrayContaining([
         WorkspaceResolver,
         WorkspaceMembershipService,
+        WorkspaceMembersFacade,
         { provide: EntitlementService, useClass: AlwaysEntitledService },
         ...guards,
       ]),
     );
+    expect(imports).toContain(AuthModule);
     expect(exported).toEqual(expect.arrayContaining([...services, ...guards]));
+    expect(controllers).toContain(WorkspaceMembersController);
   });
 
   it("boots with a swappable entitlement binding and resolvable guards", async () => {
     const moduleRef = await Test.createTestingModule({ imports: [AuthorizationModule] }).compile();
 
     expect(moduleRef.get(EntitlementService)).toBeInstanceOf(AlwaysEntitledService);
-    for (const dependency of [...services.slice(0, 2), ...guards]) {
+    for (const dependency of [...services.slice(0, 3), ...guards]) {
       expect(moduleRef.get(dependency)).toBeInstanceOf(dependency);
     }
 
