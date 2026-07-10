@@ -33,6 +33,7 @@ export function AppSearch() {
   const [items, setItems] = useState<SearchItem[]>(ROUTES);
   const [loaded, setLoaded] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const wasOpenRef = useRef(false);
@@ -60,13 +61,17 @@ export function AppSearch() {
       inputRef.current?.focus();
     } else if (wasOpenRef.current) {
       // A modal must return keyboard users to the control that opened it.
-      triggerRef.current?.focus();
+      returnFocusRef.current?.focus();
     }
     wasOpenRef.current = open;
   }, [open]);
 
   useEffect(() => {
-    const focusSearch = () => setOpen(true);
+    const focusSearch = (event: Event) => {
+      const source = (event as CustomEvent<{ trigger?: HTMLElement }>).detail?.trigger;
+      returnFocusRef.current = source ?? triggerRef.current;
+      setOpen(true);
+    };
     window.addEventListener("folio:focus-search", focusSearch);
     return () => window.removeEventListener("folio:focus-search", focusSearch);
   }, []);
@@ -127,7 +132,10 @@ export function AppSearch() {
         type="button"
         aria-label="검색"
         ref={triggerRef}
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          returnFocusRef.current = triggerRef.current;
+          setOpen(true);
+        }}
         className="flex h-7 w-44 items-center gap-2 rounded-md border bg-muted/40 px-2.5 text-xs text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:border-ring sm:w-56"
       >
         <Search className="size-3.5" />

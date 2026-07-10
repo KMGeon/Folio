@@ -13,15 +13,16 @@ describe("AppSearch", () => {
     expect(source).toContain("setOpen(false)");
   });
 
-  it("opens from the shared rail search event", () => {
+  it("opens from the shared rail search event and retains its invoking control", () => {
     expect(source).toContain('window.addEventListener("folio:focus-search"');
+    expect(source).toContain("returnFocusRef.current = source ?? triggerRef.current");
     expect(source).toContain("setOpen(true)");
     expect(source).toContain("inputRef.current?.focus()");
   });
 
-  it("contains focus within the modal and returns it to the trigger on close", () => {
+  it("contains focus within the modal and returns it to its invoking control on close", () => {
     expect(source).toContain("const triggerRef = useRef<HTMLButtonElement>(null)");
-    expect(source).toContain("triggerRef.current?.focus()");
+    expect(source).toContain("returnFocusRef.current?.focus()");
     expect(source).toContain('event.key !== "Tab"');
   });
 

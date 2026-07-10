@@ -85,7 +85,13 @@ export function GlobalNavigationRail({ user }: { user: SessionUser | null }) {
           type="button"
           aria-label="검색"
           title="검색"
-          onClick={() => window.dispatchEvent(new Event("folio:focus-search"))}
+          onClick={(event) =>
+            window.dispatchEvent(
+              new CustomEvent("folio:focus-search", {
+                detail: { trigger: event.currentTarget },
+              }),
+            )
+          }
           className="flex size-8 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
         >
           <Search className="size-4" />

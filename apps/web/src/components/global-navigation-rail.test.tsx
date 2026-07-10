@@ -12,7 +12,8 @@ describe("global navigation rail", () => {
     expect(railSource).not.toContain("hidden h-svh w-60 flex-col");
     expect(railSource).not.toContain("lg:w-60");
     expect(railSource).not.toContain("lg:hidden");
-    expect(railSource).toContain('new Event("folio:focus-search")');
+    expect(railSource).toContain('new CustomEvent("folio:focus-search"');
+    expect(railSource).toContain("detail: { trigger: event.currentTarget }");
     expect(railSource).toContain("w-12");
     expect(railSource).toContain("flex h-svh w-12 flex-col");
     expect(railSource).toContain("w-60");
