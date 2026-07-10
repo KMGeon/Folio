@@ -56,6 +56,29 @@ export const installationsRepo = {
     return row;
   },
 
+  async setGithubAccountId(
+    id: string,
+    githubAccountId: number,
+    db: Db = getDb(),
+  ): Promise<InstallationRow | null> {
+    const [row] = await db
+      .update(installations)
+      .set({ githubAccountId, updatedAt: new Date() })
+      .where(eq(installations.id, id))
+      .returning();
+    return row ?? null;
+  },
+
+  async listByWorkspaceAccountId(
+    githubAccountId: number,
+    db: Db = getDb(),
+  ): Promise<InstallationRow[]> {
+    return db
+      .select()
+      .from(installations)
+      .where(eq(installations.githubAccountId, githubAccountId));
+  },
+
   async delete(id: string, db: Db = getDb()): Promise<void> {
     await db.delete(installations).where(eq(installations.id, id));
   },

@@ -9,6 +9,9 @@ export const installations = pgTable("installations", {
   accountType: text("account_type", {
     enum: [ACCOUNT_TYPE.USER, ACCOUNT_TYPE.ORGANIZATION],
   }).notNull(),
+  // Stable numeric account id linking this install to its workspace (Decision 11).
+  // Nullable until the Task 7 backfill, then tightened to NOT NULL.
+  githubAccountId: bigint("github_account_id", { mode: "number" }),
   suspendedAt: timestamp("suspended_at", { withTimezone: true, mode: "date" }),
 });
 
