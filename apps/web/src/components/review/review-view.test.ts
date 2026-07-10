@@ -6,8 +6,17 @@ import { describe, expect, it } from "vitest";
 const source = readFileSync(resolve(__dirname, "review-view.tsx"), "utf8");
 const chapterPanelSource = readFileSync(resolve(__dirname, "chapter-panel.tsx"), "utf8");
 const changedFileTreeSource = readFileSync(resolve(__dirname, "changed-file-tree.tsx"), "utf8");
+const chapterCardsSource = readFileSync(resolve(__dirname, "chapter-cards.tsx"), "utf8");
+const topBarSource = readFileSync(resolve(__dirname, "review-top-bar.tsx"), "utf8");
 
 describe("ReviewView source", () => {
+  it("matches the compact review density reference", () => {
+    expect(chapterCardsSource).toContain("gap-3 border-b p-3");
+    expect(chapterCardsSource).toContain("font-serif text-sm");
+    expect(chapterCardsSource).toContain("font-mono text-xs");
+    expect(topBarSource).toContain("font-serif text-2xl");
+  });
+
   it("can collapse and expand every file from the chapter toolbar", () => {
     expect(source).toContain("allOpenChapterFilesCollapsed");
     expect(source).toContain('"모두 펴기" : "모두 접기"');
@@ -50,8 +59,8 @@ describe("ReviewView source", () => {
   it("keeps the chapter panel wide enough for review questions", () => {
     expect(source).toContain("lg:grid-cols-[minmax(0,1fr)_460px]");
     expect(chapterPanelSource).toContain("lg:w-[460px]");
-    expect(chapterPanelSource).toContain("px-3.5 py-3");
-    expect(chapterPanelSource).toContain("leading-relaxed");
+    expect(chapterPanelSource).toContain("px-3 py-2.5");
+    expect(chapterPanelSource).toContain("leading-5");
   });
 
   it("keeps the files tab file list independently scrollable", () => {

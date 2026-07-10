@@ -37,7 +37,7 @@ export function ReviewPrologue({
           </ConversationCard>
         ))
       ) : (
-        <div className="rounded-lg border bg-card p-6 text-muted-foreground text-sm">
+        <div className="rounded-lg border bg-card p-4 text-muted-foreground text-sm">
           아직 PR 댓글이 없습니다.
         </div>
       )}
@@ -123,8 +123,8 @@ function ConversationCard({
 }) {
   const imageUrl = avatarUrl || `https://github.com/${author}.png?size=48`;
   return (
-    <article className="rounded-lg border bg-card p-4">
-      <div className="mb-3 flex items-center gap-2 text-sm">
+    <article className="rounded-lg border bg-card p-3">
+      <div className="mb-2 flex items-center gap-2 text-xs">
         <img
           src={imageUrl}
           alt={author}
@@ -156,7 +156,7 @@ function MarkdownText({ text }: { text: string }) {
   const lines = text.split(/\r?\n/u);
   const blocks = toMarkdownBlocks(lines);
   return (
-    <div className="space-y-2 text-sm leading-6 text-foreground/90">
+    <div className="space-y-1.5 text-sm leading-5 text-foreground/90">
       {blocks.map((block, index) => {
         const key = `${index}-${block.lines.join("\n")}`;
         if (block.type === "spacer") {
@@ -169,21 +169,21 @@ function MarkdownText({ text }: { text: string }) {
         const line = block.lines[0] ?? "";
         if (line.startsWith("### ")) {
           return (
-            <h4 key={key} className="pt-2 font-serif text-lg text-foreground">
+            <h4 key={key} className="pt-1.5 font-serif text-base text-foreground">
               {line.slice(4)}
             </h4>
           );
         }
         if (line.startsWith("## ")) {
           return (
-            <h3 key={key} className="border-b pb-2 font-serif text-xl text-foreground">
+            <h3 key={key} className="border-b pb-1.5 font-serif text-lg text-foreground">
               {line.slice(3)}
             </h3>
           );
         }
         if (line.startsWith("# ")) {
           return (
-            <h2 key={key} className="border-b pb-2 font-serif text-2xl text-foreground">
+            <h2 key={key} className="border-b pb-1.5 font-serif text-xl text-foreground">
               {line.slice(2)}
             </h2>
           );

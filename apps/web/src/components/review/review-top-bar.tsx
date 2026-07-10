@@ -57,9 +57,9 @@ export function ReviewTopBar({
   const StatusIcon = status.icon;
 
   return (
-    <div className="shrink-0 px-4 pt-5 md:px-6">
+    <div className="shrink-0 px-4 pt-3 md:px-5">
       <div className="flex items-start justify-between gap-4">
-        <div className="flex min-w-0 flex-col gap-2.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <div className="flex flex-wrap items-center gap-2.5">
             <span
               className={cn(
@@ -74,9 +74,9 @@ export function ReviewTopBar({
               Pull Request
             </span>
           </div>
-          <h1 className="min-w-0 font-serif text-[1.9rem] font-normal leading-tight tracking-tight md:text-[2.1rem]">
+          <h1 className="min-w-0 font-serif text-2xl font-normal leading-tight tracking-tight">
             {pr.title}
-            <span className="ml-2.5 font-mono text-lg text-muted-foreground">#{pr.number}</span>
+            <span className="ml-2 font-mono text-sm text-muted-foreground">#{pr.number}</span>
           </h1>
         </div>
         <Button
@@ -92,7 +92,7 @@ export function ReviewTopBar({
         </Button>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-muted-foreground text-sm">
+      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-muted-foreground text-xs">
         <span className="flex items-center gap-1.5">
           <GitMerge className="size-3.5" />
           <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-foreground text-xs">
@@ -117,7 +117,7 @@ export function ReviewTopBar({
         </span>
       </div>
 
-      <div className="mt-4 flex items-center justify-between gap-2 border-b">
+      <div className="mt-3 flex items-center justify-between gap-2 border-b">
         <nav className="flex items-center gap-1 overflow-x-auto">
           <TabButton
             active={activeTab === "chapters"}
@@ -164,7 +164,7 @@ function TabButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "-mb-px flex items-center gap-2 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm transition-colors",
+        "-mb-px flex items-center gap-1.5 whitespace-nowrap border-b-2 px-2.5 py-2 text-xs transition-colors",
         active
           ? "border-primary font-medium text-foreground"
           : "border-transparent text-muted-foreground hover:text-foreground",

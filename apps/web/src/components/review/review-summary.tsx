@@ -22,14 +22,14 @@ const severityClasses: Record<FocusAreaSeverity, string> = {
 
 export function ReviewSummary({ prologue }: { prologue: Prologue }) {
   return (
-    <article className="space-y-5 rounded-lg border bg-card p-4">
+    <article className="space-y-3 rounded-lg border bg-card p-3">
       <SummarySection icon={GitPullRequestArrow} title="Why this PR?">
-        <p className={cn("text-sm leading-6", !prologue.motivation && "text-muted-foreground")}>
+        <p className={cn("text-sm leading-5", !prologue.motivation && "text-muted-foreground")}>
           {prologue.motivation ?? "변경 내용에서 명확히 확인되지 않았습니다."}
         </p>
       </SummarySection>
       <SummarySection icon={Braces} title="What it does">
-        <p className={cn("text-sm leading-6", !prologue.outcome && "text-muted-foreground")}>
+        <p className={cn("text-sm leading-5", !prologue.outcome && "text-muted-foreground")}>
           {prologue.outcome ?? "변경 내용에서 명확히 확인되지 않았습니다."}
         </p>
         {prologue.diagram ? (
@@ -68,7 +68,10 @@ export function ReviewSummary({ prologue }: { prologue: Prologue }) {
         {prologue.focusAreas.length ? (
           <div className="space-y-2">
             {prologue.focusAreas.map((area) => (
-              <div key={`${area.type}-${area.title}`} className="rounded-md border bg-muted/20 p-3">
+              <div
+                key={`${area.type}-${area.title}`}
+                className="rounded-md border bg-muted/20 p-2.5"
+              >
                 <div className="flex flex-wrap items-center gap-2">
                   <span
                     className={cn(

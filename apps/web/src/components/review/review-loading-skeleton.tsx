@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 export function ReviewLoadingSkeleton() {
   return (
     <div className="flex h-svh flex-col overflow-hidden bg-background text-foreground">
-      <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b px-4 md:px-6">
+      <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b px-4 md:px-5">
         <div className="flex min-w-0 items-center gap-3">
           <SkeletonBlock className="size-8 rounded-md" />
           <SkeletonBlock className="hidden h-4 w-14 sm:block" />
@@ -20,7 +20,7 @@ export function ReviewLoadingSkeleton() {
 
       <main className="flex min-h-0 flex-1 flex-col">
         <ReviewTopBarSkeleton />
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 md:px-6">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 md:px-5">
           {/* Live "generating" cue: mono eyebrow + a pulsing vivid primary dot. */}
           <div className="mb-5 inline-flex items-center gap-2 rounded-md border bg-card/60 px-3 py-1.5">
             <SkeletonBlock className="size-2 rounded-full bg-primary/70" />
@@ -28,7 +28,7 @@ export function ReviewLoadingSkeleton() {
               AI 리뷰 생성 중
             </span>
           </div>
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.35fr)]">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.35fr)]">
             <section>
               <div className="mb-3 flex items-center gap-2">
                 <SkeletonBlock className="h-2.5 w-16" />
@@ -63,7 +63,7 @@ export function ReviewLoadingSkeleton() {
 
 function ReviewTopBarSkeleton() {
   return (
-    <div className="shrink-0 px-4 pt-5 md:px-6">
+    <div className="shrink-0 px-4 pt-3 md:px-5">
       <div className="flex items-start justify-between gap-4">
         <div className="flex min-w-0 flex-1 flex-col gap-2.5">
           <div className="flex items-center gap-2.5">
@@ -93,7 +93,7 @@ function ReviewTopBarSkeleton() {
 
 function ReviewPrologueSkeleton() {
   return (
-    <div className="rounded-lg border bg-card p-4">
+    <div className="rounded-lg border bg-card p-3">
       <div className="mb-3 flex items-center gap-2">
         <SkeletonBlock className="size-6 rounded-full" />
         <SkeletonBlock className="h-3 w-24" />
@@ -113,8 +113,8 @@ function ReviewChapterCardsSkeleton() {
   return (
     <div className="overflow-hidden rounded-lg border bg-card">
       {Array.from({ length: 4 }, (_, index) => (
-        <div key={index} className="flex items-center gap-4 border-b p-5 last:border-b-0">
-          <SkeletonBlock className="size-7 shrink-0 rounded-full" />
+        <div key={index} className="flex items-center gap-3 border-b p-3 last:border-b-0">
+          <SkeletonBlock className="size-6 shrink-0 rounded-full" />
           <div className="min-w-0 flex-1 space-y-2.5">
             {/* Serif-height chapter title bar. */}
             <SkeletonBlock className="h-5 w-3/5" />
