@@ -15,7 +15,7 @@ describe("ReviewView source", () => {
   });
 
   it("owns one diff view mode for all file panels", () => {
-    expect(source).toContain('useState<DiffViewMode>("unified")');
+    expect(source).toContain('useState<DiffViewMode>("split")');
     expect(source).toContain("viewMode={diffViewMode}");
   });
 

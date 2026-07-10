@@ -58,7 +58,7 @@ export function ReviewView({
   // null = the graph+cards overview; a number = that chapter's in-place diff review.
   const [openIndex, setOpenIndex] = useState<number | null>(initialChapterIndex ?? null);
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
-  const [diffViewMode, setDiffViewMode] = useState<DiffViewMode>("unified");
+  const [diffViewMode, setDiffViewMode] = useState<DiffViewMode>("split");
   const [collapsedFiles, setCollapsedFiles] = useState(() => viewedFileCollapseState(chapters));
 
   useEffect(() => {
