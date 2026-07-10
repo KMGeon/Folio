@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import type { ReviewChapter } from "@/lib/review-api";
 
-import { fileProgress, groupLinesByFile } from "./review-file-state";
+import {
+  areFilePathsCollapsed,
+  fileProgress,
+  groupLinesByFile,
+  setFilePathsCollapsed,
+  viewedFileCollapseState,
+} from "./review-file-state";
 
 const chapter: ReviewChapter = {
   index: 1,
@@ -33,5 +39,20 @@ describe("review file state helpers", () => {
         ["b.ts", 1],
       ],
     );
+  });
+
+  it("collapses viewed files initially", () => {
+    expect(viewedFileCollapseState([chapter])).toEqual({ "a.ts": true });
+  });
+
+  it("collapses and expands all requested file paths", () => {
+    const paths = ["a.ts", "b.ts"];
+    const collapsed = setFilePathsCollapsed({}, paths, true);
+
+    expect(areFilePathsCollapsed(collapsed, paths)).toBe(true);
+    expect(setFilePathsCollapsed(collapsed, paths, false)).toEqual({
+      "a.ts": false,
+      "b.ts": false,
+    });
   });
 });

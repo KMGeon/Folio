@@ -1,6 +1,13 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, ChevronsUp, FileText, Search } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronsDown,
+  ChevronsUp,
+  FileText,
+  Search,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { ChapterCards } from "@/components/review/chapter-cards";
@@ -9,8 +16,14 @@ import { buildFileScopedChapter } from "@/components/review/chapter-file-diff";
 import { ChapterPanel } from "@/components/review/chapter-panel";
 import { FileStatusMarker, FileTree } from "@/components/review/changed-file-tree";
 import { CommitGraph } from "@/components/review/commit-graph";
+import { DiffViewModeSwitch, type DiffViewMode } from "@/components/review/diff-view-mode-switch";
 import { DiffViewer } from "@/components/review/diff-viewer";
-import { fileProgress } from "@/components/review/review-file-state";
+import {
+  areFilePathsCollapsed,
+  fileProgress,
+  setFilePathsCollapsed,
+  viewedFileCollapseState,
+} from "@/components/review/review-file-state";
 import { ReviewPrologue } from "@/components/review/review-prologue";
 import { PanelTabButton, type ReviewTab, ReviewTopBar } from "@/components/review/review-top-bar";
 import { Button } from "@/components/ui/button";
@@ -45,11 +58,12 @@ export function ReviewView({
   // null = the graph+cards overview; a number = that chapter's in-place diff review.
   const [openIndex, setOpenIndex] = useState<number | null>(initialChapterIndex ?? null);
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
-  // Keep file diffs open on first entry; only the toolbar action should emit a collapse signal.
-  const [collapseSignal, setCollapseSignal] = useState<number | undefined>();
+  const [diffViewMode, setDiffViewMode] = useState<DiffViewMode>("unified");
+  const [collapsedFiles, setCollapsedFiles] = useState(() => viewedFileCollapseState(chapters));
 
   useEffect(() => {
     setReviewChapters(chapters);
+    setCollapsedFiles(viewedFileCollapseState(chapters));
   }, [chapters]);
 
   useEffect(() => {
@@ -80,6 +94,8 @@ export function ReviewView({
     ? reviewChapters.find((c) => c.index === openChapter.index - 1)
     : undefined;
   const prPath = `/${pr.org}/${pr.repo}/pull/${pr.number}`;
+  const openChapterFilePaths = openChapter?.files.map((file) => file.path) ?? [];
+  const allOpenChapterFilesCollapsed = areFilePathsCollapsed(collapsedFiles, openChapterFilePaths);
 
   async function updateFileViewed(path: string, viewed: boolean) {
     setReviewChapters((prev) =>
@@ -88,6 +104,7 @@ export function ReviewView({
         files: chapter.files.map((file) => (file.path === path ? { ...file, viewed } : file)),
       })),
     );
+    setCollapsedFiles((current) => setFilePathsCollapsed(current, [path], viewed));
     try {
       await setFileViewed(pr.org, pr.repo, pr.number, path, viewed);
     } catch {
@@ -99,7 +116,18 @@ export function ReviewView({
           ),
         })),
       );
+      setCollapsedFiles((current) => setFilePathsCollapsed(current, [path], !viewed));
     }
+  }
+
+  function updateFileCollapsed(path: string, collapsed: boolean) {
+    setCollapsedFiles((current) => setFilePathsCollapsed(current, [path], collapsed));
+  }
+
+  function toggleAllOpenChapterFiles() {
+    setCollapsedFiles((current) =>
+      setFilePathsCollapsed(current, openChapterFilePaths, !allOpenChapterFilesCollapsed),
+    );
   }
 
   function updateKeyChangeViewed(chapterIndex: number, keyChangeId: string, viewed: boolean) {
@@ -146,13 +174,14 @@ export function ReviewView({
                 <span className="font-serif text-base text-foreground">{openChapter.title}</span>
               </span>
               <div className="ml-auto flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCollapseSignal((v) => (v ?? 0) + 1)}
-                >
-                  <ChevronsUp className="size-4" />
-                  모두 접기
+                <DiffViewModeSwitch value={diffViewMode} onChange={setDiffViewMode} />
+                <Button variant="outline" size="sm" onClick={toggleAllOpenChapterFiles}>
+                  {allOpenChapterFilesCollapsed ? (
+                    <ChevronsDown className="size-4" />
+                  ) : (
+                    <ChevronsUp className="size-4" />
+                  )}
+                  {allOpenChapterFilesCollapsed ? "모두 펴기" : "모두 접기"}
                 </Button>
                 <Button
                   variant="ghost"
@@ -179,8 +208,10 @@ export function ReviewView({
             <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_460px]">
               <DiffViewer
                 chapter={openChapter}
-                collapseSignal={collapseSignal}
+                collapsedFiles={collapsedFiles}
+                viewMode={diffViewMode}
                 onFileViewedChange={updateFileViewed}
+                onFileCollapseChange={updateFileCollapsed}
                 commentContext={{
                   org: pr.org,
                   repo: pr.repo,
@@ -272,6 +303,7 @@ export function ReviewView({
                       -{selectedFile.deletions}
                     </span>
                   ) : null}
+                  <DiffViewModeSwitch value={diffViewMode} onChange={setDiffViewMode} />
                 </div>
                 <div className="border-b bg-muted/20 px-4 py-3">
                   <div className="text-muted-foreground text-xs">
@@ -282,7 +314,10 @@ export function ReviewView({
                 <DiffViewer
                   chapter={selectedFileScopedChapter}
                   compact
+                  collapsedFiles={collapsedFiles}
+                  viewMode={diffViewMode}
                   onFileViewedChange={updateFileViewed}
+                  onFileCollapseChange={updateFileCollapsed}
                   commentContext={{
                     org: pr.org,
                     repo: pr.repo,
