@@ -12,6 +12,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: production-release
+  cancel-in-progress: false
+
 jobs:
   release:
     name: Create deployment release
@@ -26,18 +30,27 @@ jobs:
 
       - name: Create deployment release
         env:
-          DEPLOY_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
-          DEPLOY_RUN_NUMBER: ${{ github.event.workflow_run.run_number }}
           DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           git fetch --force --tags --prune
 
-          short_sha="$(git rev-parse --short "$DEPLOY_SHA")"
-          release_tag="deploy-${DEPLOY_RUN_NUMBER}.${DEPLOY_RUN_ATTEMPT}-${short_sha}"
-          release_title="Folio deploy ${short_sha}"
-          previous_tag="$(gh release list --limit 1 --json tagName --jq '.[0].tagName // ""')"
+          previous_tag=""
+          while IFS= read -r tag; do
+            if [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              previous_tag="$tag"
+              break
+            fi
+          done < <(git tag --list --sort=-version:refname)
+          if [ -z "$previous_tag" ]; then
+            release_tag="v0.0.1"
+          else
+            version="${previous_tag#v}"
+            IFS=. read -r major minor patch <<< "$version"
+            release_tag="v${major}.${minor}.$((patch + 1))"
+          fi
+          release_title="$release_tag"
 
           {
             echo "## Production deploy"
