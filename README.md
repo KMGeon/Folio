@@ -1,12 +1,16 @@
 # Folio
 
+Review large pull requests in the order they make sense.
+
+<p align="center">
+  <img src="docs/assets/folio-readme-hero.png" alt="Folio's three layered green, white, and red ribbons" width="760" />
+</p>
+
 [![Deploy](https://github.com/KMGeon/Folio/actions/workflows/deploy.yml/badge.svg)](https://github.com/KMGeon/Folio/actions/workflows/deploy.yml)
 [![Release](https://img.shields.io/badge/release-v0.1.0-0e8a16)](https://github.com/KMGeon/Folio/releases/tag/v0.1.0)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178c6)](https://www.typescriptlang.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-App%20Router-000000)](https://nextjs.org/)
 [![NestJS](https://img.shields.io/badge/NestJS-API-e0234e)](https://nestjs.com/)
-
-Review large pull requests in the order they make sense.
 
 Folio is a GitHub-native review workspace that turns a pull request into ordered,
 logical chapters. It gives reviewers the context and review path they need without
