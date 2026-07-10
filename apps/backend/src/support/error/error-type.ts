@@ -40,6 +40,11 @@ export const ErrorType = {
     statusCode: 404,
     message: "Workspace not found.",
   },
+  UserNotFound: {
+    code: "user_not_found",
+    statusCode: 404,
+    message: "User not found.",
+  },
   WorkspaceMembershipConflict: {
     code: "workspace_membership_conflict",
     statusCode: 409,
@@ -49,11 +54,6 @@ export const ErrorType = {
     code: "not_entitled",
     statusCode: 403,
     message: "Your plan does not include this feature.",
-  },
-  AdminOnly: {
-    code: "admin_only",
-    statusCode: 403,
-    message: "Only the Folio administrator can perform this action.",
   },
   InternalError: {
     code: "internal_error",

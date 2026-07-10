@@ -124,3 +124,68 @@ describe("usersRepo.approve", () => {
     expect(query.params).toEqual(["u1", USER_STATUS.PENDING, GLOBAL_STATUS.PENDING]);
   });
 });
+
+describe("usersRepo conditional global authorization transitions", () => {
+  it("updates global status only from the expected current status", async () => {
+    const returning = vi.fn().mockResolvedValue([]);
+    const where = vi.fn().mockReturnValue({ returning });
+    const set = vi.fn().mockReturnValue({ where });
+    const update = vi.fn().mockReturnValue({ set });
+
+    await expect(
+      usersRepo.setGlobalStatusIfCurrent("u1", GLOBAL_STATUS.PENDING, GLOBAL_STATUS.ACTIVE, {
+        update,
+      } as never),
+    ).resolves.toBeNull();
+
+    const query = new PgDialect().sqlToQuery(where.mock.calls[0]?.[0]);
+    expect(query.sql).toContain('"users"."id" = $1');
+    expect(query.sql).toContain('"users"."global_status" = $2');
+    expect(query.sql).toContain('"users"."global_status" <> $3');
+    expect(query.params).toEqual(["u1", GLOBAL_STATUS.PENDING, GLOBAL_STATUS.ACTIVE]);
+  });
+
+  it("updates system-admin authority only for an active row with the expected flag", async () => {
+    const returning = vi.fn().mockResolvedValue([]);
+    const where = vi.fn().mockReturnValue({ returning });
+    const set = vi.fn().mockReturnValue({ where });
+    const update = vi.fn().mockReturnValue({ set });
+
+    await expect(
+      usersRepo.setSystemAdminIfCurrent("u1", true, GLOBAL_STATUS.ACTIVE, false, {
+        update,
+      } as never),
+    ).resolves.toBeNull();
+
+    const query = new PgDialect().sqlToQuery(where.mock.calls[0]?.[0]);
+    expect(query.sql).toContain('"users"."id" = $1');
+    expect(query.sql).toContain('"users"."is_system_admin" = $2');
+    expect(query.sql).toContain('"users"."global_status" = $3');
+    expect(query.sql).toContain('"users"."is_system_admin" <> $4');
+    expect(query.params).toEqual(["u1", true, GLOBAL_STATUS.ACTIVE, false]);
+  });
+
+  it("optionally gates a global status transition on the current system-admin flag", async () => {
+    const returning = vi.fn().mockResolvedValue([]);
+    const where = vi.fn().mockReturnValue({ returning });
+    const set = vi.fn().mockReturnValue({ where });
+    const update = vi.fn().mockReturnValue({ set });
+
+    await expect(
+      usersRepo.setGlobalStatusIfCurrent(
+        "u1",
+        GLOBAL_STATUS.ACTIVE,
+        GLOBAL_STATUS.SUSPENDED,
+        { update } as never,
+        { expectedIsSystemAdmin: false },
+      ),
+    ).resolves.toBeNull();
+
+    const query = new PgDialect().sqlToQuery(where.mock.calls[0]?.[0]);
+    expect(query.sql).toContain('"users"."id" = $1');
+    expect(query.sql).toContain('"users"."global_status" = $2');
+    expect(query.sql).toContain('"users"."global_status" <> $3');
+    expect(query.sql).toContain('"users"."is_system_admin" = $4');
+    expect(query.params).toEqual(["u1", GLOBAL_STATUS.ACTIVE, GLOBAL_STATUS.SUSPENDED, false]);
+  });
+});

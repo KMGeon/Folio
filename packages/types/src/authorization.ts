@@ -31,6 +31,7 @@ export const AUDIT_ACTION = {
   MEMBER_RESTORE: "member_restore",
   ROLE_CHANGE: "role_change",
   OWNER_TRANSFER: "owner_transfer",
+  SYSTEM_ADMIN_TRANSFER: "system_admin_transfer",
   REPO_ACTIVATION_CHANGE: "repo_activation_change",
 } as const;
 export type AuditAction = (typeof AUDIT_ACTION)[keyof typeof AUDIT_ACTION];

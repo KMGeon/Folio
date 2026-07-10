@@ -1,5 +1,5 @@
 import { GLOBAL_STATUS, type GlobalStatus } from "@folio/types";
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, ne, sql } from "drizzle-orm";
 import { type Db, getDb } from "../client.js";
 import { type UserInsert, type UserRow, USER_STATUS, users } from "../schema/users.js";
 
@@ -63,6 +63,31 @@ export const usersRepo = {
     return row ?? null;
   },
 
+  async setGlobalStatusIfCurrent(
+    id: string,
+    expectedGlobalStatus: GlobalStatus,
+    globalStatus: GlobalStatus,
+    db: Db = getDb(),
+    conditions: { expectedIsSystemAdmin?: boolean } = {},
+  ): Promise<UserRow | null> {
+    // The optional role predicate closes promotion-vs-suspension races at the write boundary.
+    const [row] = await db
+      .update(users)
+      .set({ globalStatus, updatedAt: new Date() })
+      .where(
+        and(
+          eq(users.id, id),
+          eq(users.globalStatus, expectedGlobalStatus),
+          ne(users.globalStatus, globalStatus),
+          conditions.expectedIsSystemAdmin === undefined
+            ? undefined
+            : eq(users.isSystemAdmin, conditions.expectedIsSystemAdmin),
+        ),
+      )
+      .returning();
+    return row ?? null;
+  },
+
   async getSystemAdmin(db: Db = getDb()): Promise<UserRow | null> {
     const [row] = await db.select().from(users).where(eq(users.isSystemAdmin, true)).limit(1);
     return row ?? null;
@@ -73,6 +98,29 @@ export const usersRepo = {
       .update(users)
       .set({ isSystemAdmin: value, updatedAt: new Date() })
       .where(eq(users.id, id))
+      .returning();
+    return row ?? null;
+  },
+
+  async setSystemAdminIfCurrent(
+    id: string,
+    expectedValue: boolean,
+    expectedGlobalStatus: GlobalStatus,
+    value: boolean,
+    db: Db = getDb(),
+  ): Promise<UserRow | null> {
+    // Authority transfer depends on both role and active lifecycle state remaining current.
+    const [row] = await db
+      .update(users)
+      .set({ isSystemAdmin: value, updatedAt: new Date() })
+      .where(
+        and(
+          eq(users.id, id),
+          eq(users.isSystemAdmin, expectedValue),
+          eq(users.globalStatus, expectedGlobalStatus),
+          ne(users.isSystemAdmin, value),
+        ),
+      )
       .returning();
     return row ?? null;
   },

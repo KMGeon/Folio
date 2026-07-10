@@ -18,6 +18,7 @@ export const auditLogs = pgTable("audit_logs", {
       AUDIT_ACTION.MEMBER_RESTORE,
       AUDIT_ACTION.ROLE_CHANGE,
       AUDIT_ACTION.OWNER_TRANSFER,
+      AUDIT_ACTION.SYSTEM_ADMIN_TRANSFER,
       AUDIT_ACTION.REPO_ACTIVATION_CHANGE,
     ],
   }).notNull(),

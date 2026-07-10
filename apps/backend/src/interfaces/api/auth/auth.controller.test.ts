@@ -9,8 +9,6 @@ let latestUpsertedUser: unknown;
 const getByGithubId = vi.fn(async (_githubUserId: number) => latestUpsertedUser);
 const setGlobalStatus = vi.fn();
 const getById = vi.fn();
-const listPending = vi.fn();
-const approve = vi.fn();
 const getByFullName = vi.fn();
 const sessionStore = new Map<string, { userId: string; expiresAt: Date }>();
 
@@ -27,8 +25,6 @@ vi.mock("@folio/db", () => ({
     getByGithubId: (githubUserId: number) => getByGithubId(githubUserId),
     setGlobalStatus: (id: string, globalStatus: string) => setGlobalStatus(id, globalStatus),
     getById: (id: string) => getById(id),
-    listPending: () => listPending(),
-    approve: (id: string) => approve(id),
   },
   sessionsRepo: {
     create: vi.fn(async (input: { tokenHash: string; userId: string; expiresAt: Date }) => {
@@ -277,170 +273,15 @@ describe("auth routes", () => {
     await app.close();
   });
 
-  it("lets KMGeon list pending users", async () => {
-    getById.mockResolvedValue({
-      id: "admin",
-      login: "KMGeon",
-      avatarUrl: "https://a",
-      status: "approved",
-      globalStatus: "active",
-    });
-    upsertByGithubId.mockResolvedValue({
-      id: "admin",
-      login: "KMGeon",
-      avatarUrl: "https://a",
-      status: "approved",
-      globalStatus: "active",
-    });
-    listPending.mockResolvedValue([
-      {
-        id: "u2",
-        login: "new-reviewer",
-        avatarUrl: "https://avatars/new-reviewer",
-        email: null,
-        createdAt: new Date("2026-06-21T00:00:00.000Z"),
-      },
-    ]);
-
+  it.each([
+    ["get", "/api/v1/auth/admin/users/pending"],
+    ["post", "/api/v1/auth/admin/users/u2/approve"],
+  ] as const)("removes the legacy %s %s endpoint", async (method, path) => {
     const app = await createServer();
-    const login = await request(app.getHttpServer())
-      .get("/api/v1/auth/github/callback?code=good&state=s1")
-      .set("Cookie", "folio_oauth_state=s1|/");
-    const sessionCookie = (login.headers["set-cookie"] as unknown as string[]).find((c) =>
-      c.startsWith("folio_session="),
-    );
 
-    const res = await request(app.getHttpServer())
-      .get("/api/v1/auth/admin/users/pending")
-      .set("Cookie", sessionCookie ?? "");
+    const res = await request(app.getHttpServer())[method](path);
 
-    expect(res.status).toBe(200);
-    expect(res.body).toMatchObject({
-      success: true,
-      data: { users: [{ id: "u2", login: "new-reviewer" }] },
-    });
-    await app.close();
-  });
-
-  it("rejects pending-user administration from non-admin users", async () => {
-    getById.mockResolvedValue({
-      id: "u1",
-      login: "octocat",
-      avatarUrl: "https://a",
-      status: "approved",
-      globalStatus: "active",
-    });
-    upsertByGithubId.mockResolvedValue({
-      id: "u1",
-      login: "octocat",
-      avatarUrl: "https://a",
-      status: "approved",
-      globalStatus: "active",
-    });
-
-    const app = await createServer();
-    const login = await request(app.getHttpServer())
-      .get("/api/v1/auth/github/callback?code=good&state=s1")
-      .set("Cookie", "folio_oauth_state=s1|/");
-    const sessionCookie = (login.headers["set-cookie"] as unknown as string[]).find((c) =>
-      c.startsWith("folio_session="),
-    );
-
-    const res = await request(app.getHttpServer())
-      .get("/api/v1/auth/admin/users/pending")
-      .set("Cookie", sessionCookie ?? "");
-
-    expect(res.status).toBe(403);
-    expect(res.body.error.code).toBe("admin_only");
-    await app.close();
-  });
-
-  it("lets KMGeon approve a pending user", async () => {
-    getById.mockResolvedValue({
-      id: "admin",
-      login: "KMGeon",
-      avatarUrl: "https://a",
-      status: "approved",
-      globalStatus: "active",
-    });
-    upsertByGithubId.mockResolvedValue({
-      id: "admin",
-      login: "KMGeon",
-      avatarUrl: "https://a",
-      status: "approved",
-      globalStatus: "active",
-    });
-    approve.mockResolvedValue({
-      id: "u2",
-      login: "new-reviewer",
-      avatarUrl: "https://avatars/new-reviewer",
-      status: "approved",
-      globalStatus: "active",
-    });
-
-    const app = await createServer();
-    const login = await request(app.getHttpServer())
-      .get("/api/v1/auth/github/callback?code=good&state=s1")
-      .set("Cookie", "folio_oauth_state=s1|/");
-    const sessionCookie = (login.headers["set-cookie"] as unknown as string[]).find((c) =>
-      c.startsWith("folio_session="),
-    );
-
-    const res = await request(app.getHttpServer())
-      .post("/api/v1/auth/admin/users/u2/approve")
-      .set("Cookie", sessionCookie ?? "");
-
-    expect(res.status).toBe(201);
-    expect(approve).toHaveBeenCalledWith("u2");
-    expect(res.body).toMatchObject({
-      success: true,
-      data: { user: { id: "u2", login: "new-reviewer", status: "approved" } },
-    });
-    await app.close();
-  });
-
-  it("lets a legacy-approved user create a session on the next OAuth login", async () => {
-    const admin = {
-      id: "admin",
-      login: "KMGeon",
-      avatarUrl: "https://a",
-      status: "approved",
-      globalStatus: "active",
-    };
-    const approvedUser = {
-      id: "u2",
-      login: "octocat",
-      avatarUrl: "https://avatars/octocat",
-      status: "approved",
-      globalStatus: "active",
-    };
-    getById.mockResolvedValue(admin);
-    upsertByGithubId.mockResolvedValueOnce(admin).mockResolvedValueOnce(approvedUser);
-    approve.mockResolvedValue(approvedUser);
-
-    const app = await createServer();
-    const adminLogin = await request(app.getHttpServer())
-      .get("/api/v1/auth/github/callback?code=admin&state=s1")
-      .set("Cookie", "folio_oauth_state=s1|/");
-    const adminCookie = (adminLogin.headers["set-cookie"] as unknown as string[]).find((cookie) =>
-      cookie.startsWith("folio_session="),
-    );
-
-    await request(app.getHttpServer())
-      .post("/api/v1/auth/admin/users/u2/approve")
-      .set("Cookie", adminCookie ?? "")
-      .expect(201);
-
-    const approvedLogin = await request(app.getHttpServer())
-      .get("/api/v1/auth/github/callback?code=approved&state=s2")
-      .set("Cookie", "folio_oauth_state=s2|/");
-
-    expect(approvedLogin.status).toBe(302);
-    expect(approvedLogin.headers.location).toBe("http://localhost:5173/");
-    expect((approvedLogin.headers["set-cookie"] as unknown as string[]).join()).toContain(
-      "folio_session",
-    );
-    expect(sessionStore.size).toBe(2);
+    expect(res.status).toBe(404);
     await app.close();
   });
 

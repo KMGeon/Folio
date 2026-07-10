@@ -38,6 +38,100 @@ d("usersRepo global status + system admin (e2e)", () => {
     expect(active?.globalStatus).toBe(GLOBAL_STATUS.ACTIVE);
   });
 
+  it("conditionally moves only pending users to active", async () => {
+    const pending = await usersRepo.create(
+      { githubUserId: 11, login: "pending", avatarUrl: "x" },
+      db,
+    );
+
+    await expect(
+      usersRepo.setGlobalStatusIfCurrent(
+        pending.id,
+        GLOBAL_STATUS.PENDING,
+        GLOBAL_STATUS.ACTIVE,
+        db,
+      ),
+    ).resolves.toMatchObject({ globalStatus: GLOBAL_STATUS.ACTIVE });
+    await expect(
+      usersRepo.setGlobalStatusIfCurrent(
+        pending.id,
+        GLOBAL_STATUS.PENDING,
+        GLOBAL_STATUS.ACTIVE,
+        db,
+      ),
+    ).resolves.toBeNull();
+    await expect(
+      usersRepo.setGlobalStatusIfCurrent(
+        pending.id,
+        GLOBAL_STATUS.ACTIVE,
+        GLOBAL_STATUS.ACTIVE,
+        db,
+      ),
+    ).resolves.toBeNull();
+    await expect(
+      usersRepo.setGlobalStatusIfCurrent(
+        "00000000-0000-0000-0000-000000000000",
+        GLOBAL_STATUS.PENDING,
+        GLOBAL_STATUS.ACTIVE,
+        db,
+      ),
+    ).resolves.toBeNull();
+  });
+
+  it("conditionally transfers system-admin flags and rolls back a stale promotion", async () => {
+    const actor = await usersRepo.create(
+      {
+        githubUserId: 12,
+        login: "actor",
+        avatarUrl: "x",
+        globalStatus: GLOBAL_STATUS.ACTIVE,
+        isSystemAdmin: true,
+      },
+      db,
+    );
+    const suspendedTarget = await usersRepo.create(
+      {
+        githubUserId: 13,
+        login: "target",
+        avatarUrl: "x",
+        globalStatus: GLOBAL_STATUS.SUSPENDED,
+      },
+      db,
+    );
+
+    await expect(
+      usersRepo.setSystemAdminIfCurrent(actor.id, true, GLOBAL_STATUS.ACTIVE, true, db),
+    ).resolves.toBeNull();
+
+    await expect(
+      db.transaction(async (tx) => {
+        const demoted = await usersRepo.setSystemAdminIfCurrent(
+          actor.id,
+          true,
+          GLOBAL_STATUS.ACTIVE,
+          false,
+          tx,
+        );
+        expect(demoted).not.toBeNull();
+        const promoted = await usersRepo.setSystemAdminIfCurrent(
+          suspendedTarget.id,
+          false,
+          GLOBAL_STATUS.ACTIVE,
+          true,
+          tx,
+        );
+        if (!promoted) {
+          throw new Error("stale promotion");
+        }
+      }),
+    ).rejects.toThrow("stale promotion");
+
+    expect(await usersRepo.getById(actor.id, db)).toMatchObject({ isSystemAdmin: true });
+    expect(await usersRepo.getById(suspendedTarget.id, db)).toMatchObject({
+      isSystemAdmin: false,
+    });
+  });
+
   it("atomically activates and promotes the initial system admin", async () => {
     const user = await usersRepo.create({ githubUserId: 5, login: "e", avatarUrl: "x" }, db);
 

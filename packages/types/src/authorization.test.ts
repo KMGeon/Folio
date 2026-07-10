@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   AUDIT_ACTION,
+  AuditActionSchema,
   ENTITLEMENT_FEATURE,
   GLOBAL_STATUS,
   MEMBERSHIP_STATUS,
@@ -20,6 +21,8 @@ describe("authorization types", () => {
 
   it("lists the audited actions and gated features", () => {
     expect(AUDIT_ACTION.OWNER_TRANSFER).toBe("owner_transfer");
+    expect(AUDIT_ACTION.SYSTEM_ADMIN_TRANSFER).toBe("system_admin_transfer");
+    expect(AuditActionSchema.parse("system_admin_transfer")).toBe("system_admin_transfer");
     expect(ENTITLEMENT_FEATURE.PR_ANALYSIS).toBe("pr_analysis");
   });
 
