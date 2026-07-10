@@ -7,7 +7,6 @@ import {
 import type { DashboardReviewStatus } from "./dashboard.facade.js";
 import type {
   CompletedCandidate,
-  DashboardBucket,
   DashboardClosedRange,
   DashboardDirection,
   DashboardPullPageQuery,
@@ -159,9 +158,7 @@ async function openCandidatesForRepo(
         return null;
       }
       const status = await deps.resolveStatus(user.id, repo.id, pr.number);
-      return matchesOpenBucket(query.bucket, user.login, pr.user?.login, status.status)
-        ? { octokit, repo, pr, status }
-        : null;
+      return { octokit, repo, pr, status };
     }),
   );
   return candidates.filter((candidate): candidate is OpenCandidate => Boolean(candidate));
@@ -186,19 +183,6 @@ async function mapDashboardRepos<T, R>(
   });
   await Promise.all(workers);
   return results;
-}
-
-function matchesOpenBucket(
-  bucket: DashboardBucket,
-  userLogin: string,
-  authorLogin: string | undefined,
-  status: DashboardReviewStatus,
-): boolean {
-  return (
-    (bucket === "yours" && authorLogin === userLogin) ||
-    (bucket === "ready" && authorLogin !== userLogin && status === "ready") ||
-    (bucket === "other" && authorLogin !== userLogin && status !== "ready")
-  );
 }
 
 function matchesPullQuery(

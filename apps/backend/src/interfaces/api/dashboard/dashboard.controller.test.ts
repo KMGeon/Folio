@@ -19,6 +19,44 @@ const dashboardAllowGuard = {
 };
 
 describe("DashboardController", () => {
+  it("returns all open pull pages from the static route", async () => {
+    const data = {
+      ready: { items: [], nextCursor: null, count: 0 },
+      yours: { items: [], nextCursor: null, count: 0 },
+      other: { items: [], nextCursor: null, count: 0 },
+    };
+    const getOpenPullPagesForUser = vi.fn(async () => data);
+    const moduleRef = await Test.createTestingModule({
+      controllers: [DashboardController],
+      providers: [
+        {
+          provide: DashboardFacade,
+          useValue: { getOpenPullPagesForUser, getPullPageForUser: vi.fn() },
+        },
+        { provide: LOGGER_PORT, useValue: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } },
+        { provide: APP_FILTER, useClass: CoreExceptionFilter },
+        { provide: APP_INTERCEPTOR, useClass: ApiResponseInterceptor },
+      ],
+    })
+      .overrideGuard(SessionAuthGuard)
+      .useValue(dashboardAllowGuard)
+      .compile();
+    const app = moduleRef.createNestApplication();
+    await app.init();
+
+    const res = await request(app.getHttpServer()).get(
+      "/api/v1/dashboard/pulls/open?limit=20&ordering=updated&direction=desc&showDrafts=true",
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ success: true, data });
+    expect(getOpenPullPagesForUser).toHaveBeenCalledWith(
+      { id: "u1", login: "KMGeon" },
+      { limit: 20, q: undefined, ordering: "updated", direction: "desc", showDrafts: true },
+    );
+    await app.close();
+  });
+
   it("wraps invalid dashboard pull query errors in the common API envelope", async () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [DashboardController],

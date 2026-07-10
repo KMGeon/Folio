@@ -23,11 +23,15 @@ import {
   completedCandidate,
   completedPulls,
 } from "./dashboard-completed-pull-window.js";
-import { getDashboardPullPageForUser } from "./dashboard-pull-page.js";
+import {
+  getDashboardOpenPullPagesForUser,
+  getDashboardPullPageForUser,
+} from "./dashboard-pull-page.js";
 import { getDashboardSummaryForUser } from "./dashboard-summary.js";
 import type {
   CompletedCandidate,
   DashboardDirection,
+  DashboardOpenPullPageQuery,
   DashboardPullPageQuery,
   GitHubPullSummary,
 } from "./dashboard-pull-page-types.js";
@@ -36,6 +40,9 @@ export type {
   DashboardBucket,
   DashboardClosedRange,
   DashboardDirection,
+  DashboardOpenBucket,
+  DashboardOpenPullPageQuery,
+  DashboardOpenPullPages,
   DashboardOrdering,
   DashboardPullPage,
   DashboardPullPageQuery,
@@ -210,6 +217,17 @@ export class DashboardFacade {
 
   async getPullPageForUser(user: { id: string; login: string }, input: DashboardPullPageQuery) {
     return getDashboardPullPageForUser(user, input, {
+      octokitFactory: this.deps.octokitFactory,
+      listPulls: this.listPulls.bind(this),
+      resolveStatus: this.resolveStatus.bind(this),
+    });
+  }
+
+  async getOpenPullPagesForUser(
+    user: { id: string; login: string },
+    input: DashboardOpenPullPageQuery,
+  ) {
+    return getDashboardOpenPullPagesForUser(user, input, {
       octokitFactory: this.deps.octokitFactory,
       listPulls: this.listPulls.bind(this),
       resolveStatus: this.resolveStatus.bind(this),

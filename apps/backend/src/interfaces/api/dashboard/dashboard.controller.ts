@@ -79,6 +79,31 @@ export class DashboardController {
     return this.dashboard.getSummaryForUser({ id: user.id, login: user.login });
   }
 
+  @Get("pulls/open")
+  async openPulls(
+    @CurrentUser() user: AuthedUser,
+    @Query("limit") limit: string | undefined,
+    @Query("q") q: string | undefined,
+    @Query("ordering") ordering: string | undefined,
+    @Query("direction") direction: string | undefined,
+    @Query("showDrafts") showDrafts: string | undefined,
+  ) {
+    return this.dashboard.getOpenPullPagesForUser(
+      { id: user.id, login: user.login },
+      {
+        limit: parseLimit(limit),
+        q,
+        ordering: parseOptionalEnum(ordering, orderings, "ordering") as
+          | DashboardOrdering
+          | undefined,
+        direction: parseOptionalEnum(direction, directions, "direction") as
+          | DashboardDirection
+          | undefined,
+        showDrafts: parseBoolean(showDrafts),
+      },
+    );
+  }
+
   @Get("pulls")
   async pulls(
     @CurrentUser() user: AuthedUser,
