@@ -105,6 +105,14 @@ Color encodes state — reuse these rather than inventing new badges:
 item uses `bg-accent text-foreground`; idle items are `text-muted-foreground` with
 hover `hover:bg-accent`.
 
+### Global navigation rail
+
+Authenticated routes use a permanent `w-12` icon rail. The account trigger,
+Dashboard, Settings, and Search actions remain visible at every viewport width.
+The trigger opens a `w-60` labeled drawer beside the rail; it overlays route
+content and closes on navigation, outside click, Escape, or a second trigger.
+Settings adds its own `w-64` section sidebar inside the remaining route surface.
+
 ### Review surfaces (`components/review/*`)
 
 `top-bar` (breadcrumb), `pr-header` (status/branch/approval), `chapter-panel`

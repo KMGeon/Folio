@@ -22,6 +22,8 @@ describe("settings routes", () => {
     expect(shell).not.toContain("Members");
     expect(shell).not.toContain("Integrations");
     expect(shell).not.toContain("Advanced");
+    expect(shell).toContain("lg:grid-cols-[16rem_minmax(0,1fr)]");
+    expect(shell).not.toContain("GlobalNavigationRail");
   });
 
   it("does not expose developer diagnostics to customers", () => {

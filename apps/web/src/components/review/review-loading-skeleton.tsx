@@ -2,61 +2,70 @@ import { cn } from "@/lib/utils";
 
 export function ReviewLoadingSkeleton() {
   return (
-    <div className="flex h-svh flex-col overflow-hidden bg-background text-foreground">
-      <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b px-4 md:px-6">
-        <div className="flex min-w-0 items-center gap-3">
+    <div className="flex h-svh overflow-hidden bg-background text-foreground">
+      <aside className="flex w-12 shrink-0 flex-col items-center border-r bg-card/70 py-2">
+        <SkeletonBlock className="size-8 rounded-md" />
+        <div className="mt-4 grid gap-1">
           <SkeletonBlock className="size-8 rounded-md" />
-          <SkeletonBlock className="hidden h-4 w-14 sm:block" />
-          <span aria-hidden className="hidden text-border sm:inline">
-            /
-          </span>
-          <SkeletonBlock className="h-3.5 w-28" />
+          <SkeletonBlock className="size-8 rounded-md" />
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <SkeletonBlock className="h-9 w-56 rounded-md" />
-          <SkeletonBlock className="size-8 rounded-full" />
-        </div>
-      </header>
-
-      <main className="flex min-h-0 flex-1 flex-col">
-        <ReviewTopBarSkeleton />
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 md:px-6">
-          {/* Live "generating" cue: mono eyebrow + a pulsing vivid primary dot. */}
-          <div className="mb-5 inline-flex items-center gap-2 rounded-md border bg-card/60 px-3 py-1.5">
-            <SkeletonBlock className="size-2 rounded-full bg-primary/70" />
-            <span className="font-mono text-[0.7rem] uppercase tracking-[0.16em] text-muted-foreground">
-              AI 리뷰 생성 중
+      </aside>
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b px-4 md:px-6">
+          <div className="flex min-w-0 items-center gap-3">
+            <SkeletonBlock className="size-8 rounded-md" />
+            <SkeletonBlock className="hidden h-4 w-14 sm:block" />
+            <span aria-hidden className="hidden text-border sm:inline">
+              /
             </span>
+            <SkeletonBlock className="h-3.5 w-28" />
           </div>
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.35fr)]">
-            <section>
-              <div className="mb-3 flex items-center gap-2">
-                <SkeletonBlock className="h-2.5 w-16" />
-                <div className="flex gap-0.5 rounded-md bg-muted/60 p-0.5">
-                  <SkeletonBlock className="h-6 w-24 rounded" />
-                  <SkeletonBlock className="h-6 w-24 rounded" />
-                  <SkeletonBlock className="h-6 w-24 rounded" />
-                </div>
-                <SkeletonBlock className="ml-auto size-4 rounded" />
-              </div>
-              <ReviewPrologueSkeleton />
-            </section>
-            <section>
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <SkeletonBlock className="h-2.5 w-10" />
-                <div className="flex gap-0.5 rounded-md bg-muted/60 p-0.5">
-                  <SkeletonBlock className="h-7 w-20 rounded" />
-                  <SkeletonBlock className="h-7 w-16 rounded" />
-                </div>
-              </div>
-              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
-                <ReviewChapterCardsSkeleton />
-                <ReviewActivitySkeleton />
-              </div>
-            </section>
+          <div className="flex shrink-0 items-center gap-2">
+            <SkeletonBlock className="h-9 w-56 rounded-md" />
+            <SkeletonBlock className="size-8 rounded-full" />
           </div>
-        </div>
-      </main>
+        </header>
+
+        <main className="flex min-h-0 flex-1 flex-col">
+          <ReviewTopBarSkeleton />
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 md:px-6">
+            {/* Live "generating" cue: mono eyebrow + a pulsing vivid primary dot. */}
+            <div className="mb-5 inline-flex items-center gap-2 rounded-md border bg-card/60 px-3 py-1.5">
+              <SkeletonBlock className="size-2 rounded-full bg-primary/70" />
+              <span className="font-mono text-[0.7rem] uppercase tracking-[0.16em] text-muted-foreground">
+                AI 리뷰 생성 중
+              </span>
+            </div>
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.35fr)]">
+              <section>
+                <div className="mb-3 flex items-center gap-2">
+                  <SkeletonBlock className="h-2.5 w-16" />
+                  <div className="flex gap-0.5 rounded-md bg-muted/60 p-0.5">
+                    <SkeletonBlock className="h-6 w-24 rounded" />
+                    <SkeletonBlock className="h-6 w-24 rounded" />
+                    <SkeletonBlock className="h-6 w-24 rounded" />
+                  </div>
+                  <SkeletonBlock className="ml-auto size-4 rounded" />
+                </div>
+                <ReviewPrologueSkeleton />
+              </section>
+              <section>
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <SkeletonBlock className="h-2.5 w-10" />
+                  <div className="flex gap-0.5 rounded-md bg-muted/60 p-0.5">
+                    <SkeletonBlock className="h-7 w-20 rounded" />
+                    <SkeletonBlock className="h-7 w-16 rounded" />
+                  </div>
+                </div>
+                <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
+                  <ReviewChapterCardsSkeleton />
+                  <ReviewActivitySkeleton />
+                </div>
+              </section>
+            </div>
+          </div>
+        </main>
+      </div>
     </div>
   );
 }
