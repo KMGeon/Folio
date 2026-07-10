@@ -34,6 +34,12 @@ import type {
   ReviewPrMeta,
 } from "@/lib/review-api";
 import { setFileViewed } from "@/lib/review-api";
+import {
+  DEFAULT_REVIEW_PREFERENCES,
+  readReviewPreferences,
+  type ReviewPreferences,
+} from "@/lib/review-preferences";
+import { cn } from "@/lib/utils";
 import type { Prologue } from "@folio/types";
 
 type ChapterPanelTab = "chapters" | "activity";
@@ -62,6 +68,7 @@ export function ReviewView({
   const [openIndex, setOpenIndex] = useState<number | null>(initialChapterIndex ?? null);
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
   const [diffViewMode, setDiffViewMode] = useState<DiffViewMode>("split");
+  const [preferences, setPreferences] = useState<ReviewPreferences>(DEFAULT_REVIEW_PREFERENCES);
   const [collapsedFiles, setCollapsedFiles] = useState(() => viewedFileCollapseState(chapters));
 
   useEffect(() => {
@@ -72,6 +79,12 @@ export function ReviewView({
   useEffect(() => {
     setOpenIndex(initialChapterIndex ?? null);
   }, [initialChapterIndex]);
+
+  useEffect(() => {
+    const stored = readReviewPreferences();
+    setPreferences(stored);
+    setDiffViewMode(stored.diffLayout);
+  }, []);
 
   const files = aggregateChangedFiles(reviewChapters);
   const fileProgressValue = fileProgress(files);
@@ -149,7 +162,12 @@ export function ReviewView({
   }
 
   return (
-    <>
+    <div
+      className={cn(
+        "flex min-h-0 flex-1 flex-col",
+        preferences.textSize === "default" && "review-text-default",
+      )}
+    >
       <ReviewTopBar
         pr={pr}
         activeTab={tab}
@@ -210,7 +228,13 @@ export function ReviewView({
                 </Button>
               </div>
             </div>
-            <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_460px]">
+            <div
+              className={cn(
+                "grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_460px]",
+                preferences.chapterPanel === "left" &&
+                  "lg:grid-cols-[460px_minmax(0,1fr)] lg:[&>aside]:order-first",
+              )}
+            >
               <DiffViewer
                 chapter={openChapter}
                 collapsedFiles={collapsedFiles}
@@ -231,6 +255,7 @@ export function ReviewView({
                 org={pr.org}
                 repo={pr.repo}
                 number={pr.number}
+                showReviewFocus={preferences.showReviewFocus}
                 onKeyChangeViewedChange={updateKeyChangeViewed}
               />
             </div>
@@ -340,6 +365,6 @@ export function ReviewView({
           </main>
         </div>
       )}
-    </>
+    </div>
   );
 }
