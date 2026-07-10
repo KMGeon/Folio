@@ -10,7 +10,7 @@ const reviewViewSource = readFileSync(resolve(__dirname, "review-view.tsx"), "ut
 describe("DiffViewer source", () => {
   it("uses compact chapter summary spacing", () => {
     expect(diffViewerSource).toContain('className="mb-3 rounded-lg border bg-card p-3"');
-    expect(diffViewerSource).toContain("font-serif text-lg");
+    expect(diffViewerSource).toContain("font-sans text-lg");
   });
 
   it("offers unified and split diff view modes", () => {

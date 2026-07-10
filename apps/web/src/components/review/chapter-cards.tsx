@@ -29,7 +29,7 @@ export function ChapterCards({
               {chapter.viewed ? <CheckCircle2 className="size-3.5 text-primary" /> : chapter.index}
             </span>
             <div className="min-w-0 flex-1">
-              <div className="truncate font-serif text-sm leading-snug text-foreground/95 transition-colors group-hover:text-primary">
+              <div className="truncate font-sans text-sm font-medium leading-snug text-foreground/95 transition-colors group-hover:text-primary">
                 {chapter.title}
               </div>
               <div className="mt-1 flex flex-wrap items-center gap-2 font-mono text-xs tabular-nums">
