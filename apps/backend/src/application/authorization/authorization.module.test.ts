@@ -1,0 +1,59 @@
+import "reflect-metadata";
+import { Test } from "@nestjs/testing";
+import { MODULE_METADATA } from "@nestjs/common/constants.js";
+import { describe, expect, it } from "vitest";
+import { AppModule } from "../../app.module.js";
+import {
+  AlwaysEntitledService,
+  EntitlementService,
+} from "../../domain/authorization/entitlement.service.js";
+import { WorkspaceMembershipService } from "../../infrastructure/authorization/workspace-membership.service.js";
+import { WorkspaceResolver } from "../../infrastructure/authorization/workspace-resolver.js";
+import { EntitlementGuard } from "../../interfaces/api/authorization/entitlement.guard.js";
+import { GlobalStatusGuard } from "../../interfaces/api/authorization/global-status.guard.js";
+import { SystemAdminGuard } from "../../interfaces/api/authorization/system-admin.guard.js";
+import { WorkspaceRoleGuard } from "../../interfaces/api/authorization/workspace-role.guard.js";
+import { AuthorizationModule } from "./authorization.module.js";
+
+const guards = [WorkspaceRoleGuard, GlobalStatusGuard, SystemAdminGuard, EntitlementGuard];
+const services = [WorkspaceResolver, WorkspaceMembershipService, EntitlementService];
+
+describe("AuthorizationModule", () => {
+  it("registers and exports the shared authorization stack", () => {
+    const providers = Reflect.getMetadata(MODULE_METADATA.PROVIDERS, AuthorizationModule) as (
+      | object
+      | (new (...args: never[]) => unknown)
+    )[];
+    const exported = Reflect.getMetadata(MODULE_METADATA.EXPORTS, AuthorizationModule) as (
+      | object
+      | (new (...args: never[]) => unknown)
+    )[];
+
+    expect(providers).toEqual(
+      expect.arrayContaining([
+        WorkspaceResolver,
+        WorkspaceMembershipService,
+        { provide: EntitlementService, useClass: AlwaysEntitledService },
+        ...guards,
+      ]),
+    );
+    expect(exported).toEqual(expect.arrayContaining([...services, ...guards]));
+  });
+
+  it("boots with a swappable entitlement binding and resolvable guards", async () => {
+    const moduleRef = await Test.createTestingModule({ imports: [AuthorizationModule] }).compile();
+
+    expect(moduleRef.get(EntitlementService)).toBeInstanceOf(AlwaysEntitledService);
+    for (const dependency of [...services.slice(0, 2), ...guards]) {
+      expect(moduleRef.get(dependency)).toBeInstanceOf(dependency);
+    }
+
+    await moduleRef.close();
+  });
+
+  it("is imported by the application root", () => {
+    const imports = Reflect.getMetadata(MODULE_METADATA.IMPORTS, AppModule) as unknown[];
+
+    expect(imports).toContain(AuthorizationModule);
+  });
+});
