@@ -8,10 +8,11 @@ const layoutSource = readFileSync(resolve(__dirname, "app-layout.tsx"), "utf8");
 
 describe("global navigation rail", () => {
   it("provides the permanent rail and slide-out drawer", () => {
-    expect(railSource).toContain("hidden h-svh w-60 flex-col");
-    expect(railSource).toContain("lg:flex");
-    expect(railSource).toContain("lg:hidden");
-    expect(railSource).toContain("relative z-50 h-svh w-12 shrink-0 lg:w-60");
+    expect(railSource).toContain('className="relative z-50 h-svh w-12 shrink-0"');
+    expect(railSource).not.toContain("hidden h-svh w-60 flex-col");
+    expect(railSource).not.toContain("lg:w-60");
+    expect(railSource).not.toContain("lg:hidden");
+    expect(railSource).toContain('new Event("folio:focus-search")');
     expect(railSource).toContain("w-12");
     expect(railSource).toContain("flex h-svh w-12 flex-col");
     expect(railSource).toContain("w-60");
