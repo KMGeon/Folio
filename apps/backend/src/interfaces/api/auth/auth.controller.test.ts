@@ -5,6 +5,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const originalEnv = { ...process.env };
 
 const upsertByGithubId = vi.fn();
+let latestUpsertedUser: unknown;
+const getByGithubId = vi.fn(async (_githubUserId: number) => latestUpsertedUser);
+const setGlobalStatus = vi.fn();
 const getById = vi.fn();
 const listPending = vi.fn();
 const approve = vi.fn();
@@ -17,10 +20,15 @@ vi.mock("@folio/db", () => ({
     APPROVED: "approved",
   },
   usersRepo: {
-    upsertByGithubId: (...args: unknown[]) => upsertByGithubId(...args),
-    getById: (...args: unknown[]) => getById(...args),
-    listPending: (...args: unknown[]) => listPending(...args),
-    approve: (...args: unknown[]) => approve(...args),
+    upsertByGithubId: async (input: unknown) => {
+      latestUpsertedUser = await upsertByGithubId(input);
+      return latestUpsertedUser;
+    },
+    getByGithubId: (githubUserId: number) => getByGithubId(githubUserId),
+    setGlobalStatus: (id: string, globalStatus: string) => setGlobalStatus(id, globalStatus),
+    getById: (id: string) => getById(id),
+    listPending: () => listPending(),
+    approve: (id: string) => approve(id),
   },
   sessionsRepo: {
     create: vi.fn(async (input: { tokenHash: string; userId: string; expiresAt: Date }) => {
@@ -56,6 +64,7 @@ vi.mock("@folio/github", async () => {
 
 function configureProfile(profile: "dev" | "prd") {
   process.env = { ...originalEnv };
+  delete process.env.SYSTEM_ADMIN_BOOTSTRAP_GITHUB_ID;
   process.env.APP_PROFILE = profile;
   process.env.NODE_ENV = profile === "prd" ? "production" : "development";
   process.env.WEB_ORIGIN = "http://localhost:5173";
@@ -88,6 +97,7 @@ async function createServer(profile: "dev" | "prd" = "prd") {
 describe("auth routes", () => {
   afterEach(() => {
     sessionStore.clear();
+    latestUpsertedUser = undefined;
     vi.clearAllMocks();
     process.env = { ...originalEnv };
   });
@@ -109,6 +119,7 @@ describe("auth routes", () => {
       login: "KMGeon",
       avatarUrl: "https://github.com/KMGeon.png",
       status: "approved",
+      globalStatus: "active",
     });
     const app = await createServer("dev");
     const res = await request(app.getHttpServer()).get(
@@ -122,7 +133,7 @@ describe("auth routes", () => {
       login: "KMGeon",
       avatarUrl: "https://github.com/KMGeon.png?size=96",
       email: null,
-      status: "approved",
+      globalStatus: "active",
     });
     await app.close();
   });
@@ -143,6 +154,7 @@ describe("auth routes", () => {
       login: "octocat",
       avatarUrl: "https://avatars/octocat",
       status: "approved",
+      globalStatus: "active",
     });
     const app = await createServer();
     const res = await request(app.getHttpServer())
@@ -160,6 +172,7 @@ describe("auth routes", () => {
       login: "octocat",
       avatarUrl: "https://avatars/octocat",
       status: "approved",
+      globalStatus: "active",
     });
     const app = await createServer();
     const res = await request(app.getHttpServer()).get(
@@ -177,6 +190,7 @@ describe("auth routes", () => {
       login: "new-reviewer",
       avatarUrl: "https://avatars/new-reviewer",
       status: "pending",
+      globalStatus: "pending",
     });
     const app = await createServer();
     const res = await request(app.getHttpServer())
@@ -206,12 +220,14 @@ describe("auth routes", () => {
       login: "octocat",
       avatarUrl: "https://a",
       status: "approved",
+      globalStatus: "active",
     });
     upsertByGithubId.mockResolvedValue({
       id: "u1",
       login: "octocat",
       avatarUrl: "https://a",
       status: "approved",
+      globalStatus: "active",
     });
     const app = await createServer();
     // Drive a real login to mint a valid session cookie.
@@ -235,12 +251,14 @@ describe("auth routes", () => {
       login: "octocat",
       avatarUrl: "https://a",
       status: "pending",
+      globalStatus: "pending",
     });
     upsertByGithubId.mockResolvedValue({
       id: "u1",
       login: "octocat",
       avatarUrl: "https://a",
       status: "approved",
+      globalStatus: "active",
     });
     const app = await createServer();
     const login = await request(app.getHttpServer())
@@ -265,12 +283,14 @@ describe("auth routes", () => {
       login: "KMGeon",
       avatarUrl: "https://a",
       status: "approved",
+      globalStatus: "active",
     });
     upsertByGithubId.mockResolvedValue({
       id: "admin",
       login: "KMGeon",
       avatarUrl: "https://a",
       status: "approved",
+      globalStatus: "active",
     });
     listPending.mockResolvedValue([
       {
@@ -308,12 +328,14 @@ describe("auth routes", () => {
       login: "octocat",
       avatarUrl: "https://a",
       status: "approved",
+      globalStatus: "active",
     });
     upsertByGithubId.mockResolvedValue({
       id: "u1",
       login: "octocat",
       avatarUrl: "https://a",
       status: "approved",
+      globalStatus: "active",
     });
 
     const app = await createServer();
@@ -339,18 +361,21 @@ describe("auth routes", () => {
       login: "KMGeon",
       avatarUrl: "https://a",
       status: "approved",
+      globalStatus: "active",
     });
     upsertByGithubId.mockResolvedValue({
       id: "admin",
       login: "KMGeon",
       avatarUrl: "https://a",
       status: "approved",
+      globalStatus: "active",
     });
     approve.mockResolvedValue({
       id: "u2",
       login: "new-reviewer",
       avatarUrl: "https://avatars/new-reviewer",
       status: "approved",
+      globalStatus: "active",
     });
 
     const app = await createServer();
@@ -404,12 +429,14 @@ describe("auth routes", () => {
       login: "octocat",
       avatarUrl: "https://a",
       status: "approved",
+      globalStatus: "active",
     });
     upsertByGithubId.mockResolvedValue({
       id: "u1",
       login: "octocat",
       avatarUrl: "https://a",
       status: "approved",
+      globalStatus: "active",
     });
     // repo unknown → userCanAccessRepo returns false → RepoAccessGuard denies
     getByFullName.mockResolvedValue(null);

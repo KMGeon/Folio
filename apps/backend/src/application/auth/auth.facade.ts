@@ -1,6 +1,9 @@
-import { USER_STATUS, usersRepo } from "@folio/db";
+import { usersRepo } from "@folio/db";
+import { GLOBAL_STATUS } from "@folio/types";
 import { Inject, Injectable } from "@nestjs/common";
+import { config } from "../../config.js";
 import { SessionService } from "../../domain/auth/session.service.js";
+import { bootstrapSystemAdmin } from "../../domain/authorization/system-admin-bootstrap.js";
 import { GitHubOAuthAdapter } from "../../infrastructure/github/github-oauth.adapter.js";
 
 export type LoginCompletion =
@@ -12,7 +15,7 @@ const DEV_ADMIN_USER = {
   login: "KMGeon",
   avatarUrl: "https://github.com/KMGeon.png?size=96",
   email: null,
-  status: USER_STATUS.APPROVED,
+  globalStatus: GLOBAL_STATUS.ACTIVE,
 } as const;
 
 @Injectable()
@@ -25,25 +28,30 @@ export class AuthFacade {
   /** Exchange the OAuth code and only open a session for approved users. */
   async completeLogin(code: string): Promise<LoginCompletion> {
     const ghUser = await this.github.exchangeCodeForUser(code);
-    const user = await usersRepo.upsertByGithubId({
+    await usersRepo.upsertByGithubId({
       githubUserId: ghUser.id,
       login: ghUser.login,
       avatarUrl: ghUser.avatarUrl,
       email: ghUser.email,
     });
-    if (user.status !== USER_STATUS.APPROVED) {
+    await bootstrapSystemAdmin(ghUser.id, config.SYSTEM_ADMIN_BOOTSTRAP_GITHUB_ID);
+    const refreshed = await usersRepo.getByGithubId(ghUser.id);
+    if (!refreshed || refreshed.globalStatus !== GLOBAL_STATUS.ACTIVE) {
       return { status: "pending" };
     }
-    const session = await this.sessions.createForUser(user.id);
+    const session = await this.sessions.createForUser(refreshed.id);
     return { status: "approved", ...session };
   }
 
   async completeDevLogin(): Promise<{ token: string; expiresAt: Date }> {
     const user = await usersRepo.upsertByGithubId(DEV_ADMIN_USER);
-    const approved = user.status === USER_STATUS.APPROVED ? user : await usersRepo.approve(user.id);
-    if (!approved) {
-      throw new Error("Dev login could not approve the local admin user.");
+    const active =
+      user.globalStatus === GLOBAL_STATUS.ACTIVE
+        ? user
+        : await usersRepo.setGlobalStatus(user.id, GLOBAL_STATUS.ACTIVE);
+    if (!active) {
+      throw new Error("Dev login could not activate the local user.");
     }
-    return this.sessions.createForUser(approved.id);
+    return this.sessions.createForUser(active.id);
   }
 }
