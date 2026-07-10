@@ -86,4 +86,10 @@ describe("ReviewView source", () => {
     expect(chapterPanelSource).toContain('scrollIntoView({ block: "start", behavior: "smooth" })');
     expect(diffViewerSource).not.toContain("챕터 개요");
   });
+
+  it("keeps next-chapter navigation in the toolbar instead of the sidebar", () => {
+    expect(chapterPanelSource).not.toContain('aria-label="다음 장"');
+    expect(chapterPanelSource).not.toContain("nextChapter");
+    expect(source).toContain('aria-label="다음 장"');
+  });
 });

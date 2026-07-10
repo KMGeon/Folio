@@ -1,13 +1,12 @@
 "use client";
 
-import { Check, CheckCircle2, ChevronRight, Search } from "lucide-react";
+import { Check, CheckCircle2, Search } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { FileTree } from "@/components/review/changed-file-tree";
 import { ChapterSwitcher } from "@/components/review/chapter-switcher";
 import { ChapterViewedToggle } from "@/components/review/chapter-viewed-toggle";
-import { Button } from "@/components/ui/button";
 import { setKeyChangeViewed, type ReviewChapter } from "@/lib/review-api";
 import { cn } from "@/lib/utils";
 
@@ -46,7 +45,6 @@ export function ChapterPanel({
   }
 
   const additions = chapter.files.reduce((sum, file) => sum + file.additions, 0);
-  const nextChapter = chapters.find((c) => c.index > chapter.index);
   const chapterFiles = chapter.files.map((file) => ({
     ...file,
     chapterIndex: chapter.index,
@@ -64,22 +62,6 @@ export function ChapterPanel({
           initialViewed={chapter.viewed}
         />
         <ChapterSwitcher chapters={chapters} activeIndex={chapter.index} prPath={prPath} />
-        <Button
-          asChild={Boolean(nextChapter)}
-          size="icon"
-          variant="ghost"
-          className="ml-auto size-7 text-muted-foreground"
-          aria-label="다음 장"
-          disabled={!nextChapter}
-        >
-          {nextChapter ? (
-            <Link href={`${prPath}/chapters/${nextChapter.index}`}>
-              <ChevronRight className="size-4" />
-            </Link>
-          ) : (
-            <ChevronRight className="size-4" />
-          )}
-        </Button>
       </div>
 
       <div className="px-3 pt-2.5">
