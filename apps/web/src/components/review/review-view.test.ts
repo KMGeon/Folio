@@ -8,9 +8,15 @@ const chapterPanelSource = readFileSync(resolve(__dirname, "chapter-panel.tsx"),
 const changedFileTreeSource = readFileSync(resolve(__dirname, "changed-file-tree.tsx"), "utf8");
 
 describe("ReviewView source", () => {
-  it("keeps file diffs expanded until collapse all is clicked", () => {
-    expect(source).toContain("useState<number | undefined>()");
-    expect(source).toContain("(v ?? 0) + 1");
+  it("can collapse and expand every file from the chapter toolbar", () => {
+    expect(source).toContain("allOpenChapterFilesCollapsed");
+    expect(source).toContain('"모두 펴기" : "모두 접기"');
+    expect(source).toContain("toggleAllOpenChapterFiles");
+  });
+
+  it("owns one diff view mode for all file panels", () => {
+    expect(source).toContain('useState<DiffViewMode>("unified")');
+    expect(source).toContain("viewMode={diffViewMode}");
   });
 
   it("can open directly to a chapter route", () => {

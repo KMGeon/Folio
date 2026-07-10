@@ -5,12 +5,12 @@ import type { CreatedReviewComment, ReviewChapter, ReviewDiffLine } from "@/lib/
 import { cn } from "@/lib/utils";
 
 import { CommentButton, CreatedCommentLink, InlineCommentEditor } from "./diff-comment-controls";
+import type { DiffViewMode } from "./diff-view-mode-switch";
 import { filePanelId } from "./review-file-state";
 import { SplitLineCells } from "./split-diff-line-cells";
 import { buildSplitDiffRows } from "./split-diff-rows";
 
 const SIGN: Record<string, string> = { add: "+", del: "-", ctx: " " };
-export type DiffViewMode = "unified" | "split";
 
 export interface ActiveDiffLine {
   key: string;
@@ -34,7 +34,6 @@ export function FileDiffPanel({
   onCommentSubmit,
   onFileViewedChange,
   onToggleCollapse,
-  onViewModeChange,
   keyForLine,
   renderLine,
   selectLine,
@@ -55,7 +54,6 @@ export function FileDiffPanel({
   onCommentSubmit: () => void;
   onFileViewedChange?: (path: string, viewed: boolean) => Promise<void>;
   onToggleCollapse: () => void;
-  onViewModeChange: (mode: DiffViewMode) => void;
   keyForLine: (line: ReviewDiffLine) => string;
   renderLine: (line: ReviewDiffLine) => ReactNode;
   selectLine: (key: string, line: ReviewDiffLine) => void;
@@ -75,12 +73,11 @@ export function FileDiffPanel({
           {collapsed ? <ChevronRight className="size-4" /> : <ChevronDown className="size-4" />}
         </button>
         <FileText className="size-4 text-primary" />
-        <span className="min-w-0 truncate font-mono text-[13px]">{file.path}</span>
+        <span className="min-w-0 flex-1 truncate font-mono text-[13px]">{file.path}</span>
         <span className="ml-2 font-mono text-xs text-diff-add-fg">+{file.additions}</span>
         {file.deletions > 0 ? (
           <span className="font-mono text-diff-del-fg text-xs">-{file.deletions}</span>
         ) : null}
-        <ViewModeSwitch value={viewMode} onChange={onViewModeChange} />
         <button
           type="button"
           onClick={async () => {
@@ -137,35 +134,6 @@ export function FileDiffPanel({
         </div>
       )}
     </section>
-  );
-}
-
-function ViewModeSwitch({
-  value,
-  onChange,
-}: {
-  value: DiffViewMode;
-  onChange: (mode: DiffViewMode) => void;
-}) {
-  return (
-    <div className="ml-auto flex rounded-md border bg-background p-0.5 text-xs">
-      {(["unified", "split"] as const).map((mode) => (
-        <button
-          key={mode}
-          type="button"
-          onClick={() => onChange(mode)}
-          className={cn(
-            "h-6 rounded px-2 font-medium transition-colors",
-            value === mode
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:bg-accent hover:text-foreground",
-          )}
-          aria-pressed={value === mode}
-        >
-          {mode === "unified" ? "Unified" : "Split"}
-        </button>
-      ))}
-    </div>
   );
 }
 

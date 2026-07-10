@@ -12,7 +12,8 @@ import { type TokenizedLines, tokenizeDiffLines } from "@/lib/syntax-highlight";
 import { cn } from "@/lib/utils";
 
 import { commentTargetForLine } from "./diff-comment-target";
-import { type ActiveDiffLine, type DiffViewMode, FileDiffPanel } from "./review-file-diff-panel";
+import type { DiffViewMode } from "./diff-view-mode-switch";
+import { type ActiveDiffLine, FileDiffPanel } from "./review-file-diff-panel";
 import { groupLinesByFile } from "./review-file-state";
 
 interface CommentContext {
@@ -27,22 +28,24 @@ export function DiffViewer({
   chapter,
   compact = false,
   commentContext,
-  collapseSignal,
+  collapsedFiles,
+  viewMode,
   onFileViewedChange,
+  onFileCollapseChange,
 }: {
   chapter: ReviewChapter;
   compact?: boolean;
   commentContext?: CommentContext;
-  collapseSignal?: number;
+  collapsedFiles: Record<string, boolean>;
+  viewMode: DiffViewMode;
   onFileViewedChange?: (path: string, viewed: boolean) => Promise<void>;
+  onFileCollapseChange: (path: string, collapsed: boolean) => void;
 }) {
   const [activeLine, setActiveLine] = useState<ActiveDiffLine | null>(null);
   const [body, setBody] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<Record<string, CreatedReviewComment>>({});
-  const [collapsedFiles, setCollapsedFiles] = useState<Record<string, boolean>>({});
-  const [viewMode, setViewMode] = useState<DiffViewMode>("unified");
 
   const canComment = Boolean(commentContext);
   const fileGroups = groupLinesByFile(chapter);
@@ -51,18 +54,10 @@ export function DiffViewer({
   const [tokens, setTokens] = useState<TokenizedLines | null>(null);
 
   useEffect(() => {
-    setCollapsedFiles(
-      Object.fromEntries(
-        chapter.files.filter((file) => file.viewed).map((file) => [file.path, true]),
-      ),
-    );
-  }, [chapter.index, chapter.files]);
-
-  useEffect(() => {
-    if (collapseSignal !== undefined) {
-      setCollapsedFiles(Object.fromEntries(chapter.files.map((file) => [file.path, true])));
-    }
-  }, [collapseSignal, chapter.files]);
+    setActiveLine(null);
+    setBody("");
+    setError(null);
+  }, [viewMode]);
 
   useEffect(() => {
     if (!lang) {
@@ -107,13 +102,6 @@ export function DiffViewer({
 
   function selectLine(key: string, line: ReviewDiffLine) {
     setActiveLine({ key, line });
-    setBody("");
-    setError(null);
-  }
-
-  function changeViewMode(mode: DiffViewMode) {
-    setViewMode(mode);
-    setActiveLine(null);
     setBody("");
     setError(null);
   }
@@ -180,10 +168,7 @@ export function DiffViewer({
             }}
             onCommentSubmit={submitComment}
             onFileViewedChange={onFileViewedChange}
-            onToggleCollapse={() =>
-              setCollapsedFiles((prev) => ({ ...prev, [file.path]: !prev[file.path] }))
-            }
-            onViewModeChange={changeViewMode}
+            onToggleCollapse={() => onFileCollapseChange(file.path, !collapsedFiles[file.path])}
             keyForLine={keyForLine}
             renderLine={(line) => renderLine(line, indexForLine(line))}
             selectLine={selectLine}
