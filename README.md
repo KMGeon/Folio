@@ -6,70 +6,96 @@
 [![Next.js](https://img.shields.io/badge/Next.js-App%20Router-000000)](https://nextjs.org/)
 [![NestJS](https://img.shields.io/badge/NestJS-API-e0234e)](https://nestjs.com/)
 
-Folio is a GitHub-native pull request review tool that turns a large PR into
-ordered review chapters.
+Review large pull requests in the order they make sense.
 
-Instead of asking reviewers to read one long diff from top to bottom, Folio groups
-related files, commits, and comments into a sequence that matches how the change
-should be understood.
+Folio is a GitHub-native review workspace that turns a pull request into ordered,
+logical chapters. It gives reviewers the context and review path they need without
+asking them to reconstruct a change from a flat list of files.
 
-Production: [https://folio.ai.kr](https://folio.ai.kr)
+Production: [folio.ai.kr](https://folio.ai.kr)
 
-## Why Folio
+## Review the story, not a file list
 
-Large pull requests are hard to review because the GitHub diff is file-first.
-Reviewers have to reconstruct the intent, dependencies, and review order by hand.
+GitHub's diff is file-first. For a large pull request, reviewers must infer the
+change's intent, dependencies, and safest review order themselves. Folio makes that
+structure explicit.
 
-Folio makes the review flow chapter-first:
+| Before Folio | With Folio |
+| --- | --- |
+| A flat list of changed files | Ordered chapters that group related changes |
+| Review order is reconstructed by hand | A guided path through the change |
+| Context is scattered across the pull request | Chapter summaries and review focus stay with the relevant diff |
+| Progress is hard to see | Chapter and file review progress are visible |
 
-- Start with the context for the pull request.
-- Review related changes together.
-- Move through the PR in a logical order.
-- Keep comments and changed code close to the chapter they belong to.
-- Use GitHub as the source of truth for identity, repository access, and PR data.
+## From pull request to guided review
 
-## Core Features
+1. Install the Folio GitHub App for the repositories you want to review.
+2. Folio receives pull request updates through the GitHub App webhook.
+3. The pull request is organized into ordered review chapters.
+4. Open the review in Folio and work through each chapter with focused diffs and progress tracking.
 
-- GitHub App based PR ingestion.
-- Chapter generation for large pull requests.
-- GitHub OAuth login and repository access checks.
-- Chapter-focused review UI.
-- PR comments, prologue context, markdown tables, and inline diff comment support.
-- Production deployment for the Folio web app and API.
+## What Folio gives reviewers
 
-## How It Works
+- GitHub App-based pull request ingestion.
+- Chapter generation that groups related files into a logical review sequence.
+- A chapter-first review UI with pull request context, summaries, and focused diffs.
+- Chapter and file viewed-state tracking to make review progress clear.
+- GitHub-linked pull request context and inline review comment support.
+- Markdown tables and prologue context where they help explain a change.
 
-1. A GitHub pull request is opened or updated.
-2. Folio receives the PR data through the GitHub App.
-3. The PR is decomposed into ordered review chapters.
-4. A reviewer logs in with GitHub.
-5. Folio shows only reviews the user can access on GitHub.
-6. The reviewer reads the PR chapter by chapter.
+## Built around GitHub
 
-## Technology
+Folio uses GitHub for repository access and pull request data. The GitHub App is
+the integration point for receiving pull request events; Folio then provides a
+separate, chapter-first workspace for understanding and reviewing the change.
 
-Folio is a pnpm + TypeScript monorepo.
+The product is a pnpm + TypeScript monorepo with a Next.js App Router web app and
+a NestJS API/webhook server. Shared packages cover database access, GitHub
+integration, diff parsing, chapter decomposition, and API types.
 
-- Next.js App Router for the web UI.
-- NestJS for the API and GitHub webhook server.
-- PostgreSQL and Drizzle for persistence.
-- Shared packages for GitHub integration, diff parsing, chapter decomposition, and
-  API types.
+## Run Folio locally
+
+Use Node.js 20 or newer and pnpm 10.32.1. Copy the environment template, then add
+the Supabase database and GitHub App values for your development environment.
+
+```bash
+cp .env.example .env
+pnpm install
+pnpm dev:backend
+pnpm dev:web
+```
+
+The backend runs at `http://localhost:8080`; the web app runs at
+`http://localhost:5173`.
+
+Use explicit profiles in `.env`:
+
+- Backend: `APP_PROFILE=dev` or `APP_PROFILE=prd`
+- Web: `NEXT_PUBLIC_APP_PROFILE=dev` or `NEXT_PUBLIC_APP_PROFILE=prd`
+
+Before a production change, run:
+
+```bash
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+```
+
+## Project layout
+
+```txt
+apps/
+  backend/     NestJS API and GitHub App webhook server
+  web/         Next.js App Router review UI
+packages/      Database, diff, GitHub, decomposition, and type modules
+docs/          Product, design-system, and engineering documentation
+```
 
 ## Release
 
-Current production release: [v0.1.0](https://github.com/KMGeon/Folio/releases/tag/v0.1.0)
-
-### v0.1.0 Highlights
-
-| Author | Change                                                                         |
-| ------ | ------------------------------------------------------------------------------ |
-| KMGeon | Added production deployment for `folio.ai.kr`.                                 |
-| KMGeon | Added the GitHub App based review flow.                                        |
-| KMGeon | Added chapter-first PR review screens.                                         |
-| KMGeon | Added PR comment, markdown table, prologue, and inline diff comment rendering. |
-| KMGeon | Simplified the dashboard for the current review workflow.                      |
+Current production release: [v0.1.0](https://github.com/KMGeon/Folio/releases/tag/v0.1.0).
 
 ## Support
 
-For support or policy questions, contact `support.foliodev@gmail.com`.
+For support or policy questions, contact [support.foliodev@gmail.com](mailto:support.foliodev@gmail.com).
