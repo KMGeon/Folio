@@ -10,10 +10,13 @@ RUN npm install -g pnpm@10.32.1
 
 COPY .npmrc package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY apps/web/package.json apps/web/package.json
+COPY packages/types/package.json packages/types/package.json
 
-RUN pnpm install --frozen-lockfile --filter @folio/web
+RUN pnpm install --frozen-lockfile --filter @folio/web...
 
 COPY apps/web apps/web
+# Next type-checks workspace source exports while building the standalone web image.
+COPY packages/types packages/types
 
 RUN pnpm --filter @folio/web exec next build
 
