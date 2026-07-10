@@ -12,7 +12,8 @@
 
 - Normal dashboard and review routes show only the compact global rail.
 - The global panel containing `Folio`, `대시보드`, `설치`, `설정`, username, and sign-out is removed.
-- Settings routes keep the rail and use `SettingsShell` as the sole `w-64` labeled sidebar.
+- Settings routes keep the rail and use `SettingsShell` as the sole labeled
+  sidebar, with a 266px desktop grid track at `lg` and above.
 - The account trigger opens only a small account/workspace popover.
 - Search continues to open the centered command modal with its current focus and dismissal behavior.
 - Preserve unrelated uncommitted review-surface edits.
@@ -132,8 +133,39 @@ Run: `git diff --check && git status --short`
 
 Expected: no whitespace errors; unrelated review-surface edits remain preserved.
 
+### Task 3: Widen the settings-only sidebar
+
+**Files:**
+- Modify: `apps/web/src/components/settings/settings-shell.tsx`
+- Modify: `apps/web/src/app/settings/settings-routes.test.ts`
+
+**Interfaces:**
+- Consumes: the settings-only navigation retained by Tasks 1 and 2.
+- Produces: a 266px desktop settings grid track without changing the compact rail
+  or narrow viewport behavior.
+
+- [ ] **Step 1: Update the source assertion and verify RED**
+
+Change the expected desktop class to
+`lg:grid-cols-[266px_minmax(0,1fr)]`, then run the focused settings route test.
+
+Expected: FAIL while `SettingsShell` still uses the previous 256px track.
+
+- [ ] **Step 2: Change the desktop settings grid track**
+
+Replace `lg:grid-cols-[16rem_minmax(0,1fr)]` with
+`lg:grid-cols-[266px_minmax(0,1fr)]`. Keep the compact rail and all non-`lg`
+layout behavior unchanged.
+
+- [ ] **Step 3: Verify and commit**
+
+Run the focused settings route test and web typecheck, then commit only the two
+scoped files with `style(web): widen settings sidebar`.
+
 ## Plan Self-Review
 
-- Spec coverage: Task 1 removes the global labeled panel and defines rail, account, settings-back, and search behavior; Task 2 verifies settings/search ownership and the repository.
+- Spec coverage: Task 1 removes the global labeled panel and defines rail,
+  account, settings-back, and search behavior; Task 2 verifies settings/search
+  ownership and the repository; Task 3 applies the approved 266px settings width.
 - Placeholder scan: no deferred implementation or ambiguous route ownership remains.
 - Type consistency: no new public API is introduced; existing `SessionUser` and search event contracts are retained.

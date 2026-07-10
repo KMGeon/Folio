@@ -24,8 +24,9 @@ This design supersedes the earlier persistent-global-navigation proposals.
 
 - Keep the same compact global rail at the left edge.
 - Replace the account trigger with a back-to-app action while settings are open.
-- Render the settings-only `w-64` navigation beside the rail. It contains user
-  and workspace settings destinations and is owned by `SettingsShell`.
+- Render the settings-only 266px navigation beside the rail at `lg` and above.
+  It contains user and workspace settings destinations and is owned by
+  `SettingsShell`.
 - Do not render the removed global menu between the rail and settings sidebar.
 
 ## Search

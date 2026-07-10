@@ -72,7 +72,9 @@ Dedicated `--sidebar*` tokens (slightly distinct from cards, fainter border
 
 - **Radius:** `--radius: 0.625rem`. Tailwind exposes `rounded-sm/md/lg/xl` derived
   from it; pills use `rounded-full`.
-- **Sidebar width:** `w-64` (256px), hidden below `lg`.
+- **Navigation widths:** the global icon rail is `w-12` (48px); the labeled
+  settings sidebar is 266px at `lg` and above, and uses its stacked layout below
+  `lg`.
 - **Row heights:** controls/nav `h-7`–`h-8`, header bars `h-12`.
 - **Borders first, shadows minimal** (`shadow-xs` at most on buttons).
 - **Transitions:** color/box-shadow only (`transition-colors`,
@@ -99,19 +101,18 @@ Color encodes state — reuse these rather than inventing new badges:
   `error` (red/destructive).
 - **RiskLevel:** `low` (green), `medium` (amber), `high` (red).
 
-### App shell (`components/app-shell.tsx`)
+### App layout (`components/app-layout.tsx`)
 
-`w-64` sidebar (brand mark, search input, nav links) + content area. Active nav
-item uses `bg-accent text-foreground`; idle items are `text-muted-foreground` with
-hover `hover:bg-accent`.
+Authenticated routes compose the compact global rail with route content. Normal
+dashboard and review routes do not add a second labeled global sidebar.
 
 ### Global navigation rail
 
 Authenticated routes use a permanent `w-12` icon rail. The account trigger,
 Dashboard, Settings, and Search actions remain visible at every viewport width.
-The trigger opens a `w-60` labeled drawer beside the rail; it overlays route
-content and closes on navigation, outside click, Escape, or a second trigger.
-Settings adds its own `w-64` section sidebar inside the remaining route surface.
+The account trigger opens a small workspace popover rather than a full-height
+drawer. Settings replaces that trigger with a back-to-app action and adds its own
+266px section sidebar at `lg` and above. Search opens the centered command modal.
 
 ### Review surfaces (`components/review/*`)
 
