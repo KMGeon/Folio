@@ -58,7 +58,7 @@ export default async function SettingsPage({
             <p className="font-mono text-[0.7rem] uppercase tracking-[0.25em] text-muted-foreground">
               Settings
             </p>
-            <h1 className="font-serif text-2xl font-normal leading-[1.1] tracking-tight md:text-3xl">
+            <h1 className="font-sans text-2xl font-medium leading-[1.1] tracking-tight md:text-3xl">
               <span className="italic">워크스페이스</span> 설정
             </h1>
             <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">
@@ -200,7 +200,7 @@ function SettingsSection({
   return (
     <section>
       <div className="mb-5 flex items-baseline justify-between gap-3 border-b border-border pb-2">
-        <h2 className="font-serif text-lg italic leading-none text-foreground/90">{title}</h2>
+        <h2 className="font-sans text-lg font-medium leading-none text-foreground/90">{title}</h2>
         {meta ? (
           <span className="shrink-0 font-mono text-[0.7rem] uppercase tracking-[0.15em] tabular-nums text-muted-foreground">
             {meta}

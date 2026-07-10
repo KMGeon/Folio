@@ -24,7 +24,7 @@ export function ContributionsSkyline({ activity }: { activity: ActivityDay[] }) 
   return (
     <section className="rounded-lg border bg-card p-4">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="font-serif text-base italic leading-none">활동</h2>
+        <h2 className="font-sans text-base font-medium leading-none">활동</h2>
         <span className="text-xs text-muted-foreground">최근 1년 · 기여 {total}개</span>
       </div>
 

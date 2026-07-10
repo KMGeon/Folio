@@ -35,7 +35,7 @@ export default async function DashboardPage() {
             <p className="font-mono text-[0.7rem] uppercase tracking-[0.25em] text-muted-foreground">
               리뷰 데스크
             </p>
-            <h1 className="font-serif text-2xl font-normal leading-[1.1] tracking-tight md:text-3xl">
+            <h1 className="font-sans text-2xl font-medium leading-[1.1] tracking-tight md:text-3xl">
               Welcome back, <span className="italic">{user?.login ?? "reviewer"}</span>
             </h1>
             <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">
