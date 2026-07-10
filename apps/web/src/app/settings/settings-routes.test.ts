@@ -45,4 +45,12 @@ describe("settings routes", () => {
     expect(source).not.toContain("Renderer");
     expect(source).not.toContain("PendingUsersAdmin");
   });
+
+  it("opens the Stage Folio GitHub App installation page", () => {
+    const workspacesPage = readFileSync(resolve(settingsRoot, "workspaces/page.tsx"), "utf8");
+
+    expect(workspacesPage).toContain(
+      '<a href="https://github.com/apps/stage-folio">GitHub App 설치</a>',
+    );
+  });
 });

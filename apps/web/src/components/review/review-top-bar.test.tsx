@@ -7,7 +7,7 @@ import { ReviewTopBar } from "./review-top-bar.js";
 globalThis.React = React;
 
 describe("ReviewTopBar", () => {
-  it("uses the secondary surface for draft status and branch labels", () => {
+  it("uses semantic colors for draft status and branch labels", () => {
     const markup = renderToStaticMarkup(
       <ReviewTopBar
         pr={{
@@ -34,6 +34,15 @@ describe("ReviewTopBar", () => {
       />,
     );
 
-    expect(markup.match(/bg-secondary/g)).toHaveLength(3);
+    expect(markup).toContain("bg-warning/15");
+    expect(markup).toContain("text-warning");
+    expect(markup).toContain("bg-info/15");
+    expect(markup).toContain("text-info");
+    expect(markup).toContain("bg-primary/15");
+    expect(markup).toContain("text-primary");
+    expect(markup).toContain("shrink-0 px-4 py-4 md:px-6");
+    expect(markup).toContain("flex min-w-0 flex-col gap-2.5");
+    expect(markup).toContain("mt-3 flex flex-wrap items-center gap-x-3 gap-y-2");
+    expect(markup).toContain("mt-4 flex items-center justify-between");
   });
 });

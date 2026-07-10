@@ -51,6 +51,8 @@ describe("ReviewPrologue", () => {
     expect(markup).toContain("Key changes");
     expect(markup).toContain("Review focus");
     expect(markup).toContain(prologue.motivation);
+    expect(markup).toContain("space-y-4 rounded-lg border bg-card p-4");
+    expect(markup).toContain("text-sm leading-6");
     expect(markup).not.toContain(pr.body);
   });
 
