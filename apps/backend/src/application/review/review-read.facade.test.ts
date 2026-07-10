@@ -1,5 +1,24 @@
 import { describe, expect, it, vi } from "vitest";
 
+const storedPrologue = {
+  motivation: "리뷰 흐름을 더 빠르게 이해하기 위해 변경합니다.",
+  outcome: "PR 전체 요약과 검토 지점을 한 화면에서 확인합니다.",
+  keyChanges: [
+    { summary: "PR 요약 노출", description: "저장된 총정리를 리뷰 화면에 전달합니다." },
+    { summary: "안전한 폴백", description: "잘못된 총정리는 기존 설명 화면으로 전환합니다." },
+  ],
+  focusAreas: [
+    {
+      type: "architecture",
+      severity: "medium",
+      title: "API 계약",
+      description: "저장 데이터와 응답 계약이 일치하는지 확인하세요.",
+      locations: ["apps/backend/src/application/review/review-read.facade.ts"],
+    },
+  ],
+  complexity: { level: "medium", reasoning: "백엔드와 웹 계약이 함께 바뀝니다." },
+};
+
 vi.mock("@folio/db", () => ({
   repositoriesRepo: {
     getByFullName: vi.fn(async () => ({
@@ -26,6 +45,7 @@ vi.mock("@folio/db", () => ({
     latestForPr: vi.fn(async () => ({
       id: "rev1",
       rawDiff: "diff --git a/a.ts b/a.ts\n--- a/a.ts\n+++ b/a.ts\n@@ -1 +1,2 @@\n a\n+b\n",
+      prologue: storedPrologue,
     })),
   },
   chaptersRepo: {
@@ -78,6 +98,7 @@ describe("ReviewReadFacade", () => {
     expect(payload).not.toBeNull();
     expect(payload?.pr.title).toBe("PR");
     expect(payload?.pr.body).toContain("Summary");
+    expect(payload?.prologue).toEqual({ ...storedPrologue, diagram: null });
     expect(payload?.comments).toEqual([
       {
         id: 101,
@@ -102,6 +123,33 @@ describe("ReviewReadFacade", () => {
       },
     ]);
     expect(payload!.commitsTruncated).toBe(true);
+  });
+
+  it("returns null for invalid stored prologue without failing review", async () => {
+    const db = await import("@folio/db");
+    vi.mocked(db.revisionsRepo.latestForPr).mockResolvedValueOnce({
+      id: "rev-invalid",
+      rawDiff: "",
+      prologue: { complexity: { level: "extreme" } },
+    } as never);
+
+    const payload = await new ReviewReadFacade().getReview("acme", "widget", 7, "user1");
+
+    expect(payload).not.toBeNull();
+    expect(payload?.prologue).toBeNull();
+  });
+
+  it("returns null when no prologue is stored", async () => {
+    const db = await import("@folio/db");
+    vi.mocked(db.revisionsRepo.latestForPr).mockResolvedValueOnce({
+      id: "rev-null",
+      rawDiff: "",
+      prologue: null,
+    } as never);
+
+    const payload = await new ReviewReadFacade().getReview("acme", "widget", 7, "user1");
+
+    expect(payload?.prologue).toBeNull();
   });
 
   it("returns null when the pr is unknown", async () => {

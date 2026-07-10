@@ -1,21 +1,48 @@
 "use client";
 
 import { MessageSquare, MoreHorizontal } from "lucide-react";
-import { useState } from "react";
+import React, { useState } from "react";
 
+import type { Prologue } from "@folio/types";
+
+import { ReviewSummary } from "@/components/review/review-summary";
 import type { ReviewIssueComment, ReviewPrMeta } from "@/lib/review-api";
 import { cn } from "@/lib/utils";
 
-type PrologueTab = "description" | "comments";
+type PrologueTab = "summary" | "description" | "comments";
 
 export function ReviewPrologue({
   pr,
+  prologue,
   comments,
 }: {
   pr: ReviewPrMeta;
+  prologue: Prologue | null;
   comments: ReviewIssueComment[];
 }) {
-  const [tab, setTab] = useState<PrologueTab>("description");
+  const [tab, setTab] = useState<PrologueTab>(prologue ? "summary" : "description");
+
+  const commentsContent = (
+    <div className="max-h-[34rem] space-y-3 overflow-y-auto pr-1">
+      {comments.length > 0 ? (
+        comments.map((comment) => (
+          <ConversationCard
+            key={comment.id}
+            author={comment.author}
+            avatarUrl={comment.avatarUrl}
+            createdLabel={formatDate(comment.createdAt)}
+            href={comment.htmlUrl}
+          >
+            <MarkdownText text={comment.body || "(빈 댓글)"} />
+          </ConversationCard>
+        ))
+      ) : (
+        <div className="rounded-lg border bg-card p-6 text-muted-foreground text-sm">
+          아직 PR 댓글이 없습니다.
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <section className="min-w-0">
@@ -24,6 +51,13 @@ export function ReviewPrologue({
           Prologue
         </span>
         <div className="flex rounded-md bg-muted/60 p-0.5">
+          {prologue ? (
+            <PrologueTabButton
+              active={tab === "summary"}
+              label="Summary"
+              onClick={() => setTab("summary")}
+            />
+          ) : null}
           <PrologueTabButton
             active={tab === "description"}
             label="Description"
@@ -38,30 +72,14 @@ export function ReviewPrologue({
         <MoreHorizontal className="ml-auto size-4 text-muted-foreground" />
       </div>
 
-      {tab === "description" ? (
+      {tab === "summary" && prologue ? (
+        <ReviewSummary prologue={prologue} />
+      ) : tab === "description" ? (
         <ConversationCard author={pr.author} createdLabel="PR description">
           <MarkdownText text={pr.body || "PR 설명이 없습니다."} />
         </ConversationCard>
       ) : (
-        <div className="max-h-[34rem] space-y-3 overflow-y-auto pr-1">
-          {comments.length > 0 ? (
-            comments.map((comment) => (
-              <ConversationCard
-                key={comment.id}
-                author={comment.author}
-                avatarUrl={comment.avatarUrl}
-                createdLabel={formatDate(comment.createdAt)}
-                href={comment.htmlUrl}
-              >
-                <MarkdownText text={comment.body || "(빈 댓글)"} />
-              </ConversationCard>
-            ))
-          ) : (
-            <div className="rounded-lg border bg-card p-6 text-muted-foreground text-sm">
-              아직 PR 댓글이 없습니다.
-            </div>
-          )}
-        </div>
+        commentsContent
       )}
     </section>
   );

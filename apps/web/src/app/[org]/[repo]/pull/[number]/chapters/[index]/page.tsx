@@ -43,6 +43,7 @@ export default async function ChapterReviewPage({
       {/* ReviewView owns the PR header, tabs, the graph+cards overview, and in-place diff. */}
       <ReviewView
         pr={review.pr}
+        prologue={review.prologue}
         chapters={review.chapters}
         comments={review.comments}
         commits={review.commits}

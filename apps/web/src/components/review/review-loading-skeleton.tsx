@@ -35,6 +35,7 @@ export function ReviewLoadingSkeleton() {
                 <div className="flex gap-0.5 rounded-md bg-muted/60 p-0.5">
                   <SkeletonBlock className="h-6 w-24 rounded" />
                   <SkeletonBlock className="h-6 w-24 rounded" />
+                  <SkeletonBlock className="h-6 w-24 rounded" />
                 </div>
                 <SkeletonBlock className="ml-auto size-4 rounded" />
               </div>

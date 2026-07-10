@@ -25,6 +25,28 @@ describe("ReviewView source", () => {
     expect(source).toContain("setOpenIndex(initialChapterIndex ?? null)");
   });
 
+  it("forwards the optional generated prologue from both routes", () => {
+    const overviewSource = readFileSync(
+      resolve(__dirname, "../../app/[org]/[repo]/pull/[number]/page.tsx"),
+      "utf8",
+    );
+    const chapterSource = readFileSync(
+      resolve(__dirname, "../../app/[org]/[repo]/pull/[number]/chapters/[index]/page.tsx"),
+      "utf8",
+    );
+
+    expect(overviewSource).toContain("prologue={review.prologue}");
+    expect(chapterSource).toContain("prologue={review.prologue}");
+    expect(source).toContain("prologue: Prologue | null");
+    expect(source).toContain("<ReviewPrologue pr={pr} prologue={prologue}");
+  });
+
+  it("allows both overview grid columns to shrink on narrow screens", () => {
+    expect(source).toContain("lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.35fr)]");
+    expect(source).toContain('<section className="min-w-0">\n                <ReviewPrologue');
+    expect(source).toContain('<section className="min-w-0">\n                <div className="mb-3');
+  });
+
   it("keeps the chapter panel wide enough for review questions", () => {
     expect(source).toContain("lg:grid-cols-[minmax(0,1fr)_460px]");
     expect(chapterPanelSource).toContain("lg:w-[460px]");
