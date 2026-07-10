@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ChangedFile } from "./changed-file-summary";
-import { buildChangedFileTree } from "./changed-file-tree-model";
+import { buildChangedFileTree, filterChangedFileTree } from "./changed-file-tree-model";
 
 const files: ChangedFile[] = [
   {
@@ -55,5 +55,22 @@ describe("buildChangedFileTree", () => {
     const tree = buildChangedFileTree(files);
 
     expect(tree.files.map((file) => file.path)).toEqual(["README.md"]);
+  });
+});
+
+describe("filterChangedFileTree", () => {
+  it("keeps matching files and their ancestor directories for a case-insensitive path query", () => {
+    const tree = buildChangedFileTree(files);
+
+    expect(filterChangedFileTree(tree, "SERVICE")).toMatchObject({
+      directories: [{ name: "src", directories: [{ name: "application" }] }],
+    });
+  });
+
+  it("removes empty branches when no file path matches", () => {
+    expect(filterChangedFileTree(buildChangedFileTree(files), "missing")).toEqual({
+      directories: [],
+      files: [],
+    });
   });
 });

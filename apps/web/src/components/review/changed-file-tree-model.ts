@@ -47,6 +47,23 @@ export function buildChangedFileTree(files: ChangedFile[]): ChangedFileTreeModel
   return toTreeModel(root);
 }
 
+export function filterChangedFileTree(
+  tree: ChangedFileTreeModel,
+  query: string,
+): ChangedFileTreeModel {
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  if (!normalizedQuery) {
+    return tree;
+  }
+
+  return {
+    directories: tree.directories
+      .map((directory) => ({ ...directory, ...filterChangedFileTree(directory, normalizedQuery) }))
+      .filter((directory) => directory.directories.length > 0 || directory.files.length > 0),
+    files: tree.files.filter((file) => file.path.toLocaleLowerCase().includes(normalizedQuery)),
+  };
+}
+
 function toTreeModel(directory: MutableDirectoryNode): ChangedFileTreeModel {
   return {
     directories: [...directory.directories.values()]
