@@ -6,6 +6,16 @@ import {
 
 export type PullLineCounts = Record<"additions" | "deletions" | "changedFiles", number>;
 
+export const DASHBOARD_PULL_DETAIL_CONCURRENCY = 5;
+
+export type PullLineCountRequest = {
+  octokit: Octokit;
+  owner: string;
+  repo: string;
+  pullNumber: number;
+  ttlMs?: number;
+};
+
 const EMPTY_LINE_COUNTS: PullLineCounts = {
   additions: 0,
   deletions: 0,
@@ -38,6 +48,36 @@ export async function pullLineCounts(
   } catch {
     return EMPTY_LINE_COUNTS;
   }
+}
+
+export async function pullLineCountsForPulls(
+  requests: PullLineCountRequest[],
+): Promise<PullLineCounts[]> {
+  const results = Array.from({ length: requests.length }, () => EMPTY_LINE_COUNTS);
+  let nextIndex = 0;
+  // Bound GitHub detail requests so a cold dashboard can overlap I/O without causing a burst.
+  const workers = Array.from(
+    { length: Math.min(DASHBOARD_PULL_DETAIL_CONCURRENCY, requests.length) },
+    async () => {
+      for (;;) {
+        const index = nextIndex;
+        nextIndex += 1;
+        const request = requests[index];
+        if (!request) {
+          return;
+        }
+        results[index] = await pullLineCounts(
+          request.octokit,
+          request.owner,
+          request.repo,
+          request.pullNumber,
+          request.ttlMs ? { ttlMs: request.ttlMs } : undefined,
+        );
+      }
+    },
+  );
+  await Promise.all(workers);
+  return results;
 }
 
 export function relativeTime(iso: string): string {

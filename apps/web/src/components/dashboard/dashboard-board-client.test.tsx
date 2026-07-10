@@ -12,12 +12,13 @@ import {
   beginDashboardRequest,
   dashboardRequestKey,
   finishDashboardRequest,
-} from "./dashboard-board-client";
-import { dashboardPullPagePath } from "@/lib/dashboard-api";
+  resetDashboardRequestScope,
+} from "./dashboard-request-scope";
+import { dashboardOpenPullPagesPath, dashboardPullPagePath } from "@/lib/dashboard-api";
 
 describe("DashboardBoardClient", () => {
-  it("builds paginated pull URLs with every server-backed filter", () => {
-    const path = dashboardPullPagePath({
+  it("builds paginated pull URLs with only supported server-backed filters", () => {
+    const query = {
       bucket: "ready",
       limit: 20,
       cursor: "cursor-1",
@@ -27,7 +28,8 @@ describe("DashboardBoardClient", () => {
       closedRange: "30d",
       grouping: "repository",
       showDrafts: false,
-    });
+    } as const;
+    const path = dashboardPullPagePath(query);
     const url = new URL(path, "https://folio.test");
 
     expect(url.pathname).toBe("/api/v1/dashboard/pulls");
@@ -38,8 +40,29 @@ describe("DashboardBoardClient", () => {
     expect(url.searchParams.get("ordering")).toBe("lines");
     expect(url.searchParams.get("direction")).toBe("asc");
     expect(url.searchParams.get("closedRange")).toBe("30d");
-    expect(url.searchParams.get("grouping")).toBe("repository");
+    expect(url.searchParams.has("grouping")).toBe(false);
     expect(url.searchParams.get("showDrafts")).toBe("false");
+  });
+
+  it("builds the combined open pull URL without completed-only fields", () => {
+    const query = {
+      limit: 20,
+      q: "repo smoke",
+      ordering: "updated",
+      direction: "desc",
+      grouping: "responsibility",
+      showDrafts: false,
+    } as const;
+    const path = dashboardOpenPullPagesPath(query);
+    const url = new URL(path, "https://folio.test");
+
+    expect(url.pathname).toBe("/api/v1/dashboard/pulls/open");
+    expect(url.searchParams.get("limit")).toBe("20");
+    expect(url.searchParams.get("q")).toBe("repo smoke");
+    expect(url.searchParams.get("showDrafts")).toBe("false");
+    expect(url.searchParams.has("bucket")).toBe(false);
+    expect(url.searchParams.has("closedRange")).toBe(false);
+    expect(url.searchParams.has("grouping")).toBe(false);
   });
 
   it("keeps newer in-flight request guards when older requests finish", () => {
@@ -56,6 +79,29 @@ describe("DashboardBoardClient", () => {
     expect(inFlight.get(dashboardRequestKey("ready", "reset"))).toBe(newer);
     finishDashboardRequest(inFlight, "ready", "reset", newer);
     expect(inFlight.has(dashboardRequestKey("ready", "reset"))).toBe(false);
+  });
+
+  it("does not invalidate either request scope when the other scope resets", () => {
+    const inFlight = new Map<string, symbol>([
+      [dashboardRequestKey("open", "reset"), Symbol("open")],
+      [dashboardRequestKey("completed", "reset"), Symbol("completed")],
+    ]);
+    const epochs = { open: 4, completed: 7 };
+
+    const completedEpoch = resetDashboardRequestScope(inFlight, epochs, "completed");
+
+    expect(completedEpoch).toBe(8);
+    expect(epochs).toEqual({ open: 4, completed: 8 });
+    expect(inFlight.has(dashboardRequestKey("open", "reset"))).toBe(true);
+    expect(inFlight.has(dashboardRequestKey("completed", "reset"))).toBe(false);
+
+    inFlight.set(dashboardRequestKey("completed", "reset"), Symbol("new completed"));
+    const openEpoch = resetDashboardRequestScope(inFlight, epochs, "open");
+
+    expect(openEpoch).toBe(5);
+    expect(epochs).toEqual({ open: 5, completed: 8 });
+    expect(inFlight.has(dashboardRequestKey("open", "reset"))).toBe(false);
+    expect(inFlight.has(dashboardRequestKey("completed", "reset"))).toBe(true);
   });
 
   it("applies local layout, highlight, and visible card property rules", () => {
@@ -88,5 +134,23 @@ describe("DashboardBoardClient", () => {
     expect(source).toContain("Highlight my PRs");
     expect(source).toContain("Display properties");
     expect(source).toContain("aria-pressed");
+  });
+
+  it("wires independent open and completed reset effects", async () => {
+    const boardClient = await readFile(
+      new URL("./dashboard-board-client.tsx", import.meta.url),
+      "utf8",
+    );
+
+    expect(boardClient).toMatch(
+      /resetDashboardRequestScope\([\s\S]*?requestEpochsRef\.current,[\s\S]*?"open"/,
+    );
+    expect(boardClient).toMatch(
+      /resetDashboardRequestScope\([\s\S]*?requestEpochsRef\.current,[\s\S]*?"completed"/,
+    );
+    expect(boardClient).toContain("void loadOpenBuckets(openEpoch)");
+    expect(boardClient).toContain('void loadBucket("completed", "reset", completedEpoch)');
+    expect(boardClient).not.toContain("requestVersionRef");
+    expect(boardClient).not.toContain("filters.grouping,");
   });
 });

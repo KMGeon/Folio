@@ -553,6 +553,33 @@ describe("DashboardFacade", () => {
     expect(octokit.rest.pulls.get).toHaveBeenCalledTimes(1);
   });
 
+  it("builds all open buckets while resolving each pull status once", async () => {
+    getByRepoAndNumber.mockImplementation(async (_repoId: string, number: number) =>
+      number === 3 ? null : { id: `pr${number}` },
+    );
+    const octokit = octokitWith({
+      open: [
+        openPr({ number: 1, title: "Ready", user: "reviewer" }),
+        openPr({ number: 2, title: "Mine", user: "KMGeon" }),
+        openPr({ number: 3, title: "Other", user: "reviewer" }),
+      ],
+      closed: [],
+      details: {},
+    });
+    const facade = new DashboardFacade({ octokitFactory: async () => octokit as never });
+
+    const pages = await facade.getOpenPullPagesForUser(
+      { id: "u1", login: "KMGeon" },
+      { limit: 20, ordering: "updated", direction: "desc", showDrafts: true },
+    );
+
+    expect(pages.ready.items.map((pull) => pull.title)).toEqual(["Ready"]);
+    expect(pages.yours.items.map((pull) => pull.title)).toEqual(["Mine"]);
+    expect(pages.other.items.map((pull) => pull.title)).toEqual(["Other"]);
+    expect(getByRepoAndNumber).toHaveBeenCalledTimes(3);
+    expect(octokit.paginate).toHaveBeenCalledTimes(1);
+  });
+
   it("continues pull pages from an opaque cursor", async () => {
     getByRepoAndNumber.mockImplementation(async (_repoId: string, n: number) =>
       n <= 2 ? { id: `pr${n}` } : null,

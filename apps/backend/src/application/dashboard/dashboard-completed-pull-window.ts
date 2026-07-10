@@ -1,4 +1,4 @@
-import { pullLineCounts, relativeTime } from "./dashboard-pull-details.js";
+import { pullLineCountsForPulls, relativeTime } from "./dashboard-pull-details.js";
 import { DASHBOARD_COMPLETED_PULL_DETAIL_TTL_MS } from "./dashboard-github-cache.js";
 import type { DashboardCompletedPull } from "./dashboard.facade.js";
 import type {
@@ -42,16 +42,18 @@ export function completedCandidate(
 export async function completedPulls(
   candidates: CompletedCandidate[],
 ): Promise<DashboardCompletedPull[]> {
-  const pulls: DashboardCompletedPull[] = [];
-  for (const candidate of candidates) {
-    const lineCounts = await pullLineCounts(
-      candidate.octokit,
-      candidate.owner,
-      candidate.repo,
-      candidate.number,
-      { ttlMs: DASHBOARD_COMPLETED_PULL_DETAIL_TTL_MS },
-    );
-    pulls.push({
+  const lineCounts = await pullLineCountsForPulls(
+    candidates.map((candidate) => ({
+      octokit: candidate.octokit,
+      owner: candidate.owner,
+      repo: candidate.repo,
+      pullNumber: candidate.number,
+      ttlMs: DASHBOARD_COMPLETED_PULL_DETAIL_TTL_MS,
+    })),
+  );
+  return candidates.map((candidate, index) => {
+    const counts = lineCounts[index] ?? { additions: 0, deletions: 0, changedFiles: 0 };
+    return {
       id: `${candidate.owner}-${candidate.repo}-${candidate.number}`,
       org: candidate.owner,
       repo: candidate.repo,
@@ -60,12 +62,9 @@ export async function completedPulls(
       author: candidate.author,
       completedAt: relativeTime(candidate.completedIso),
       completedState: candidate.completedState,
-      additions: lineCounts.additions,
-      deletions: lineCounts.deletions,
-      changedFiles: lineCounts.changedFiles,
-    });
-  }
-  return pulls;
+      ...counts,
+    };
+  });
 }
 
 export async function pageCompleted(

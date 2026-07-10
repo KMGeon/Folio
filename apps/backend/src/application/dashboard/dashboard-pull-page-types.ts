@@ -30,11 +30,19 @@ export interface DashboardPullPageQuery {
   showDrafts?: boolean;
 }
 
+export type DashboardOpenBucket = Exclude<DashboardBucket, "completed">;
+export type DashboardOpenPullPageQuery = Omit<
+  DashboardPullPageQuery,
+  "bucket" | "cursor" | "closedRange"
+>;
+
 export interface DashboardPullPage {
   items: (DashboardPull | DashboardCompletedPull)[];
   nextCursor: string | null;
   count: number;
 }
+
+export type DashboardOpenPullPages = Record<DashboardOpenBucket, DashboardPullPage>;
 
 export type GitHubPullSummary = Record<"title" | "updated_at", string> & {
   number: number;

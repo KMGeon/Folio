@@ -95,6 +95,9 @@ export interface DashboardPullPage {
   count: number;
 }
 
+export type DashboardOpenBucket = Exclude<DashboardBucket, "completed">;
+export type DashboardOpenPullPages = Record<DashboardOpenBucket, DashboardPullPage>;
+
 export interface DashboardPullPageQuery {
   bucket: DashboardBucket;
   limit?: number;
@@ -103,9 +106,13 @@ export interface DashboardPullPageQuery {
   ordering?: DashboardOrdering;
   direction?: DashboardDirection;
   closedRange?: DashboardClosedRange;
-  grouping?: DashboardGrouping;
   showDrafts?: boolean;
 }
+
+export type DashboardOpenPullPagesQuery = Omit<
+  DashboardPullPageQuery,
+  "bucket" | "cursor" | "closedRange"
+>;
 
 export interface FetchDashboardOptions {
   /** Forwarded `Cookie` header so server-component fetches carry the session. */
@@ -132,6 +139,32 @@ export function fetchDashboardPullPage(query: DashboardPullPageQuery): Promise<D
   return apiRequest<DashboardPullPage>(dashboardPullPagePath(query));
 }
 
+export function fetchDashboardOpenPullPages(
+  query: DashboardOpenPullPagesQuery,
+): Promise<DashboardOpenPullPages> {
+  return apiRequest<DashboardOpenPullPages>(dashboardOpenPullPagesPath(query));
+}
+
+export function dashboardOpenPullPagesPath(query: DashboardOpenPullPagesQuery): string {
+  const params = new URLSearchParams();
+  if (query.limit) {
+    params.set("limit", String(query.limit));
+  }
+  if (query.q) {
+    params.set("q", query.q);
+  }
+  if (query.ordering) {
+    params.set("ordering", query.ordering);
+  }
+  if (query.direction) {
+    params.set("direction", query.direction);
+  }
+  if (typeof query.showDrafts === "boolean") {
+    params.set("showDrafts", String(query.showDrafts));
+  }
+  return `/api/v1/dashboard/pulls/open?${params.toString()}`;
+}
+
 export function dashboardPullPagePath(query: DashboardPullPageQuery): string {
   const params = new URLSearchParams();
   params.set("bucket", query.bucket);
@@ -152,9 +185,6 @@ export function dashboardPullPagePath(query: DashboardPullPageQuery): string {
   }
   if (query.closedRange) {
     params.set("closedRange", query.closedRange);
-  }
-  if (query.grouping) {
-    params.set("grouping", query.grouping);
   }
   if (typeof query.showDrafts === "boolean") {
     params.set("showDrafts", String(query.showDrafts));
