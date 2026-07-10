@@ -100,7 +100,7 @@ export function FileTree({
   }
 
   return (
-    <div className="min-h-0 overflow-y-auto p-3">
+    <div className="min-h-0 flex-1 overflow-y-auto p-3">
       {[...groups.entries()].map(([dir, dirFiles]) => (
         <div key={dir} className="mb-3 last:mb-0">
           <div className="mb-1 flex items-center gap-2 px-2 py-1 text-muted-foreground">

@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 const source = readFileSync(resolve(__dirname, "review-view.tsx"), "utf8");
 const chapterPanelSource = readFileSync(resolve(__dirname, "chapter-panel.tsx"), "utf8");
+const changedFileTreeSource = readFileSync(resolve(__dirname, "changed-file-tree.tsx"), "utf8");
 
 describe("ReviewView source", () => {
   it("keeps file diffs expanded until collapse all is clicked", () => {
@@ -23,5 +24,12 @@ describe("ReviewView source", () => {
     expect(chapterPanelSource).toContain("lg:w-[460px]");
     expect(chapterPanelSource).toContain("px-3.5 py-3");
     expect(chapterPanelSource).toContain("leading-relaxed");
+  });
+
+  it("keeps the files tab file list independently scrollable", () => {
+    expect(source).toContain(
+      "flex min-h-72 flex-col overflow-hidden border-b bg-card/35 lg:min-h-0 lg:border-r lg:border-b-0",
+    );
+    expect(changedFileTreeSource).toContain("min-h-0 flex-1 overflow-y-auto p-3");
   });
 });
