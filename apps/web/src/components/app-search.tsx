@@ -27,6 +27,7 @@ export function AppSearch() {
   const [items, setItems] = useState<SearchItem[]>(ROUTES);
   const [loaded, setLoaded] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Load all PR paths once, lazily on first open (browser fetch carries the cookie).
   useEffect(() => {
@@ -57,6 +58,12 @@ export function AppSearch() {
     return () => document.removeEventListener("mousedown", onPointerDown);
   }, []);
 
+  useEffect(() => {
+    const focusSearch = () => inputRef.current?.focus();
+    window.addEventListener("folio:focus-search", focusSearch);
+    return () => window.removeEventListener("folio:focus-search", focusSearch);
+  }, []);
+
   const q = query.trim().toLowerCase();
   const filtered = q ? items.filter((item) => item.label.toLowerCase().includes(q)) : items;
 
@@ -71,6 +78,7 @@ export function AppSearch() {
       <div className="relative">
         <Search className="-translate-y-1/2 absolute top-1/2 left-2.5 size-3.5 text-muted-foreground" />
         <input
+          ref={inputRef}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           onFocus={() => setOpen(true)}
