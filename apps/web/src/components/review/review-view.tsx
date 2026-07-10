@@ -236,10 +236,10 @@ export function ReviewView({
         ) : (
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 md:px-6">
             <div className="grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.35fr)]">
-              <section>
+              <section className="min-w-0">
                 <ReviewPrologue pr={pr} prologue={prologue} comments={comments} />
               </section>
-              <section>
+              <section className="min-w-0">
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <h2 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
                     리뷰
