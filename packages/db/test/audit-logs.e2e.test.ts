@@ -3,9 +3,32 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import type { Db } from "../src/client.js";
 import { closeDb } from "../src/client.js";
 import { auditLogsRepo, usersRepo, workspacesRepo } from "../src/repos/index.js";
+import type { AuditLogInsert } from "../src/schema/audit-logs.js";
 import { HAS_DB, getTestDb, resetDb } from "./helpers/db.js";
 
 const d = HAS_DB ? describe : describe.skip;
+
+// Authorization audit records must always capture both sides of the state transition.
+// @ts-expect-error `before` is required for every explicit authorization audit insert.
+const missingBefore: AuditLogInsert = {
+  actorUserId: "00000000-0000-0000-0000-000000000001",
+  action: AUDIT_ACTION.ROLE_CHANGE,
+  targetType: "workspace_member",
+  targetId: "00000000-0000-0000-0000-000000000002",
+  after: { role: "admin" },
+};
+
+// @ts-expect-error `after` is required for every explicit authorization audit insert.
+const missingAfter: AuditLogInsert = {
+  actorUserId: "00000000-0000-0000-0000-000000000001",
+  action: AUDIT_ACTION.ROLE_CHANGE,
+  targetType: "workspace_member",
+  targetId: "00000000-0000-0000-0000-000000000002",
+  before: { role: "reviewer" },
+};
+
+void missingBefore;
+void missingAfter;
 
 d("auditLogsRepo (e2e)", () => {
   let db: Db;

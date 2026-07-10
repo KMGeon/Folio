@@ -25,8 +25,8 @@ export const auditLogs = pgTable("audit_logs", {
   targetId: uuid("target_id").notNull(),
   // Null for global (non-workspace) actions like user approve/suspend.
   workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "cascade" }),
-  before: jsonb("before"),
-  after: jsonb("after"),
+  before: jsonb("before").notNull(),
+  after: jsonb("after").notNull(),
 });
 
 export type AuditLogRow = typeof auditLogs.$inferSelect;
