@@ -32,7 +32,7 @@ describe("dashboard pull detail batching", () => {
     expect(maxActive).toBe(DASHBOARD_PULL_DETAIL_CONCURRENCY);
     pending.get(1)?.resolve(detail(1));
     await vi.waitFor(() => expect(get).toHaveBeenCalledTimes(6));
-    for (let number = 2; number <= 6; number += 1) {
+    for (const number of [6, 2, 5, 3, 4]) {
       pending.get(number)?.resolve(detail(number));
     }
 
