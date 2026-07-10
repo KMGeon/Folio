@@ -50,7 +50,7 @@ export function GlobalNavigationRail({ user }: { user: SessionUser | null }) {
   }
 
   return (
-    <div ref={disclosureRef} className="relative z-50 h-svh w-12 shrink-0">
+    <div ref={disclosureRef} className="relative z-50 flex h-svh w-12 shrink-0 lg:w-72">
       {/* Keep the primary rail in normal flow so it remains visible before the drawer is opened. */}
       <aside className="flex h-svh w-12 flex-col items-center border-r bg-card/70 py-2">
         <button
@@ -101,7 +101,7 @@ export function GlobalNavigationRail({ user }: { user: SessionUser | null }) {
       <div
         id="global-navigation-drawer"
         className={cn(
-          "absolute inset-y-0 left-12 flex h-svh w-60 max-w-[calc(100vw-3rem)] flex-col border-r bg-popover shadow-lg transition-transform duration-150 motion-reduce:transition-none",
+          "absolute inset-y-0 left-12 flex h-svh w-60 max-w-[calc(100vw-3rem)] flex-col border-r bg-popover shadow-lg transition-transform duration-150 motion-reduce:transition-none lg:static lg:pointer-events-auto lg:translate-x-0",
           open ? "translate-x-0" : "pointer-events-none -translate-x-full",
         )}
       >

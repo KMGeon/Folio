@@ -7,11 +7,14 @@ const railSource = readFileSync(resolve(__dirname, "global-navigation-rail.tsx")
 const layoutSource = readFileSync(resolve(__dirname, "app-layout.tsx"), "utf8");
 
 describe("global navigation rail", () => {
-  it("provides the permanent rail and slide-out drawer", () => {
-    expect(railSource).toContain('className="relative z-50 h-svh w-12 shrink-0"');
+  it("keeps the icon rail beside a persistent desktop menu", () => {
+    expect(railSource).toContain('className="relative z-50 flex h-svh w-12 shrink-0 lg:w-72"');
     expect(railSource).not.toContain("hidden h-svh w-60 flex-col");
     expect(railSource).not.toContain("lg:w-60");
     expect(railSource).not.toContain("lg:hidden");
+    expect(railSource).toContain("lg:static");
+    expect(railSource).toContain("lg:pointer-events-auto");
+    expect(railSource).toContain("lg:translate-x-0");
     expect(railSource).toContain('new CustomEvent("folio:focus-search"');
     expect(railSource).toContain("detail: { trigger: event.currentTarget }");
     expect(railSource).toContain("w-12");
