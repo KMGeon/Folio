@@ -22,6 +22,7 @@ describe("RepositoriesFacade", () => {
       {
         id: "installation-1",
         githubInstallationId: 123,
+        githubAccountId: null,
         accountLogin: "KMGeon",
         accountType: "User",
         suspendedAt: null,
@@ -33,6 +34,7 @@ describe("RepositoriesFacade", () => {
       {
         id: "repo-1",
         installationId: "installation-1",
+        workspaceId: null,
         githubRepoId: 456,
         owner: "KMGeon",
         name: "Folio",
@@ -68,6 +70,7 @@ describe("RepositoriesFacade", () => {
       {
         id: "installation-1",
         githubInstallationId: 123,
+        githubAccountId: null,
         accountLogin: "KMGeon",
         accountType: "User",
         suspendedAt: null,
@@ -91,6 +94,7 @@ describe("RepositoriesFacade", () => {
       {
         id: "installation-1",
         githubInstallationId: 123,
+        githubAccountId: null,
         accountLogin: "KMGeon",
         accountType: "User",
         suspendedAt: null,
@@ -102,6 +106,7 @@ describe("RepositoriesFacade", () => {
       {
         id: "repo-1",
         installationId: "installation-1",
+        workspaceId: null,
         githubRepoId: 456,
         owner: "KMGeon",
         name: "Folio",
@@ -116,6 +121,7 @@ describe("RepositoriesFacade", () => {
     vi.mocked(repositoriesRepo.setFolioEnabled).mockResolvedValue({
       id: "repo-1",
       installationId: "installation-1",
+      workspaceId: null,
       githubRepoId: 456,
       owner: "KMGeon",
       name: "Folio",
