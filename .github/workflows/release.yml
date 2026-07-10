@@ -36,7 +36,13 @@ jobs:
           set -euo pipefail
           git fetch --force --tags --prune
 
-          previous_tag="$(git tag --list --sort=-version:refname | grep -E '^v[0-9]+\\.[0-9]+\\.[0-9]+$' | head -n 1)"
+          previous_tag=""
+          while IFS= read -r tag; do
+            if [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              previous_tag="$tag"
+              break
+            fi
+          done < <(git tag --list --sort=-version:refname)
           if [ -z "$previous_tag" ]; then
             release_tag="v0.0.1"
           else
