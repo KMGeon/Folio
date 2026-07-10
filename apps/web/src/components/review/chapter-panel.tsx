@@ -22,6 +22,7 @@ export function ChapterPanel({
   org,
   repo,
   number,
+  showReviewFocus = true,
   onKeyChangeViewedChange,
 }: {
   chapters: ReviewChapter[];
@@ -31,6 +32,7 @@ export function ChapterPanel({
   org: string;
   repo: string;
   number: number;
+  showReviewFocus?: boolean;
   onKeyChangeViewedChange?: (chapterIndex: number, keyChangeId: string, viewed: boolean) => void;
 }) {
   const chapter = chapters.find((c) => c.index === activeIndex) ?? chapters[0];
@@ -87,58 +89,60 @@ export function ChapterPanel({
         <p className="mt-3 text-sm leading-5 text-muted-foreground">{chapter.summary}</p>
       </div>
 
-      <div className="border-t px-3 py-3">
-        <h3 className="font-mono text-[0.7rem] uppercase tracking-[0.16em] text-muted-foreground">
-          검토할 사항
-        </h3>
-        <div className="mt-3 space-y-2">
-          {keyChanges.length > 0 ? (
-            keyChanges.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={async () => {
-                  const next = !item.viewed;
-                  setKeyChanges((prev) =>
-                    prev.map((keyChange) =>
-                      keyChange.id === item.id ? { ...keyChange, viewed: next } : keyChange,
-                    ),
-                  );
-                  onKeyChangeViewedChange?.(chapter.index, item.id, next);
-                  try {
-                    await setKeyChangeViewed(org, repo, number, chapter.index, item.id, next);
-                  } catch {
-                    onKeyChangeViewedChange?.(chapter.index, item.id, !next);
+      {showReviewFocus ? (
+        <div className="border-t px-3 py-3">
+          <h3 className="font-mono text-[0.7rem] uppercase tracking-[0.16em] text-muted-foreground">
+            검토할 사항
+          </h3>
+          <div className="mt-3 space-y-2">
+            {keyChanges.length > 0 ? (
+              keyChanges.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={async () => {
+                    const next = !item.viewed;
                     setKeyChanges((prev) =>
                       prev.map((keyChange) =>
-                        keyChange.id === item.id ? { ...keyChange, viewed: !next } : keyChange,
+                        keyChange.id === item.id ? { ...keyChange, viewed: next } : keyChange,
                       ),
                     );
-                  }
-                }}
-                className={cn(
-                  "flex w-full items-start gap-2.5 rounded-md border px-3 py-2.5 text-left text-sm leading-5 transition-colors",
-                  item.viewed
-                    ? "border-primary/25 bg-primary/10 text-muted-foreground line-through"
-                    : "border-border bg-background/35 hover:bg-accent",
-                )}
-              >
-                <span
+                    onKeyChangeViewedChange?.(chapter.index, item.id, next);
+                    try {
+                      await setKeyChangeViewed(org, repo, number, chapter.index, item.id, next);
+                    } catch {
+                      onKeyChangeViewedChange?.(chapter.index, item.id, !next);
+                      setKeyChanges((prev) =>
+                        prev.map((keyChange) =>
+                          keyChange.id === item.id ? { ...keyChange, viewed: !next } : keyChange,
+                        ),
+                      );
+                    }
+                  }}
                   className={cn(
-                    "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded border",
-                    item.viewed && "border-primary bg-primary text-primary-foreground",
+                    "flex w-full items-start gap-2.5 rounded-md border px-3 py-2.5 text-left text-sm leading-5 transition-colors",
+                    item.viewed
+                      ? "border-primary/25 bg-primary/10 text-muted-foreground line-through"
+                      : "border-border bg-background/35 hover:bg-accent",
                   )}
                 >
-                  {item.viewed ? <Check className="size-3" /> : null}
-                </span>
-                <span>{item.content}</span>
-              </button>
-            ))
-          ) : (
-            <p className="text-muted-foreground text-sm">검토할 사항이 없습니다.</p>
-          )}
+                  <span
+                    className={cn(
+                      "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded border",
+                      item.viewed && "border-primary bg-primary text-primary-foreground",
+                    )}
+                  >
+                    {item.viewed ? <Check className="size-3" /> : null}
+                  </span>
+                  <span>{item.content}</span>
+                </button>
+              ))
+            ) : (
+              <p className="text-muted-foreground text-sm">검토할 사항이 없습니다.</p>
+            )}
+          </div>
         </div>
-      </div>
+      ) : null}
 
       <div className="border-t px-3 py-3">
         <h3 className="font-mono text-[0.7rem] uppercase tracking-[0.16em] text-muted-foreground">

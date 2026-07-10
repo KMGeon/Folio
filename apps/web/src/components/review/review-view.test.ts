@@ -30,6 +30,14 @@ describe("ReviewView source", () => {
     expect(source).toContain("viewMode={diffViewMode}");
   });
 
+  it("applies browser review preferences", () => {
+    expect(source).toContain("readReviewPreferences()");
+    expect(source).toContain("stored.diffLayout");
+    expect(source).toContain('preferences.textSize === "default"');
+    expect(source).toContain('preferences.chapterPanel === "left"');
+    expect(source).toContain("showReviewFocus={preferences.showReviewFocus}");
+  });
+
   it("can open directly to a chapter route", () => {
     expect(source).toContain("initialChapterIndex");
     expect(source).toContain("useState<number | null>(initialChapterIndex ?? null)");
