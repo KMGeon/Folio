@@ -2,7 +2,13 @@
 
 import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { type MouseEvent, useEffect, useRef, useState } from "react";
+import {
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { fetchDashboard } from "@/lib/dashboard-api";
 
@@ -26,7 +32,10 @@ export function AppSearch() {
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<SearchItem[]>(ROUTES);
   const [loaded, setLoaded] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const wasOpenRef = useRef(false);
 
   // Load all PR paths once, lazily on first open (browser fetch carries the cookie).
   useEffect(() => {
@@ -49,7 +58,11 @@ export function AppSearch() {
   useEffect(() => {
     if (open) {
       inputRef.current?.focus();
+    } else if (wasOpenRef.current) {
+      // A modal must return keyboard users to the control that opened it.
+      triggerRef.current?.focus();
     }
+    wasOpenRef.current = open;
   }, [open]);
 
   useEffect(() => {
@@ -86,11 +99,34 @@ export function AppSearch() {
     }
   };
 
+  const trapFocus = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "Tab") {
+      return;
+    }
+    const focusable = Array.from(
+      dialogRef.current?.querySelectorAll<HTMLElement>("input, button:not(:disabled)") ?? [],
+    );
+    if (!focusable?.length) {
+      return;
+    }
+    const first = focusable[0]!;
+    const last = focusable.at(-1)!;
+
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+
   return (
     <>
       <button
         type="button"
         aria-label="검색"
+        ref={triggerRef}
         onClick={() => setOpen(true)}
         className="flex h-7 w-44 items-center gap-2 rounded-md border bg-muted/40 px-2.5 text-xs text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:border-ring sm:w-56"
       >
@@ -103,9 +139,11 @@ export function AppSearch() {
           onMouseDown={closeIfBackdrop}
         >
           <div
+            ref={dialogRef}
             role="dialog"
             aria-modal="true"
             aria-label="검색"
+            onKeyDown={trapFocus}
             onMouseDown={(event) => event.stopPropagation()}
             className="w-full max-w-2xl overflow-hidden rounded-lg border bg-popover shadow-lg"
           >

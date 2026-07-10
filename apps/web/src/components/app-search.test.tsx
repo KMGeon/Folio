@@ -18,4 +18,10 @@ describe("AppSearch", () => {
     expect(source).toContain("setOpen(true)");
     expect(source).toContain("inputRef.current?.focus()");
   });
+
+  it("contains focus within the modal and returns it to the trigger on close", () => {
+    expect(source).toContain("const triggerRef = useRef<HTMLButtonElement>(null)");
+    expect(source).toContain("triggerRef.current?.focus()");
+    expect(source).toContain('event.key !== "Tab"');
+  });
 });
