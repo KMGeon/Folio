@@ -78,7 +78,11 @@ export {
 } from "./pull-request.js";
 
 // ─── Repo permission ─────────────────────────────────────────────────────────────
-export { checkUserRepoPermission } from "./repo-permission.js";
+export {
+  checkUserRepoPermission,
+  type GitHubRepoAccessLevel,
+  getUserRepoPermissionLevel,
+} from "./repo-permission.js";
 
 // ─── Comments ────────────────────────────────────────────────────────────────
 export {

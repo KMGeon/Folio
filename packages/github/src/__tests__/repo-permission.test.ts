@@ -1,6 +1,6 @@
 import type { Octokit } from "octokit";
 import { describe, expect, it, vi } from "vitest";
-import { checkUserRepoPermission } from "../repo-permission.js";
+import { checkUserRepoPermission, getUserRepoPermissionLevel } from "../repo-permission.js";
 
 function fakeOctokit(getCollaboratorPermissionLevel: ReturnType<typeof vi.fn>): Octokit {
   return {
@@ -9,6 +9,33 @@ function fakeOctokit(getCollaboratorPermissionLevel: ReturnType<typeof vi.fn>): 
 }
 
 const REF = { owner: "acme", repo: "widget", username: "octocat" };
+
+describe("getUserRepoPermissionLevel", () => {
+  it("maps GitHub permission strings to levels", async () => {
+    const cases: [string, string][] = [
+      ["admin", "admin"],
+      ["maintain", "admin"],
+      ["write", "write"],
+      ["triage", "read"],
+      ["read", "read"],
+      ["none", "none"],
+    ];
+    for (const [permission, level] of cases) {
+      const fn = vi.fn().mockResolvedValue({ data: { permission } });
+      expect(await getUserRepoPermissionLevel(fakeOctokit(fn), REF)).toBe(level);
+    }
+  });
+
+  it("treats a 404 collaborator lookup as none", async () => {
+    const fn = vi.fn().mockRejectedValue({ status: 404 });
+    expect(await getUserRepoPermissionLevel(fakeOctokit(fn), REF)).toBe("none");
+  });
+
+  it("rethrows non-404 errors", async () => {
+    const fn = vi.fn().mockRejectedValue({ status: 500 });
+    await expect(getUserRepoPermissionLevel(fakeOctokit(fn), REF)).rejects.toBeTruthy();
+  });
+});
 
 describe("checkUserRepoPermission", () => {
   it("returns true for read/write/admin", async () => {
