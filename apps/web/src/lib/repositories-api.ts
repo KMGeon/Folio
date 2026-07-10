@@ -65,11 +65,11 @@ export async function toggleRepositoryEnabled(formData: FormData) {
     await setRepositoryEnabled(repositoryId, enabled, cookieHeader);
   } catch (err) {
     if (err instanceof ApiError && err.status === 401) {
-      redirect("/login?redirect=/settings");
+      redirect("/login?redirect=/settings/repositories");
     }
     throw err;
   }
 
   revalidatePath("/");
-  revalidatePath("/settings");
+  revalidatePath("/settings/repositories");
 }
