@@ -75,7 +75,7 @@ export function AppSearch() {
           onChange={(event) => setQuery(event.target.value)}
           onFocus={() => setOpen(true)}
           placeholder="PR, repo 검색"
-          className="h-8 w-44 rounded-md border bg-muted/40 pr-2 pl-8 text-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring sm:w-56"
+          className="h-7 w-44 rounded-md border bg-muted/40 pr-2 pl-8 text-xs outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring sm:w-56"
         />
       </div>
       {open ? (
@@ -94,7 +94,7 @@ export function AppSearch() {
                   event.preventDefault();
                   go(item.href);
                 }}
-                className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent"
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-accent"
               >
                 <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-[0.6rem] uppercase tracking-[0.12em] text-muted-foreground">
                   {item.group}
