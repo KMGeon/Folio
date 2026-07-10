@@ -96,6 +96,33 @@ describe("backend config", () => {
     }
   });
 
+  it("parses the optional system-admin bootstrap GitHub id as a positive integer", async () => {
+    process.env.APP_PROFILE = "dev";
+    process.env.SYSTEM_ADMIN_BOOTSTRAP_GITHUB_ID = "424242";
+
+    const { config } = await import("./config.js");
+
+    expect(config.SYSTEM_ADMIN_BOOTSTRAP_GITHUB_ID).toBe(424242);
+  });
+
+  it("treats a blank optional system-admin bootstrap GitHub id as absent", async () => {
+    process.env.APP_PROFILE = "dev";
+    process.env.SYSTEM_ADMIN_BOOTSTRAP_GITHUB_ID = "";
+
+    const { config } = await import("./config.js");
+
+    expect(config.SYSTEM_ADMIN_BOOTSTRAP_GITHUB_ID).toBeUndefined();
+  });
+
+  it("rejects an invalid system-admin bootstrap GitHub id", async () => {
+    process.env.APP_PROFILE = "dev";
+    process.env.SYSTEM_ADMIN_BOOTSTRAP_GITHUB_ID = "0";
+
+    await expect(import("./config.js")).rejects.toThrow(
+      /SYSTEM_ADMIN_BOOTSTRAP_GITHUB_ID[\s\S]*greater than 0/,
+    );
+  });
+
   it("requires production secrets when the prd profile is active", async () => {
     const root = mkdtempSync(join(tmpdir(), "folio-config-prd-"));
     const backendDir = join(root, "apps", "backend");
@@ -161,6 +188,7 @@ describe("backend config", () => {
         "PORT",
         "PUBLIC_API_BASE_URL",
         "SUPABASE_DATABASE_URL",
+        "SYSTEM_ADMIN_BOOTSTRAP_GITHUB_ID",
         "WEB_ORIGIN",
       ].sort(),
     );
