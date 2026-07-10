@@ -9,6 +9,7 @@ const layoutSource = readFileSync(resolve(__dirname, "app-layout.tsx"), "utf8");
 describe("global navigation rail", () => {
   it("provides the permanent rail and slide-out drawer", () => {
     expect(railSource).toContain("w-12");
+    expect(railSource).toContain("flex h-svh w-12 flex-col");
     expect(railSource).toContain("w-60");
     expect(railSource).toContain('href: "/dashboard"');
     expect(railSource).toContain('href: "/onboarding/install"');

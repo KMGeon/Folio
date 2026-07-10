@@ -50,8 +50,9 @@ export function GlobalNavigationRail({ user }: { user: SessionUser | null }) {
   }
 
   return (
-    <div ref={disclosureRef} className="relative z-50 w-12 shrink-0">
-      <aside className="absolute inset-y-0 left-0 flex w-12 flex-col items-center border-r bg-card/70 py-2">
+    <div ref={disclosureRef} className="relative z-50 h-svh w-12 shrink-0">
+      {/* Keep the primary rail in normal flow so it remains visible before the drawer is opened. */}
+      <aside className="flex h-svh w-12 flex-col items-center border-r bg-card/70 py-2">
         <button
           type="button"
           aria-controls="global-navigation-drawer"
