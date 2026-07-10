@@ -1,3 +1,4 @@
+export { workspacesRepo } from "./workspaces.js";
 export { installationsRepo } from "./installations.js";
 export { repositoriesRepo } from "./repositories.js";
 export { usersRepo } from "./users.js";

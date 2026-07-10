@@ -1,4 +1,5 @@
 export * from "./columns.js";
+export * from "./workspaces.js";
 export * from "./installations.js";
 export * from "./repositories.js";
 export * from "./users.js";

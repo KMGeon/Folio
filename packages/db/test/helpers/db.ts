@@ -37,6 +37,7 @@ export async function resetDb(db: Db): Promise<void> {
     "sessions",
     "users",
     "repositories",
+    "workspaces",
     "installations",
   ];
   const { sql } = await import("drizzle-orm");
