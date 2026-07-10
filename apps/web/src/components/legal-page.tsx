@@ -30,7 +30,7 @@ export function LegalPage({ title, effectiveDate, intro, sections }: LegalPagePr
         </Link>
 
         <header className="mt-10 border-b pb-6">
-          <h1 className="font-serif text-3xl font-normal leading-tight tracking-tight">{title}</h1>
+          <h1 className="font-sans text-3xl font-medium leading-tight tracking-tight">{title}</h1>
           <p className="mt-2 font-mono text-muted-foreground text-xs">
             최종 업데이트 · {effectiveDate}
           </p>
@@ -40,7 +40,7 @@ export function LegalPage({ title, effectiveDate, intro, sections }: LegalPagePr
         <div className="mt-6 space-y-6">
           {sections.map((section, i) => (
             <section key={section.heading}>
-              <h2 className="font-serif text-xl font-normal tracking-tight">
+              <h2 className="font-sans text-xl font-medium tracking-tight">
                 <span className="mr-2.5 font-mono text-muted-foreground/60 text-xs tabular-nums">
                   {String(i + 1).padStart(2, "0")}
                 </span>

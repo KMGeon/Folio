@@ -38,7 +38,7 @@ export default async function InstallPage() {
             <p className="font-mono text-[0.7rem] uppercase tracking-[0.25em] text-muted-foreground">
               온보딩 · 설치
             </p>
-            <h1 className="font-serif text-2xl font-normal leading-[1.1] tracking-tight md:text-3xl">
+            <h1 className="font-sans text-2xl font-medium leading-[1.1] tracking-tight md:text-3xl">
               GitHub App 설치
             </h1>
             <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">
@@ -55,9 +55,7 @@ export default async function InstallPage() {
                   <PlugZap className="size-5" />
                 </div>
                 <div className="min-w-0">
-                  <h2 className="font-serif text-xl font-normal tracking-tight">
-                    Folio GitHub App
-                  </h2>
+                  <h2 className="font-sans text-xl font-medium tracking-tight">Folio GitHub App</h2>
                   <p className="mt-1.5 max-w-md text-sm leading-relaxed text-muted-foreground">
                     설치하면 PR open·synchronize webhook이 들어오고, backend worker가 곧바로 리뷰
                     챕터를 만듭니다.

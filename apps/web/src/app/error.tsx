@@ -16,7 +16,7 @@ export default function ErrorPage({
         <p className="mb-4 font-mono text-[0.7rem] uppercase tracking-[0.2em] text-destructive">
           Application error
         </p>
-        <h1 className="font-serif text-3xl font-normal leading-[1.1] tracking-tight text-foreground md:text-[2.75rem]">
+        <h1 className="font-sans text-3xl font-medium leading-[1.1] tracking-tight text-foreground md:text-[2.75rem]">
           요청을 처리하지 못했습니다
         </h1>
         <p className="mt-4 max-w-md text-sm leading-relaxed text-muted-foreground">

@@ -26,6 +26,23 @@ describe("HomePage (site root)", () => {
     expect(source).toContain("h-12 max-w-7xl");
   });
 
+  it("reserves editorial serif type for the Folio wordmark", async () => {
+    const contentSources = await Promise.all([
+      readFile(new URL("./homepage/homepage-sections.tsx", import.meta.url), "utf8"),
+      readFile(new URL("./dashboard/page.tsx", import.meta.url), "utf8"),
+      readFile(new URL("./login/page.tsx", import.meta.url), "utf8"),
+      readFile(new URL("./settings/page.tsx", import.meta.url), "utf8"),
+      readFile(new URL("./onboarding/install/page.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../components/dashboard/dashboard-board.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../components/legal-page.tsx", import.meta.url), "utf8"),
+    ]);
+
+    for (const source of contentSources) {
+      const serifLines = source.split("\n").filter((line) => line.includes("font-serif"));
+      expect(serifLines.every((line) => line.includes("Folio"))).toBe(true);
+    }
+  });
+
   it("renders Folio's public product story and GitHub CTA at the site root", async () => {
     const source = [
       await readFile(new URL("./page.tsx", import.meta.url), "utf8"),

@@ -93,7 +93,7 @@ function DashboardColumn({
   return (
     <section className="min-w-0">
       <div className="mb-4 flex items-baseline justify-between gap-3 border-b border-border pb-2">
-        <h2 className="font-serif text-base italic leading-none text-foreground/90">
+        <h2 className="font-sans text-base font-medium leading-none text-foreground/90">
           {column.title}
         </h2>
         <span className="font-mono text-[0.7rem] tabular-nums text-muted-foreground">
@@ -248,7 +248,7 @@ function CardHeader({
           {identity ? <span className="truncate">{identity}</span> : null}
           {trailing}
         </div>
-        <h3 className="mt-2.5 line-clamp-2 font-serif text-[1.05rem] leading-snug text-foreground/95 transition-colors group-hover:text-primary">
+        <h3 className="mt-2.5 line-clamp-2 font-sans text-[1.05rem] font-medium leading-snug text-foreground/95 transition-colors group-hover:text-primary">
           {title}
         </h3>
       </div>

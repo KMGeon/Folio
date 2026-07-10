@@ -69,7 +69,7 @@ function HeroCopy() {
         <Split className="size-3.5 text-primary" />
         GitHub-native PR review
       </div>
-      <h1 className="mt-4 text-balance font-serif text-[2.25rem] font-normal leading-[1.05] tracking-tight md:text-[3.25rem]">
+      <h1 className="mt-4 text-balance font-sans text-[2.25rem] font-medium leading-[1.05] tracking-tight md:text-[3.25rem]">
         PR을 읽는 순서까지 설계하는 리뷰 워크스페이스
       </h1>
       <p className="mt-5 max-w-2xl text-muted-foreground text-sm leading-6 md:text-base">
@@ -237,7 +237,7 @@ function PricingCard({
     >
       <div>
         <div className="flex items-center justify-between gap-3">
-          <h3 className="font-serif text-2xl font-normal tracking-tight">{name}</h3>
+          <h3 className="font-sans text-2xl font-medium tracking-tight">{name}</h3>
           {featured ? (
             <span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 font-mono text-primary text-xs">
               later default
@@ -247,7 +247,7 @@ function PricingCard({
         <p className="mt-5 text-muted-foreground text-sm">{note}</p>
       </div>
       <div className="mt-12">
-        <div className="font-serif text-4xl font-normal tracking-tight">{price}</div>
+        <div className="font-sans text-4xl font-medium tracking-tight">{price}</div>
         <div className="mt-3 font-mono text-muted-foreground text-xs">{detail}</div>
       </div>
       <Button
@@ -304,7 +304,7 @@ function SectionIntro({ eyebrow, title }: { eyebrow: string; title: string }) {
       <p className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-muted-foreground">
         {eyebrow}
       </p>
-      <h2 className="mt-2.5 font-serif text-2xl font-normal leading-tight tracking-tight md:text-3xl">
+      <h2 className="mt-2.5 font-sans text-2xl font-medium leading-tight tracking-tight md:text-3xl">
         {title}
       </h2>
     </div>

@@ -57,7 +57,7 @@ export function UserMenu({ user }: { user: SessionUser | null }) {
             className="size-8 rounded-full border"
           />
         ) : (
-          <span className="flex size-8 items-center justify-center rounded-full border bg-primary/10 font-serif text-base italic text-primary">
+          <span className="flex size-8 items-center justify-center rounded-full border bg-primary/10 font-sans text-base font-medium text-primary">
             F
           </span>
         )}
