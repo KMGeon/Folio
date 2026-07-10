@@ -13,7 +13,7 @@ import {
   dashboardRequestKey,
   finishDashboardRequest,
 } from "./dashboard-board-client";
-import { dashboardPullPagePath } from "@/lib/dashboard-api";
+import { dashboardOpenPullPagesPath, dashboardPullPagePath } from "@/lib/dashboard-api";
 
 describe("DashboardBoardClient", () => {
   it("builds paginated pull URLs with every server-backed filter", () => {
@@ -40,6 +40,25 @@ describe("DashboardBoardClient", () => {
     expect(url.searchParams.get("closedRange")).toBe("30d");
     expect(url.searchParams.get("grouping")).toBe("repository");
     expect(url.searchParams.get("showDrafts")).toBe("false");
+  });
+
+  it("builds the combined open pull URL without completed-only fields", () => {
+    const path = dashboardOpenPullPagesPath({
+      limit: 20,
+      q: "repo smoke",
+      ordering: "updated",
+      direction: "desc",
+      grouping: "responsibility",
+      showDrafts: false,
+    });
+    const url = new URL(path, "https://folio.test");
+
+    expect(url.pathname).toBe("/api/v1/dashboard/pulls/open");
+    expect(url.searchParams.get("limit")).toBe("20");
+    expect(url.searchParams.get("q")).toBe("repo smoke");
+    expect(url.searchParams.get("showDrafts")).toBe("false");
+    expect(url.searchParams.has("bucket")).toBe(false);
+    expect(url.searchParams.has("closedRange")).toBe(false);
   });
 
   it("keeps newer in-flight request guards when older requests finish", () => {
@@ -88,5 +107,16 @@ describe("DashboardBoardClient", () => {
     expect(source).toContain("Highlight my PRs");
     expect(source).toContain("Display properties");
     expect(source).toContain("aria-pressed");
+  });
+
+  it("loads open pull buckets together while resetting completed independently", async () => {
+    const boardClient = await readFile(
+      new URL("./dashboard-board-client.tsx", import.meta.url),
+      "utf8",
+    );
+
+    expect(boardClient).toContain("void loadOpenBuckets(version)");
+    expect(boardClient).toContain('void loadBucket("completed", "reset", version)');
+    expect(boardClient).not.toContain("for (const { bucket } of bucketConfigs)");
   });
 });

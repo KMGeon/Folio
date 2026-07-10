@@ -17,7 +17,9 @@ import { Button } from "@/components/ui/button";
 import {
   type DashboardBucket,
   type DashboardCompletedPull,
+  type DashboardOpenBucket,
   type DashboardPull,
+  fetchDashboardOpenPullPages,
   fetchDashboardPullPage,
 } from "@/lib/dashboard-api";
 
@@ -33,6 +35,9 @@ interface ColumnLoadState {
 type ColumnLoadMode = "reset" | "append";
 type ColumnStateMap = Record<DashboardBucket, ColumnLoadState>;
 type DashboardInFlightMap = Map<string, symbol>;
+type DashboardRequestTarget = DashboardBucket | "open";
+
+const openBuckets = ["ready", "yours", "other"] satisfies DashboardOpenBucket[];
 
 const bucketConfigs = [
   { bucket: "ready" },
@@ -80,16 +85,16 @@ function initialColumns(): ColumnStateMap {
   };
 }
 
-export function dashboardRequestKey(bucket: DashboardBucket, mode: ColumnLoadMode): string {
-  return `${bucket}:${mode}`;
+export function dashboardRequestKey(target: DashboardRequestTarget, mode: ColumnLoadMode): string {
+  return `${target}:${mode}`;
 }
 
 export function beginDashboardRequest(
   inFlight: DashboardInFlightMap,
-  bucket: DashboardBucket,
+  target: DashboardRequestTarget,
   mode: ColumnLoadMode,
 ): symbol | null {
-  const key = dashboardRequestKey(bucket, mode);
+  const key = dashboardRequestKey(target, mode);
   if (inFlight.has(key)) {
     return null;
   }
@@ -100,14 +105,14 @@ export function beginDashboardRequest(
 
 export function finishDashboardRequest(
   inFlight: DashboardInFlightMap,
-  bucket: DashboardBucket,
+  target: DashboardRequestTarget,
   mode: ColumnLoadMode,
   token: symbol | null,
 ) {
   if (!token) {
     return;
   }
-  const key = dashboardRequestKey(bucket, mode);
+  const key = dashboardRequestKey(target, mode);
   if (inFlight.get(key) === token) {
     inFlight.delete(key);
   }
@@ -213,6 +218,77 @@ export function DashboardBoardClient({
     ],
   );
 
+  const loadOpenBuckets = useCallback(
+    async (version = requestVersionRef.current) => {
+      const requestToken = beginDashboardRequest(inFlightRef.current, "open", "reset");
+      if (!requestToken) {
+        return;
+      }
+
+      setColumns((prev) => {
+        const next = { ...prev };
+        for (const bucket of openBuckets) {
+          next[bucket] = {
+            ...prev[bucket],
+            items: [],
+            isInitialLoading: true,
+            isLoadingMore: false,
+            error: null,
+          };
+        }
+        return next;
+      });
+
+      try {
+        const pages = await fetchDashboardOpenPullPages({
+          limit: 20,
+          q: debouncedQuery || undefined,
+          ordering: filters.ordering,
+          direction: filters.direction,
+          grouping: filters.grouping,
+          showDrafts: filters.showDrafts,
+        });
+        if (version !== requestVersionRef.current) {
+          return;
+        }
+        setColumns((prev) => {
+          const next = { ...prev };
+          for (const bucket of openBuckets) {
+            const page = pages[bucket];
+            next[bucket] = {
+              items: page.items,
+              count: page.count,
+              nextCursor: page.nextCursor,
+              isInitialLoading: false,
+              isLoadingMore: false,
+              error: null,
+            };
+          }
+          return next;
+        });
+      } catch {
+        if (version !== requestVersionRef.current) {
+          return;
+        }
+        setColumns((prev) => {
+          const next = { ...prev };
+          for (const bucket of openBuckets) {
+            next[bucket] = {
+              ...prev[bucket],
+              isInitialLoading: false,
+              isLoadingMore: false,
+              error: "Pull requests could not be loaded.",
+            };
+          }
+          return next;
+        });
+      } finally {
+        finishDashboardRequest(inFlightRef.current, "open", "reset", requestToken);
+      }
+    },
+    [debouncedQuery, filters.direction, filters.grouping, filters.ordering, filters.showDrafts],
+  );
+
   useEffect(() => {
     const version = requestVersionRef.current + 1;
     requestVersionRef.current = version;
@@ -220,9 +296,8 @@ export function DashboardBoardClient({
     setColumns(initialColumns());
     const activeObservers = observers.current;
 
-    for (const { bucket } of bucketConfigs) {
-      void loadBucket(bucket, "reset", version);
-    }
+    void loadOpenBuckets(version);
+    void loadBucket("completed", "reset", version);
 
     return () => {
       for (const observer of activeObservers.values()) {
@@ -237,6 +312,7 @@ export function DashboardBoardClient({
     filters.ordering,
     filters.showDrafts,
     loadBucket,
+    loadOpenBuckets,
   ]);
 
   const sentinelRef = useCallback(
@@ -271,9 +347,10 @@ export function DashboardBoardClient({
         emptyText: emptyText[bucket],
         dashed: bucket === "completed",
         sentinelRef: sentinelRef(bucket),
-        onRetry: () => void loadBucket(bucket, "reset"),
+        onRetry: () =>
+          void (bucket === "completed" ? loadBucket(bucket, "reset") : loadOpenBuckets()),
       })),
-    [columns, labels, loadBucket, sentinelRef],
+    [columns, labels, loadBucket, loadOpenBuckets, sentinelRef],
   );
 
   return (
