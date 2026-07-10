@@ -7,7 +7,7 @@ import {
   pageCompleted,
   pageCompletedByLines,
 } from "./dashboard-completed-pull-window.js";
-import { pullLineCounts, relativeTime } from "./dashboard-pull-details.js";
+import { pullLineCountsForPulls, relativeTime } from "./dashboard-pull-details.js";
 import type { DashboardCompletedPull, DashboardPull } from "./dashboard.facade.js";
 import type {
   CompletedCandidate,
@@ -84,15 +84,17 @@ export async function getDashboardPullPageForUser(
 }
 
 async function openPulls(candidates: OpenCandidate[]): Promise<DashboardPull[]> {
-  const pulls: DashboardPull[] = [];
-  for (const candidate of candidates) {
-    const lineCounts = await pullLineCounts(
-      candidate.octokit,
-      candidate.repo.owner,
-      candidate.repo.name,
-      candidate.pr.number,
-    );
-    pulls.push({
+  const lineCounts = await pullLineCountsForPulls(
+    candidates.map((candidate) => ({
+      octokit: candidate.octokit,
+      owner: candidate.repo.owner,
+      repo: candidate.repo.name,
+      pullNumber: candidate.pr.number,
+    })),
+  );
+  return candidates.map((candidate, index) => {
+    const counts = lineCounts[index] ?? { additions: 0, deletions: 0, changedFiles: 0 };
+    return {
       id: `${candidate.repo.owner}-${candidate.repo.name}-${candidate.pr.number}`,
       org: candidate.repo.owner,
       repo: candidate.repo.name,
@@ -103,11 +105,10 @@ async function openPulls(candidates: OpenCandidate[]): Promise<DashboardPull[]> 
       headBranch: candidate.pr.head.ref,
       baseBranch: candidate.pr.base.ref,
       risk: "low",
-      ...lineCounts,
+      ...counts,
       ...candidate.status,
-    });
-  }
-  return pulls;
+    };
+  });
 }
 
 async function pageOpen(
