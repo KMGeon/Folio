@@ -20,4 +20,15 @@ describe("MermaidDiagram", () => {
     expect(source).toContain('await import("mermaid")');
     expect(source).toContain("catch");
   });
+
+  it("resets source changes before a new render while retaining cancellation", () => {
+    const loadingReset = source.indexOf('setState({ kind: "loading" })');
+    const importStart = source.indexOf('await import("mermaid")');
+
+    expect(loadingReset).toBeGreaterThan(-1);
+    expect(loadingReset).toBeLessThan(importStart);
+    expect(source).toContain("let active = true");
+    expect(source).toContain("if (active)");
+    expect(source).toContain("active = false");
+  });
 });

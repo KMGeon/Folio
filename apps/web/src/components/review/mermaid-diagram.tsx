@@ -29,6 +29,8 @@ export function MermaidDiagram({ source, label }: { source: string; label: strin
         active = false;
       };
     }
+    // Do not leave a prior diagram visible while this source renders asynchronously.
+    setState({ kind: "loading" });
 
     async function renderDiagram() {
       try {
