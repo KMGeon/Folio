@@ -50,9 +50,52 @@ export function GlobalNavigationRail({ user }: { user: SessionUser | null }) {
   }
 
   return (
-    <div ref={disclosureRef} className="relative z-50 h-svh w-12 shrink-0">
+    <div ref={disclosureRef} className="relative z-50 h-svh w-12 shrink-0 lg:w-60">
+      <aside className="hidden h-svh w-60 flex-col border-r bg-sidebar lg:flex">
+        <div className="flex h-12 items-center gap-2 border-b px-3">
+          <BrandMark className="size-7" imageClassName="size-5" />
+          <span className="font-serif text-base italic">Folio</span>
+        </div>
+        <nav className="grid gap-1 p-2">
+          {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+            const active = isActivePath(pathname, href);
+            return (
+              <Link
+                key={href}
+                href={href}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "flex h-9 items-center gap-2.5 rounded-md px-3 text-sm transition-colors",
+                  active
+                    ? "bg-accent font-medium text-foreground"
+                    : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                )}
+              >
+                <Icon className="size-4" />
+                {label}
+              </Link>
+            );
+          })}
+        </nav>
+        <div className="mt-auto border-t p-2">
+          <div className="flex items-center gap-2 px-2 py-2">
+            <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+              {user?.login ?? "Folio"}
+            </span>
+            <button
+              type="button"
+              onClick={signOut}
+              aria-label="로그아웃"
+              className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+            >
+              <LogOut className="size-3.5" />
+            </button>
+          </div>
+        </div>
+      </aside>
+
       {/* Keep the primary rail in normal flow so it remains visible before the drawer is opened. */}
-      <aside className="flex h-svh w-12 flex-col items-center border-r bg-card/70 py-2">
+      <aside className="flex h-svh w-12 flex-col items-center border-r bg-card/70 py-2 lg:hidden">
         <button
           type="button"
           aria-controls="global-navigation-drawer"
@@ -95,7 +138,7 @@ export function GlobalNavigationRail({ user }: { user: SessionUser | null }) {
       <div
         id="global-navigation-drawer"
         className={cn(
-          "absolute inset-y-0 left-12 flex h-svh w-60 max-w-[calc(100vw-3rem)] flex-col border-r bg-popover shadow-lg transition-transform duration-150 motion-reduce:transition-none",
+          "absolute inset-y-0 left-12 flex h-svh w-60 max-w-[calc(100vw-3rem)] flex-col border-r bg-popover shadow-lg transition-transform duration-150 motion-reduce:transition-none lg:hidden",
           open ? "translate-x-0" : "pointer-events-none -translate-x-full",
         )}
       >
