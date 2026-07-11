@@ -57,7 +57,7 @@ export function ReviewTopBar({
   const StatusIcon = status.icon;
 
   return (
-    <div className="shrink-0 px-4 py-4 md:px-6">
+    <div className="shrink-0 px-4 pt-3 md:px-6">
       <div className="flex items-start justify-between gap-4">
         <div className="flex min-w-0 flex-col gap-2.5">
           <div className="flex flex-wrap items-center gap-2.5">

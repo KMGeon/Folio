@@ -15,7 +15,7 @@ describe("ReviewView source", () => {
     expect(chapterCardsSource).toContain("font-sans text-sm");
     expect(chapterCardsSource).toContain("font-mono text-xs");
     expect(topBarSource).toContain("font-sans text-2xl");
-    expect(topBarSource).toContain("px-4 py-4 md:px-6");
+    expect(topBarSource).toContain("px-4 pt-3 md:px-6");
     expect(source).toContain("overflow-y-auto px-4 py-3 md:px-6");
   });
 
