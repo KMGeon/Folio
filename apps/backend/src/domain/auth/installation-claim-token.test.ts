@@ -1,3 +1,4 @@
+import { verifyWebhookSignature } from "@folio/github";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createInstallationClaimToken,
@@ -64,5 +65,18 @@ describe("installation claim token", () => {
     );
 
     expect(verifyInstallationClaimToken(token, "other-secret")).toBeNull();
+  });
+
+  it("cannot replay a claim signature as a valid GitHub webhook signature", () => {
+    vi.setSystemTime(now);
+    const token = createInstallationClaimToken(
+      { userId: "user-1", installationId: 123, expiresAt: now.getTime() + 60_000 },
+      secret,
+    );
+    const [encodedPayload, encodedSignature] = token.split(".");
+    const rawBody = `folio-installation-claim.v1.${encodedPayload}`;
+    const webhookHeader = `sha256=${Buffer.from(encodedSignature!, "base64url").toString("hex")}`;
+
+    expect(verifyWebhookSignature(rawBody, webhookHeader, secret)).toBe(false);
   });
 });

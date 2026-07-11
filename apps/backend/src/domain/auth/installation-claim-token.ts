@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, hkdfSync, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 
 const ClaimPayloadSchema = z.object({
@@ -14,11 +14,20 @@ export interface InstallationClaimPayload {
 }
 
 const SIGNATURE_DOMAIN = "folio-installation-claim.v1";
+const CLAIM_KEY_SALT = Buffer.from("folio/github-webhook-root/v1", "utf8");
+const CLAIM_KEY_INFO = Buffer.from("folio-installation-claim/v1", "utf8");
+
+function deriveClaimSigningKey(secret: string): Buffer {
+  return Buffer.from(
+    hkdfSync("sha256", Buffer.from(secret, "utf8"), CLAIM_KEY_SALT, CLAIM_KEY_INFO, 32),
+  );
+}
 
 function sign(encodedPayload: string, secret: string): Buffer {
-  // Domain separation lets the server-only webhook secret sign claims without creating a
-  // signature that could be replayed as GitHub webhook verification evidence.
-  return createHmac("sha256", secret).update(`${SIGNATURE_DOMAIN}.${encodedPayload}`).digest();
+  // A claim-only HKDF key prevents claim MACs from being replayed as GitHub webhook MACs.
+  return createHmac("sha256", deriveClaimSigningKey(secret))
+    .update(`${SIGNATURE_DOMAIN}.${encodedPayload}`)
+    .digest();
 }
 
 export function createInstallationClaimToken(
