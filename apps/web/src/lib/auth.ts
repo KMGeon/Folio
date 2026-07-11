@@ -82,6 +82,10 @@ export function logoutUrl(): string {
   return new URL("/api/v1/auth/logout", webEnv.apiBaseUrl).toString();
 }
 
+export function installationUrl(): string {
+  return new URL("/api/v1/auth/github/install", webEnv.apiBaseUrl).toString();
+}
+
 /**
  * Returns the current user, or null when unauthenticated. Pass `cookie` from a
  * server component (credentials:"include" only attaches cookies in the browser).

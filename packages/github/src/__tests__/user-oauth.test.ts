@@ -82,11 +82,20 @@ describe("getAuthenticatedUser", () => {
 });
 
 describe("verifyUserInstallationAccess", () => {
-  it("accepts the exact installation returned by the authenticated-user API", async () => {
-    const fetchImpl = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ id: 123 }),
-    });
+  it("finds the exact installation across documented paginated list responses", async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          total_count: 101,
+          installations: Array.from({ length: 100 }, (_, index) => ({ id: index + 1 })),
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ total_count: 101, installations: [{ id: 123 }] }),
+      });
 
     await expect(
       verifyUserInstallationAccess({
@@ -96,16 +105,25 @@ describe("verifyUserInstallationAccess", () => {
       }),
     ).resolves.toBeUndefined();
 
-    expect(fetchImpl).toHaveBeenCalledWith(
-      "https://api.github.com/user/installations/123",
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      1,
+      "https://api.github.com/user/installations?per_page=100&page=1",
       expect.objectContaining({
         headers: expect.objectContaining({ authorization: "Bearer gho_secret" }),
       }),
     );
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      2,
+      "https://api.github.com/user/installations?per_page=100&page=2",
+      expect.any(Object),
+    );
   });
 
   it("rejects an installation that the authenticated user cannot access", async () => {
-    const fetchImpl = vi.fn().mockResolvedValue({ ok: false, status: 404 });
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ total_count: 1, installations: [{ id: 456 }] }),
+    });
 
     await expect(
       verifyUserInstallationAccess({
@@ -113,14 +131,11 @@ describe("verifyUserInstallationAccess", () => {
         installationId: 999,
         fetchImpl: fetchImpl as unknown as typeof fetch,
       }),
-    ).rejects.toThrow("GitHub user installation access check failed: HTTP 404");
+    ).rejects.toThrow("GitHub user installation access check did not find installation 999");
   });
 
-  it("rejects a mismatched installation response", async () => {
-    const fetchImpl = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ id: 456 }),
-    });
+  it("rejects a paginated GitHub API failure", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: false, status: 503 });
 
     await expect(
       verifyUserInstallationAccess({
@@ -128,6 +143,6 @@ describe("verifyUserInstallationAccess", () => {
         installationId: 123,
         fetchImpl: fetchImpl as unknown as typeof fetch,
       }),
-    ).rejects.toThrow("GitHub user installation access check returned a mismatched installation");
+    ).rejects.toThrow("GitHub user installation access check failed: HTTP 503");
   });
 });

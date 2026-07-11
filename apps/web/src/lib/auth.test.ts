@@ -3,6 +3,7 @@ import {
   AuthorizationApiError,
   approveGlobalUser,
   changeMemberRole,
+  installationUrl,
   listGlobalUsers,
   listWorkspaceMembers,
   removeMember,
@@ -44,6 +45,10 @@ afterEach(() => {
 });
 
 describe("authorization API clients", () => {
+  it("builds the backend GitHub App installation initiation URL", () => {
+    expect(installationUrl()).toBe("http://localhost:8080/api/v1/auth/github/install");
+  });
+
   it("lists exact workspace member fields and forwards a server cookie", async () => {
     const members = [
       {

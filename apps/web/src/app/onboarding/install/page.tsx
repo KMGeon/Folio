@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { AppLayout } from "@/components/app-layout";
 import { ClaimWorkspaceButton } from "@/components/claim-workspace-button";
 import { Button } from "@/components/ui/button";
-import { getMe } from "@/lib/auth";
+import { getMe, installationUrl } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -30,8 +30,7 @@ export default async function InstallPage({
 }) {
   const { installation_id: rawInstallationId } = await searchParams;
   const installationId = parseInstallationId(rawInstallationId);
-  const appSlug = process.env.GITHUB_APP_SLUG ?? process.env.NEXT_PUBLIC_GITHUB_APP_SLUG;
-  const installationUrl = appSlug ? `https://github.com/apps/${appSlug}/installations/new` : null;
+  const installHref = installationUrl();
   const cookieHeader = (await cookies())
     .getAll()
     .map((c) => `${c.name}=${c.value}`)
@@ -96,17 +95,13 @@ export default async function InstallPage({
 
               {installationId ? (
                 <ClaimWorkspaceButton installationId={installationId} />
-              ) : installationUrl ? (
+              ) : (
                 <Button className="mt-8" asChild>
-                  <a href={installationUrl}>
+                  <a href={installHref}>
                     <Github className="size-4" />
                     GitHub에서 설치
                     <ArrowUpRight className="size-4" />
                   </a>
-                </Button>
-              ) : (
-                <Button className="mt-8" disabled>
-                  GitHub App 설정 필요
                 </Button>
               )}
             </section>

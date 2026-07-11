@@ -87,18 +87,43 @@ export async function verifyUserInstallationAccess(input: {
   fetchImpl?: typeof fetch;
 }): Promise<void> {
   const doFetch = input.fetchImpl ?? fetch;
-  const res = await doFetch(`${USER_INSTALLATIONS_URL}/${input.installationId}`, {
-    headers: {
-      authorization: `Bearer ${input.accessToken}`,
-      accept: "application/vnd.github+json",
-      "user-agent": "folio",
-    },
-  });
-  if (!res.ok) {
-    throw new Error(`GitHub user installation access check failed: HTTP ${res.status}`);
+  const perPage = 100;
+  let page = 1;
+  let seen = 0;
+
+  for (;;) {
+    const url = new URL(USER_INSTALLATIONS_URL);
+    url.searchParams.set("per_page", String(perPage));
+    url.searchParams.set("page", String(page));
+    const res = await doFetch(url.toString(), {
+      headers: {
+        authorization: `Bearer ${input.accessToken}`,
+        accept: "application/vnd.github+json",
+        "x-github-api-version": "2022-11-28",
+        "user-agent": "folio",
+      },
+    });
+    if (!res.ok) {
+      throw new Error(`GitHub user installation access check failed: HTTP ${res.status}`);
+    }
+    const data = (await res.json()) as {
+      total_count?: number;
+      installations?: { id?: number }[];
+    };
+    if (!Array.isArray(data.installations) || typeof data.total_count !== "number") {
+      throw new Error("GitHub user installation access check returned an invalid list response");
+    }
+    if (data.installations.some((installation) => installation.id === input.installationId)) {
+      return;
+    }
+    seen += data.installations.length;
+    if (data.installations.length < perPage || seen >= data.total_count) {
+      break;
+    }
+    page += 1;
   }
-  const data = (await res.json()) as { id?: number };
-  if (data.id !== input.installationId) {
-    throw new Error("GitHub user installation access check returned a mismatched installation");
-  }
+
+  throw new Error(
+    `GitHub user installation access check did not find installation ${input.installationId}`,
+  );
 }

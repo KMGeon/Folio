@@ -8,6 +8,7 @@ vi.mock("next/headers", () => ({
 
 vi.mock("@/lib/auth", () => ({
   getMe: vi.fn(async () => null),
+  installationUrl: vi.fn(() => "http://localhost:8080/api/v1/auth/github/install"),
 }));
 
 import InstallPage from "./page";
@@ -31,7 +32,6 @@ describe("InstallPage", () => {
   it.each([undefined, "0", "-1", "1.5", "not-a-number"])(
     "renders the configured GitHub installation link for invalid id %s",
     async (installationId) => {
-      process.env.GITHUB_APP_SLUG = "folio-dev";
       const page = await InstallPage({
         searchParams: Promise.resolve({ installation_id: installationId }),
       });
@@ -41,7 +41,7 @@ describe("InstallPage", () => {
         page,
         (element) =>
           element.type === "a" &&
-          element.props.href === "https://github.com/apps/folio-dev/installations/new",
+          element.props.href === "http://localhost:8080/api/v1/auth/github/install",
       );
       expect(link).not.toBeNull();
     },

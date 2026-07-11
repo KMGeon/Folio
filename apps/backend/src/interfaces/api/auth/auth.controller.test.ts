@@ -95,6 +95,18 @@ async function createServer(profile: "dev" | "prd" = "prd") {
   return app;
 }
 
+async function initiateInstallation(app: Awaited<ReturnType<typeof createServer>>) {
+  const initiation = await request(app.getHttpServer()).get("/api/v1/auth/github/install");
+  const cookies = initiation.headers["set-cookie"] as unknown as string[];
+  const stateCookie = cookies.find((cookie) => cookie.startsWith("folio_installation_state="));
+  const location = new URL(initiation.headers.location as string);
+  return {
+    initiation,
+    state: location.searchParams.get("state"),
+    cookie: stateCookie?.split(";", 1)[0] ?? "",
+  };
+}
+
 describe("auth routes", () => {
   afterEach(() => {
     sessionStore.clear();
@@ -111,6 +123,23 @@ describe("auth routes", () => {
     expect((res.headers["set-cookie"] as unknown as string[]).join()).toContain(
       "folio_oauth_state",
     );
+    await app.close();
+  });
+
+  it("installation initiation sets a fresh HttpOnly state cookie and redirects to GitHub", async () => {
+    const app = await createServer();
+    const first = await initiateInstallation(app);
+    const second = await initiateInstallation(app);
+
+    expect(first.initiation.status).toBe(302);
+    expect(first.initiation.headers.location).toBe(
+      `https://github.com/apps/folio-dev/installations/new?state=${first.state}`,
+    );
+    expect(first.cookie).toContain("folio_installation_state=");
+    expect((first.initiation.headers["set-cookie"] as unknown as string[]).join()).toContain(
+      "HttpOnly",
+    );
+    expect(first.state).not.toBe(second.state);
     await app.close();
   });
 
@@ -167,7 +196,7 @@ describe("auth routes", () => {
     await app.close();
   });
 
-  it("completes login for a GitHub App installation callback without oauth state", async () => {
+  it("completes login for a state-bound GitHub App installation callback", async () => {
     upsertByGithubId.mockResolvedValue({
       id: "u1",
       login: "octocat",
@@ -176,16 +205,24 @@ describe("auth routes", () => {
       globalStatus: "active",
     });
     const app = await createServer();
-    const res = await request(app.getHttpServer()).get(
-      "/api/v1/auth/github/callback?code=good&installation_id=123&setup_action=install",
-    );
+    const { cookie, state } = await initiateInstallation(app);
+    const res = await request(app.getHttpServer())
+      .get(
+        `/api/v1/auth/github/callback?code=good&installation_id=123&setup_action=install&state=${state}`,
+      )
+      .set("Cookie", cookie);
     expect(res.status).toBe(302);
     expect(res.headers.location).toBe(
       "http://localhost:5173/onboarding/install?installation_id=123",
     );
     const cookies = res.headers["set-cookie"] as unknown as string[];
     expect(cookies.join()).toContain("folio_session");
-    const claimCookie = cookies.find((cookie) => cookie.startsWith("folio_installation_claim="));
+    expect(cookies.find((item) => item.startsWith("folio_installation_state="))).toContain(
+      "Expires=Thu, 01 Jan 1970",
+    );
+    const claimCookie = cookies
+      .filter((cookie) => cookie.startsWith("folio_installation_claim="))
+      .at(-1);
     expect(claimCookie).toContain("HttpOnly");
     expect(claimCookie).toContain("Max-Age=600");
     const token = claimCookie?.split(";", 1)[0]?.split("=", 2)[1];
@@ -197,6 +234,55 @@ describe("auth routes", () => {
       installationId: 123,
     });
     expect(res.text).not.toContain("gho_secret");
+    await app.close();
+  });
+
+  it.each([
+    ["manual callback without setup action", "&state=valid", "valid"],
+    ["callback with missing installation state", "&setup_action=install", "valid"],
+    ["callback with missing installation state cookie", "&setup_action=install&state=valid", ""],
+    ["callback with mismatched installation state", "&setup_action=install&state=wrong", "valid"],
+    ["update callback", "&setup_action=update&state=valid", "valid"],
+  ])("rejects %s before OAuth exchange", async (_label, suffix, cookieMode) => {
+    const app = await createServer();
+    const initiated = await initiateInstallation(app);
+    const callbackSuffix = suffix.replaceAll("valid", initiated.state ?? "");
+    const callbackCookie = cookieMode === "valid" ? initiated.cookie : "";
+
+    const res = await request(app.getHttpServer())
+      .get(`/api/v1/auth/github/callback?code=good&installation_id=123${callbackSuffix}`)
+      .set("Cookie", callbackCookie);
+
+    expect(res.status).toBe(400);
+    expect(githubMocks.exchangeOAuthCode).not.toHaveBeenCalled();
+    const cookies = (res.headers["set-cookie"] as unknown as string[] | undefined) ?? [];
+    expect(cookies.find((item) => item.startsWith("folio_installation_state="))).toContain(
+      "Expires=Thu, 01 Jan 1970",
+    );
+    expect(cookies.find((item) => item.startsWith("folio_installation_claim="))).toContain(
+      "Expires=Thu, 01 Jan 1970",
+    );
+    await app.close();
+  });
+
+  it("rejects a replay after the installation state cookie has been cleared", async () => {
+    upsertByGithubId.mockResolvedValue({
+      id: "u1",
+      login: "octocat",
+      avatarUrl: "https://avatars/octocat",
+      status: "approved",
+      globalStatus: "active",
+    });
+    const app = await createServer();
+    const { cookie, state } = await initiateInstallation(app);
+    const callback = `/api/v1/auth/github/callback?code=good&installation_id=123&setup_action=install&state=${state}`;
+
+    const first = await request(app.getHttpServer()).get(callback).set("Cookie", cookie);
+    const second = await request(app.getHttpServer()).get(callback);
+
+    expect(first.status).toBe(302);
+    expect(second.status).toBe(400);
+    expect(githubMocks.exchangeOAuthCode).toHaveBeenCalledTimes(1);
     await app.close();
   });
 
@@ -217,15 +303,21 @@ describe("auth routes", () => {
     githubMocks.verifyUserInstallationAccess.mockRejectedValueOnce(failure);
     const errorLog = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const app = await createServer();
+    const { cookie, state } = await initiateInstallation(app);
 
-    const res = await request(app.getHttpServer()).get(
-      "/api/v1/auth/github/callback?code=good&installation_id=999&setup_action=install",
-    );
+    const res = await request(app.getHttpServer())
+      .get(
+        `/api/v1/auth/github/callback?code=good&installation_id=999&setup_action=install&state=${state}`,
+      )
+      .set("Cookie", cookie);
 
     expect(res.status).not.toBe(302);
     expect(res.headers.location).toBeUndefined();
     const cookies = (res.headers["set-cookie"] as unknown as string[] | undefined) ?? [];
     expect(cookies.find((cookie) => cookie.startsWith("folio_installation_claim="))).toContain(
+      "Expires=Thu, 01 Jan 1970",
+    );
+    expect(cookies.find((item) => item.startsWith("folio_installation_state="))).toContain(
       "Expires=Thu, 01 Jan 1970",
     );
     expect(cookies.join()).not.toContain("gho_secret");
@@ -244,10 +336,13 @@ describe("auth routes", () => {
       globalStatus: "pending",
     });
     const app = await createServer();
+    const { cookie, state } = await initiateInstallation(app);
 
-    const res = await request(app.getHttpServer()).get(
-      "/api/v1/auth/github/callback?code=good&installation_id=123&setup_action=install",
-    );
+    const res = await request(app.getHttpServer())
+      .get(
+        `/api/v1/auth/github/callback?code=good&installation_id=123&setup_action=install&state=${state}`,
+      )
+      .set("Cookie", cookie);
 
     expect(res.status).toBe(302);
     expect(res.headers.location).toBe("http://localhost:5173/login?status=pending");
@@ -273,10 +368,13 @@ describe("auth routes", () => {
         globalStatus: "active",
       });
       const app = await createServer();
+      const { cookie, state } = await initiateInstallation(app);
 
-      const res = await request(app.getHttpServer()).get(
-        `/api/v1/auth/github/callback?code=good&installation_id=${installationId}&setup_action=install`,
-      );
+      const res = await request(app.getHttpServer())
+        .get(
+          `/api/v1/auth/github/callback?code=good&installation_id=${installationId}&setup_action=install&state=${state}`,
+        )
+        .set("Cookie", cookie);
 
       expect(res.status).toBe(400);
       await app.close();

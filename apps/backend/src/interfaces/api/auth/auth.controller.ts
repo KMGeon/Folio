@@ -26,6 +26,7 @@ import {
 } from "../common/session-auth.guard.js";
 
 const STATE_COOKIE = "folio_oauth_state";
+const INSTALLATION_STATE_COOKIE = "folio_installation_state";
 const SESSION_COOKIE = "folio_session";
 const INSTALLATION_CLAIM_COOKIE = "folio_installation_claim";
 const STATE_TTL_MS = 10 * 60 * 1000;
@@ -73,6 +74,23 @@ export class AuthController {
     res.redirect(this.github.authorizeUrl(state));
   }
 
+  @Get("github/install")
+  install(@Res() res: Response): void {
+    const state = randomBytes(16).toString("hex");
+    res.cookie(INSTALLATION_STATE_COOKIE, state, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: cookieIsSecure(),
+      maxAge: STATE_TTL_MS,
+      path: "/",
+    });
+    const installationUrl = new URL(
+      `https://github.com/apps/${config.GITHUB_APP_SLUG ?? ""}/installations/new`,
+    );
+    installationUrl.searchParams.set("state", state);
+    res.redirect(installationUrl.toString());
+  }
+
   @Get("github/callback")
   async callback(
     @Query("code") code: string | undefined,
@@ -82,11 +100,26 @@ export class AuthController {
     @Req() req: AuthedRequest,
     @Res() res: Response,
   ): Promise<void> {
-    if (code && installationId !== undefined && setupAction) {
-      // GitHub App installation completion does not echo our OAuth state cookie.
+    if (installationId !== undefined || setupAction !== undefined) {
+      // Installation setup parameters are attacker-controlled, so consume the nonce before OAuth.
+      res.clearCookie(INSTALLATION_STATE_COOKIE, { path: "/" });
+      res.clearCookie(INSTALLATION_CLAIM_COOKIE, { path: "/" });
+      const installationStateCookie = req.cookies?.[INSTALLATION_STATE_COOKIE];
+      if (
+        !code ||
+        setupAction !== "install" ||
+        !state ||
+        typeof installationStateCookie !== "string" ||
+        state !== installationStateCookie
+      ) {
+        throw new BadRequestException("invalid GitHub App installation callback");
+      }
       const parsedInstallationId = Number(installationId);
-      if (!/^[1-9]\d*$/.test(installationId) || !Number.isSafeInteger(parsedInstallationId)) {
-        res.clearCookie(INSTALLATION_CLAIM_COOKIE, { path: "/" });
+      if (
+        typeof installationId !== "string" ||
+        !/^[1-9]\d*$/.test(installationId) ||
+        !Number.isSafeInteger(parsedInstallationId)
+      ) {
         throw new BadRequestException("installation_id must be a positive integer");
       }
       try {
