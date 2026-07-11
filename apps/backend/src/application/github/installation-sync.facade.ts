@@ -67,8 +67,16 @@ export class InstallationSyncFacade {
 
     // Keep the installation as a tombstone while atomically revoking repository eligibility.
     await getDb().transaction(async (transaction) => {
-      await installationsRepo.setSuspendedAt(installation.id, at, transaction);
-      await repositoriesRepo.disconnectInstallation(installation.id, transaction);
+      // Match reconciliation's installation-before-repositories lock order to avoid races/deadlocks.
+      const lockedInstallation = await installationsRepo.getByIdForUpdate(
+        installation.id,
+        transaction,
+      );
+      if (!lockedInstallation) {
+        return;
+      }
+      await installationsRepo.setSuspendedAt(lockedInstallation.id, at, transaction);
+      await repositoriesRepo.disconnectInstallation(lockedInstallation.id, transaction);
     });
   }
 }

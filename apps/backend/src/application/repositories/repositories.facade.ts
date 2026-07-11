@@ -64,9 +64,10 @@ export class RepositoriesFacade {
       repositoriesRepo.listByWorkspaceId(workspace.id),
       installationsRepo.listByWorkspaceAccountId(workspace.githubAccountId),
     ]);
-    const activeInstallation = installations.find(
-      (installation) => installation.suspendedAt === null,
-    );
+    // GitHub installation ids increase over time, so the newest active row wins if legacy data is corrupt.
+    const activeInstallation = installations
+      .filter((installation) => installation.suspendedAt === null)
+      .sort((left, right) => right.githubInstallationId - left.githubInstallationId)[0];
     return {
       githubInstallationId: activeInstallation?.githubInstallationId ?? null,
       repositories: repos.map(toRepository),

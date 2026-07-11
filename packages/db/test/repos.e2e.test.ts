@@ -194,6 +194,35 @@ d("repositories (e2e)", () => {
     });
   });
 
+  it("skips reconciliation after the installation is suspended", async () => {
+    const original = await repositoriesRepo.getById(base.repoId, db);
+    await repositoriesRepo.setFolioEnabled(base.repoId, true, db);
+    await installationsRepo.setSuspendedAt(base.installationId, new Date(), db);
+    await repositoriesRepo.disconnectInstallation(base.installationId, db);
+
+    const reconciled = await repositoriesRepo.reconcileInstallationAccess(
+      base.installationId,
+      null,
+      [
+        {
+          githubRepoId: original!.githubRepoId,
+          owner: original!.owner,
+          name: original!.name,
+          fullName: original!.fullName,
+          private: original!.private,
+          defaultBranch: original!.defaultBranch,
+        },
+      ],
+      db,
+    );
+
+    expect(reconciled).toEqual([]);
+    await expect(repositoriesRepo.getById(base.repoId, db)).resolves.toMatchObject({
+      githubAccessActive: false,
+      folioEnabled: false,
+    });
+  });
+
   it("preserves an existing workspace link when reconciliation has no workspace", async () => {
     const original = await repositoriesRepo.getById(base.repoId, db);
     const workspace = await workspacesRepo.create(

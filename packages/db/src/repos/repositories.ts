@@ -1,6 +1,7 @@
 import { and, eq, inArray, notInArray } from "drizzle-orm";
 import { type Db, getDb } from "../client.js";
 import { type RepositoryInsert, type RepositoryRow, repositories } from "../schema/repositories.js";
+import { installationsRepo } from "./installations.js";
 
 export interface RepositorySyncInput {
   githubRepoId: number;
@@ -118,6 +119,12 @@ export const repositoriesRepo = {
     db: Db = getDb(),
   ): Promise<RepositoryRow[]> {
     return db.transaction(async (tx) => {
+      // Serialize against suspension/deletion before any repository lock or write.
+      const installation = await installationsRepo.getByIdForUpdate(installationId, tx);
+      if (!installation || installation.suspendedAt !== null) {
+        return [];
+      }
+
       const activeRows: RepositoryRow[] = [];
 
       for (const input of inputs) {

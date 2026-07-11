@@ -5,6 +5,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { RepositorySummary } from "@/lib/repositories-api";
+import { ApiError } from "@/lib/api-client";
 
 const mocks = vi.hoisted(() => ({
   setRepositoryEnabled: vi.fn(),
@@ -72,7 +73,14 @@ describe("RepositorySettingsTable", () => {
     expect(disconnected.textContent).toContain("연결 해제됨");
     expect(disconnected.className).toContain("text-muted-foreground");
     expect(switchButton.getAttribute("aria-checked")).toBe("false");
-    expect(switchButton.getAttribute("aria-label")).toContain("acme/disconnected");
+    expect(switchButton.getAttribute("aria-label")).toBe(
+      "acme/disconnected Folio 리뷰 사용 불가: GitHub 앱 연결 해제됨",
+    );
+    const describedBy = switchButton.getAttribute("aria-describedby");
+    expect(describedBy).toBe("repository-repo-disconnected-disabled-reason");
+    expect(disconnected.querySelector(`#${describedBy}`)?.textContent).toContain(
+      "GitHub 앱 연결이 해제되어",
+    );
     expect(switchButton.tagName).toBe("BUTTON");
     expect(switchButton.type).toBe("button");
     expect(switchButton.getAttribute("role")).toBe("switch");
@@ -135,6 +143,41 @@ describe("RepositorySettingsTable", () => {
     );
   });
 
+  it("maps GitHub permission denial to a specific described row error", async () => {
+    mocks.setRepositoryEnabled.mockRejectedValue(
+      apiError("repo_access_denied", "You do not have access to this repository.", 403),
+    );
+    const container = await mount();
+    const alpha = row(container, "acme/alpha");
+    const switchButton = switchFor(container, "acme/alpha");
+
+    await act(async () => switchButton.click());
+
+    const alert = alpha.querySelector<HTMLElement>('[role="alert"]')!;
+    expect(alert.textContent).toContain("GitHub 관리자 권한이 필요합니다.");
+    expect(alert.id).toBe("repository-repo-alpha-mutation-error");
+    expect(switchButton.getAttribute("aria-describedby")).toBe(alert.id);
+  });
+
+  it("forces a disconnected conflict off and disables the local repository row", async () => {
+    mocks.setRepositoryEnabled.mockRejectedValue(
+      apiError("repository_disconnected", "Repository is no longer connected.", 409),
+    );
+    const container = await mount();
+    const alpha = row(container, "acme/alpha");
+    const switchButton = switchFor(container, "acme/alpha");
+
+    await act(async () => switchButton.click());
+
+    expect(switchButton.getAttribute("aria-checked")).toBe("false");
+    expect(switchButton.disabled).toBe(true);
+    expect(switchButton.getAttribute("aria-label")).toContain("연결 해제됨");
+    expect(alpha.textContent).toContain("연결 해제됨");
+    expect(alpha.querySelector('[role="alert"]')?.textContent).toContain(
+      "GitHub 앱 연결이 해제되었습니다.",
+    );
+  });
+
   it("disables all switches with the authorization reason and does not call the API", async () => {
     const reason = "워크스페이스 관리자 권한이 필요합니다.";
     const container = await mount(reason);
@@ -143,6 +186,9 @@ describe("RepositorySettingsTable", () => {
 
     expect(alpha.textContent).toContain(reason);
     expect(switchButton.disabled).toBe(true);
+    expect(switchButton.getAttribute("aria-describedby")).toBe(
+      "repository-repo-alpha-disabled-reason",
+    );
     await act(async () => switchButton.click());
     expect(mocks.setRepositoryEnabled).not.toHaveBeenCalled();
   });
@@ -217,4 +263,16 @@ function deferred<T>() {
     resolve = done;
   });
   return { promise, resolve };
+}
+
+function apiError(code: string, message: string, status: number) {
+  return new ApiError(
+    {
+      success: false,
+      error: { code, message },
+      path: "/api/v1/repositories/repo-alpha/enabled",
+      timestamp: "2026-07-11T00:00:00.000Z",
+    },
+    status,
+  );
 }

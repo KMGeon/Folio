@@ -188,6 +188,18 @@ describe("RepositoriesFacade", () => {
     });
   });
 
+  it("deterministically selects the newest active GitHub installation", async () => {
+    vi.mocked(installationsRepo.listByWorkspaceAccountId).mockResolvedValue([
+      { ...installation, id: "installation-z", githubInstallationId: 200, suspendedAt: null },
+      { ...installation, id: "installation-a", githubInstallationId: 300, suspendedAt: null },
+      { ...installation, id: "installation-old", githubInstallationId: 999, suspendedAt: now },
+    ]);
+
+    const result = await facade.listForUser({ userId: user.id, login: user.login });
+
+    expect(result.githubInstallationId).toBe(300);
+  });
+
   it("returns an empty list when the actor has no workspace", async () => {
     resolver.firstWorkspaceForUser.mockResolvedValue(null);
 

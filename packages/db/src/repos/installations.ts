@@ -20,6 +20,16 @@ export const installationsRepo = {
     return row ?? null;
   },
 
+  async getByIdForUpdate(id: string, db: Db = getDb()): Promise<InstallationRow | null> {
+    const [row] = await db
+      .select()
+      .from(installations)
+      .where(eq(installations.id, id))
+      .limit(1)
+      .for("update");
+    return row ?? null;
+  },
+
   async getByGithubId(
     githubInstallationId: number,
     db: Db = getDb(),
