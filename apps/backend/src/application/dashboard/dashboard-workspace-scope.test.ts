@@ -5,7 +5,7 @@ import {
   workspacesRepo,
 } from "@folio/db";
 import { MEMBERSHIP_STATUS, WORKSPACE_ROLE } from "@folio/types";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CoreException } from "../../support/error/core-exception.js";
 import type { DashboardResolvedRepositoryBatchAuthorizer } from "./dashboard-workspace-scope.js";
 
@@ -36,6 +36,7 @@ vi.mock("../../infrastructure/github/github-contributions.js", () => ({
 
 const { DashboardFacade } = await import("./dashboard.facade.js");
 const { loadDashboardWorkspaceScope } = await import("./dashboard-workspace-scope.js");
+const originalEnv = { ...process.env };
 
 describe("dashboard workspace scope", () => {
   const filterReadableResolvedRepositories = vi.fn<DashboardResolvedRepositoryBatchAuthorizer>(
@@ -69,6 +70,10 @@ describe("dashboard workspace scope", () => {
         folioEnabled: false,
       } as never,
     ]);
+  });
+
+  afterEach(() => {
+    process.env = { ...originalEnv };
   });
 
   it("returns no scope when the actor has no workspace membership", async () => {
@@ -157,9 +162,10 @@ describe("dashboard workspace scope", () => {
   });
 
   it.each(["dashboard", "summary", "pulls", "open pulls"])(
-    "does not mint an installation token or expose unreadable repository data on %s",
+    "does not expose repositories denied by the dev permission adapter on %s",
     async (readPath) => {
-      filterReadableResolvedRepositories.mockResolvedValue([]);
+      process.env.APP_PROFILE = "dev";
+      process.env.NODE_ENV = "development";
       vi.mocked(repositoriesRepo.listByWorkspaceId).mockResolvedValue([
         {
           id: "repository-1",
@@ -170,10 +176,16 @@ describe("dashboard workspace scope", () => {
           folioEnabled: true,
         } as never,
       ]);
+      const getResolvedRepositoryPermissionLevels = vi.fn().mockResolvedValue(["none"]);
+      const { RepoAccessService } = await import("../../domain/auth/repo-access.service.js");
+      const repoAccess = new RepoAccessService({
+        getResolvedRepositoryPermissionLevels,
+        getUserRepoPermissionLevel: vi.fn(),
+      } as never);
       const octokitFactory = vi.fn();
       const facade = new DashboardFacade({
         octokitFactory,
-        repoAccess: { filterReadableResolvedRepositories },
+        repoAccess,
       });
 
       const user = { id: "user-1", login: "octocat" };
@@ -186,9 +198,15 @@ describe("dashboard workspace scope", () => {
               ? await facade.getPullPageForUser(user, { bucket: "ready" })
               : await facade.getOpenPullPagesForUser(user, {});
 
-      expect(filterReadableResolvedRepositories).toHaveBeenCalledWith({
+      expect(getResolvedRepositoryPermissionLevels).toHaveBeenCalledWith({
         installations: [{ id: "installation-1", githubInstallationId: 111 }],
-        repositories: [expect.objectContaining({ id: "repository-1", name: "folio" })],
+        repositories: [
+          {
+            installationId: "installation-1",
+            owner: "acme",
+            repo: "folio",
+          },
+        ],
         username: "octocat",
       });
       expect(octokitFactory).not.toHaveBeenCalled();

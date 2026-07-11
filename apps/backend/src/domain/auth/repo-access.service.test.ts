@@ -65,12 +65,12 @@ describe("RepoAccessService", () => {
     expect(getLevel).toHaveBeenCalledTimes(2);
   });
 
-  it("allows every repo in dev without calling GitHub", async () => {
+  it("denies unreadable repositories in dev through the injected adapter", async () => {
     const getLevel = vi.fn().mockResolvedValue("none");
     const svc = await createService("dev", getLevel);
 
-    await expect(svc.assertAccessAllowed(REF)).resolves.toBe(true);
-    expect(getLevel).not.toHaveBeenCalled();
+    await expect(svc.assertAccessAllowed(REF)).resolves.toBe(false);
+    expect(getLevel).toHaveBeenCalledWith(REF.owner, REF.repo, REF.username);
   });
 });
 
@@ -118,6 +118,23 @@ describe("RepoAccessService.filterReadableResolvedRepositories", () => {
       svc.filterReadableResolvedRepositories({ installations, repositories, username: "octocat" }),
     ).resolves.toEqual([]);
   });
+
+  it("excludes denied repositories from the dev dashboard batch path", async () => {
+    const getBatchLevels = vi.fn().mockResolvedValue(["read", "none"]);
+    const svc = await createService("dev", vi.fn(), getBatchLevels);
+
+    await expect(
+      svc.filterReadableResolvedRepositories({ installations, repositories, username: "octocat" }),
+    ).resolves.toEqual([repositories[0]]);
+    expect(getBatchLevels).toHaveBeenCalledWith({
+      installations,
+      repositories: [
+        { installationId: "installation-1", owner: "acme", repo: "cached" },
+        { installationId: "installation-1", owner: "acme", repo: "denied" },
+      ],
+      username: "octocat",
+    });
+  });
 });
 
 describe("RepoAccessService.getAccessLevel", () => {
@@ -132,11 +149,11 @@ describe("RepoAccessService.getAccessLevel", () => {
     expect(await svc.getAccessLevel(REF)).toBe("write");
   });
 
-  it("returns admin in dev without calling GitHub", async () => {
-    const getLevel = vi.fn().mockResolvedValue("none");
+  it("does not elevate a maintain-level actor to admin in dev", async () => {
+    const getLevel = vi.fn().mockResolvedValue("write");
     const svc = await createService("dev", getLevel);
-    expect(await svc.getAccessLevel(REF)).toBe("admin");
-    expect(getLevel).not.toHaveBeenCalled();
+    expect(await svc.assertLevelAtLeast(REF, "admin")).toBe(false);
+    expect(getLevel).toHaveBeenCalledWith(REF.owner, REF.repo, REF.username);
   });
 });
 

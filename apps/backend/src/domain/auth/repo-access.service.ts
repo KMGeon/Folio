@@ -1,6 +1,5 @@
 import type { GitHubRepoAccessLevel } from "@folio/github";
 import { Inject, Injectable } from "@nestjs/common";
-import { config } from "../../config.js";
 import { GitHubOAuthAdapter } from "../../infrastructure/github/github-oauth.adapter.js";
 
 const CACHE_TTL_MS = 60_000;
@@ -21,10 +20,6 @@ export class RepoAccessService {
     repo: string;
     username: string;
   }): Promise<GitHubRepoAccessLevel> {
-    if (config.APP_PROFILE === "dev") {
-      // Dev mode uses local fixture identity, so live GitHub repo checks would block local review UX.
-      return "admin";
-    }
     const key = `${input.username}:${input.owner}/${input.repo}`;
     const cached = this.levelCache.get(key);
     if (cached && cached.until > Date.now()) {
@@ -55,9 +50,6 @@ export class RepoAccessService {
     repositories: readonly T[];
     username: string;
   }): Promise<T[]> {
-    if (config.APP_PROFILE === "dev") {
-      return [...input.repositories];
-    }
     const readable = Array.from({ length: input.repositories.length }, () => false);
     const uncached: { index: number; repository: T }[] = [];
     input.repositories.forEach((repository, index) => {
