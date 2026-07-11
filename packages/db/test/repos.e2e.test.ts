@@ -97,6 +97,24 @@ d("repositories (e2e)", () => {
     expect(repo.folioEnabled).toBe(false);
   });
 
+  it("creates synchronized repositories with active GitHub access by default", async () => {
+    const row = await repositoriesRepo.create(
+      {
+        installationId: base.installationId,
+        githubRepoId: 987656,
+        owner: "acme",
+        name: "access-default",
+        fullName: "acme/access-default",
+        private: false,
+        defaultBranch: "main",
+      },
+      db,
+    );
+
+    expect(row.githubAccessActive).toBe(true);
+    expect(row.folioEnabled).toBe(false);
+  });
+
   it("preserves repository activation when syncing an existing repository", async () => {
     const enabled = await repositoriesRepo.setFolioEnabled(base.repoId, true, db);
 
