@@ -5,6 +5,7 @@ import {
   getDb,
   usersRepo,
   workspaceMembersRepo,
+  workspacesRepo,
 } from "@folio/db";
 import {
   AUDIT_ACTION,
@@ -209,7 +210,10 @@ export class WorkspaceMembersFacade {
     operation: (pair: LockedPair) => Promise<T>,
   ): Promise<T> {
     return getDb().transaction(async (transaction) => {
-      // Membership is first in membership → user → repository order; later audit FKs may lock users.
+      const workspace = await workspacesRepo.getByIdForUpdate(command.workspaceId, transaction);
+      if (!workspace) {
+        this.forbid();
+      }
       const orderedUserIds = [command.actorUserId, command.targetUserId].sort();
       const rows = await workspaceMembersRepo.getMembershipsForUpdate(
         command.workspaceId,

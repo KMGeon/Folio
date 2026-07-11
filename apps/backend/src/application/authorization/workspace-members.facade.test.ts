@@ -5,6 +5,7 @@ import {
   auditLogsRepo,
   usersRepo,
   workspaceMembersRepo,
+  workspacesRepo,
 } from "@folio/db";
 import {
   AUDIT_ACTION,
@@ -31,6 +32,7 @@ vi.mock("@folio/db", () => ({
     listByWorkspace: vi.fn(),
     updateRoleIfCurrent: vi.fn(),
   },
+  workspacesRepo: { getByIdForUpdate: vi.fn() },
 }));
 
 const membership = {
@@ -107,6 +109,7 @@ describe("WorkspaceMembersFacade", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     dbDouble.transaction.mockImplementation(async (callback) => callback(transactionHandle));
+    vi.mocked(workspacesRepo.getByIdForUpdate).mockResolvedValue({ id: "workspace-1" } as never);
     facade = new WorkspaceMembersFacade(membership as unknown as WorkspaceMembershipService);
   });
 
@@ -171,6 +174,10 @@ describe("WorkspaceMembersFacade", () => {
         targetUserId: "reviewer-1",
       });
 
+      expect(workspacesRepo.getByIdForUpdate).toHaveBeenCalledWith(
+        "workspace-1",
+        transactionHandle,
+      );
       expect(workspaceMembersRepo.getMembershipsForUpdate).toHaveBeenCalledWith(
         "workspace-1",
         ["admin-1", "reviewer-1"],
@@ -241,6 +248,32 @@ describe("WorkspaceMembersFacade", () => {
       ["a-reviewer", "z-admin"],
       transactionHandle,
     );
+  });
+
+  it("locks the workspace before member rows", async () => {
+    const order: string[] = [];
+    vi.mocked(workspacesRepo.getByIdForUpdate).mockImplementation(async () => {
+      order.push("workspace");
+      return { id: "workspace-1" } as never;
+    });
+    vi.mocked(workspaceMembersRepo.getMembershipsForUpdate).mockImplementation(async () => {
+      order.push("memberships");
+      return [
+        member("admin-1", WORKSPACE_ROLE.ADMIN),
+        member("reviewer-1", WORKSPACE_ROLE.REVIEWER),
+      ];
+    });
+    membership.suspendReviewer.mockResolvedValue(
+      member("reviewer-1", WORKSPACE_ROLE.REVIEWER, MEMBERSHIP_STATUS.SUSPENDED),
+    );
+
+    await facade.suspend({
+      workspaceId: "workspace-1",
+      actorUserId: "admin-1",
+      targetUserId: "reviewer-1",
+    });
+
+    expect(order).toEqual(["workspace", "memberships"]);
   });
 
   it.each(["suspend", "remove"] as const)(

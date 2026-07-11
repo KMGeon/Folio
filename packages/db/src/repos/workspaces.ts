@@ -16,6 +16,16 @@ export const workspacesRepo = {
     return row ?? null;
   },
 
+  async getByIdForUpdate(id: string, db: Db = getDb()): Promise<WorkspaceRow | null> {
+    const [row] = await db
+      .select()
+      .from(workspaces)
+      .where(eq(workspaces.id, id))
+      .limit(1)
+      .for("update");
+    return row ?? null;
+  },
+
   async getByGithubAccountId(
     githubAccountId: number,
     db: Db = getDb(),

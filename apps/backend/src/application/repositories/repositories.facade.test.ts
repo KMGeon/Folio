@@ -1,4 +1,10 @@
-import { auditLogsRepo, repositoriesRepo, usersRepo, workspaceMembersRepo } from "@folio/db";
+import {
+  auditLogsRepo,
+  repositoriesRepo,
+  usersRepo,
+  workspaceMembersRepo,
+  workspacesRepo,
+} from "@folio/db";
 import { getUserRepoPermissionLevel } from "@folio/github";
 import type { GitHubRepoAccessLevel } from "@folio/github";
 import {
@@ -27,6 +33,7 @@ vi.mock("@folio/db", () => ({
   },
   usersRepo: { getById: vi.fn(), getByIdForUpdate: vi.fn() },
   workspaceMembersRepo: { getMembership: vi.fn(), getMembershipsForUpdate: vi.fn() },
+  workspacesRepo: { getByIdForUpdate: vi.fn() },
 }));
 
 const now = new Date("2026-07-11T00:00:00.000Z");
@@ -86,7 +93,7 @@ const ACCESS_RANK: Record<GitHubRepoAccessLevel, number> = {
 
 function liveRepoAccess(permission: string) {
   return {
-    assertLevelAtLeast: vi.fn(
+    assertLiveLevelAtLeast: vi.fn(
       async (
         input: { owner: string; repo: string; username: string },
         required: GitHubRepoAccessLevel,
@@ -107,17 +114,18 @@ function liveRepoAccess(permission: string) {
 
 describe("RepositoriesFacade", () => {
   const resolver = { firstWorkspaceForUser: vi.fn() };
-  const repoAccess = { assertLevelAtLeast: vi.fn() };
+  const repoAccess = { assertLiveLevelAtLeast: vi.fn() };
   let facade: RepositoriesFacade;
 
   beforeEach(() => {
     vi.clearAllMocks();
     resolver.firstWorkspaceForUser.mockResolvedValue(workspace);
-    repoAccess.assertLevelAtLeast.mockResolvedValue(true);
+    repoAccess.assertLiveLevelAtLeast.mockResolvedValue(true);
     vi.mocked(usersRepo.getById).mockResolvedValue(user);
     vi.mocked(usersRepo.getByIdForUpdate).mockResolvedValue(user);
     vi.mocked(workspaceMembersRepo.getMembership).mockResolvedValue(membership);
     vi.mocked(workspaceMembersRepo.getMembershipsForUpdate).mockResolvedValue([membership]);
+    vi.mocked(workspacesRepo.getByIdForUpdate).mockResolvedValue(workspace);
     vi.mocked(repositoriesRepo.getById).mockResolvedValue(repository);
     vi.mocked(repositoriesRepo.getByIdForUpdate).mockResolvedValue(repository);
     vi.mocked(repositoriesRepo.listByWorkspaceId).mockResolvedValue([repository]);
@@ -204,11 +212,11 @@ describe("RepositoriesFacade", () => {
       }),
       403,
     );
-    expect(repoAccess.assertLevelAtLeast).not.toHaveBeenCalled();
+    expect(repoAccess.assertLiveLevelAtLeast).not.toHaveBeenCalled();
   });
 
   it("denies activation below live GitHub admin permission", async () => {
-    repoAccess.assertLevelAtLeast.mockResolvedValue(false);
+    repoAccess.assertLiveLevelAtLeast.mockResolvedValue(false);
 
     await expectCoreException(
       facade.setEnabled({
@@ -218,7 +226,7 @@ describe("RepositoriesFacade", () => {
       }),
       403,
     );
-    expect(repoAccess.assertLevelAtLeast).toHaveBeenCalledWith(
+    expect(repoAccess.assertLiveLevelAtLeast).toHaveBeenCalledWith(
       { owner: repository.owner, repo: repository.name, username: user.login },
       "admin",
     );
@@ -228,7 +236,7 @@ describe("RepositoriesFacade", () => {
 
   it("locks membership, user, and repository in order after live GitHub authorization", async () => {
     const order: string[] = [];
-    repoAccess.assertLevelAtLeast.mockImplementation(async () => {
+    repoAccess.assertLiveLevelAtLeast.mockImplementation(async () => {
       order.push("github authorization");
       expect(transaction.transaction).not.toHaveBeenCalled();
       expect(workspaceMembersRepo.getMembershipsForUpdate).not.toHaveBeenCalled();
@@ -239,6 +247,10 @@ describe("RepositoriesFacade", () => {
     transaction.transaction.mockImplementation(async (operation) => {
       order.push("transaction");
       return operation("tx");
+    });
+    vi.mocked(workspacesRepo.getByIdForUpdate).mockImplementation(async () => {
+      order.push("workspace lock");
+      return workspace;
     });
     vi.mocked(workspaceMembersRepo.getMembershipsForUpdate).mockImplementation(async () => {
       order.push("membership lock");
@@ -262,6 +274,7 @@ describe("RepositoriesFacade", () => {
     expect(order).toEqual([
       "github authorization",
       "transaction",
+      "workspace lock",
       "membership lock",
       "user lock",
       "repository lock",
@@ -283,7 +296,7 @@ describe("RepositoriesFacade", () => {
       404,
     );
 
-    expect(repoAccess.assertLevelAtLeast).toHaveBeenCalledOnce();
+    expect(repoAccess.assertLiveLevelAtLeast).toHaveBeenCalledOnce();
     expect(repositoriesRepo.setFolioEnabled).not.toHaveBeenCalled();
     expect(auditLogsRepo.record).not.toHaveBeenCalled();
   });
@@ -304,7 +317,7 @@ describe("RepositoriesFacade", () => {
       404,
     );
 
-    expect(repoAccess.assertLevelAtLeast).toHaveBeenCalledWith(
+    expect(repoAccess.assertLiveLevelAtLeast).toHaveBeenCalledWith(
       { owner: repository.owner, repo: repository.name, username: user.login },
       "admin",
     );
@@ -327,7 +340,7 @@ describe("RepositoriesFacade", () => {
       403,
     );
 
-    expect(repoAccess.assertLevelAtLeast).toHaveBeenCalledOnce();
+    expect(repoAccess.assertLiveLevelAtLeast).toHaveBeenCalledOnce();
     expect(usersRepo.getByIdForUpdate).toHaveBeenCalledWith(user.id, "tx");
     expect(repositoriesRepo.setFolioEnabled).not.toHaveBeenCalled();
     expect(auditLogsRepo.record).not.toHaveBeenCalled();
@@ -347,7 +360,7 @@ describe("RepositoriesFacade", () => {
       403,
     );
 
-    expect(repoAccess.assertLevelAtLeast).toHaveBeenCalledOnce();
+    expect(repoAccess.assertLiveLevelAtLeast).toHaveBeenCalledOnce();
     expect(workspaceMembersRepo.getMembershipsForUpdate).toHaveBeenCalledWith(
       workspace.id,
       [user.id],
@@ -369,7 +382,7 @@ describe("RepositoriesFacade", () => {
       }),
       403,
     );
-    expect(maintainAccess.assertLevelAtLeast).toHaveBeenCalledWith(
+    expect(maintainAccess.assertLiveLevelAtLeast).toHaveBeenCalledWith(
       { owner: repository.owner, repo: repository.name, username: user.login },
       "admin",
     );
@@ -387,7 +400,7 @@ describe("RepositoriesFacade", () => {
         enabled: true,
       }),
     ).resolves.toMatchObject({ id: repository.id, folioEnabled: true });
-    expect(adminAccess.assertLevelAtLeast).toHaveBeenCalledWith(
+    expect(adminAccess.assertLiveLevelAtLeast).toHaveBeenCalledWith(
       { owner: repository.owner, repo: repository.name, username: user.login },
       "admin",
     );

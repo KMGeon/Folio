@@ -12,9 +12,18 @@ import { ACCOUNT_TYPE, AUDIT_ACTION, MEMBERSHIP_STATUS, WORKSPACE_ROLE } from "@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { WorkspaceMembershipService } from "../../infrastructure/authorization/workspace-membership.service.js";
 import { WorkspaceClaimFacade } from "./workspace-claim.facade.js";
+import { WorkspaceMembersFacade } from "./workspace-members.facade.js";
 
 const HAS_DB = Boolean(process.env.SUPABASE_DATABASE_URL);
 const d = HAS_DB ? describe : describe.skip;
+
+function deferred() {
+  let resolve = () => {};
+  const promise = new Promise<void>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
 
 d("workspace claim concurrency (e2e)", () => {
   let db: Db;
@@ -110,5 +119,74 @@ d("workspace claim concurrency (e2e)", () => {
       status: MEMBERSHIP_STATUS.SUSPENDED,
     });
     await expect(auditLogsRepo.listByWorkspace(workspace.id, db)).resolves.toEqual([]);
+  });
+
+  it("serializes a claim before a member mutation on the same workspace", async () => {
+    const workspace = await workspacesRepo.create(
+      {
+        githubAccountId: 97,
+        accountLogin: "claim-acme",
+        accountType: ACCOUNT_TYPE.ORGANIZATION,
+      },
+      db,
+    );
+    await workspaceMembersRepo.create(
+      {
+        workspaceId: workspace.id,
+        userId: firstUserId,
+        role: WORKSPACE_ROLE.OWNER,
+        status: MEMBERSHIP_STATUS.ACTIVE,
+      },
+      db,
+    );
+    await workspaceMembersRepo.create(
+      {
+        workspaceId: workspace.id,
+        userId: secondUserId,
+        role: WORKSPACE_ROLE.REVIEWER,
+        status: MEMBERSHIP_STATUS.ACTIVE,
+      },
+      db,
+    );
+    const claimLocked = deferred();
+    const releaseClaim = deferred();
+    const memberAttempted = deferred();
+    const originalClaimLock = workspacesRepo.getByGithubAccountIdForUpdate.bind(workspacesRepo);
+    const originalMemberLock = workspacesRepo.getByIdForUpdate.bind(workspacesRepo);
+    const claimSpy = vi
+      .spyOn(workspacesRepo, "getByGithubAccountIdForUpdate")
+      .mockImplementation(async (...args) => {
+        const row = await originalClaimLock(...args);
+        claimLocked.resolve();
+        await releaseClaim.promise;
+        return row;
+      });
+    const memberSpy = vi.spyOn(workspacesRepo, "getByIdForUpdate").mockImplementation((...args) => {
+      memberAttempted.resolve();
+      return originalMemberLock(...args);
+    });
+
+    try {
+      const claim = facade().claimAsOwner(input(firstUserId));
+      await claimLocked.promise;
+      const members = new WorkspaceMembersFacade(new WorkspaceMembershipService());
+      const suspend = members.suspend({
+        workspaceId: workspace.id,
+        actorUserId: firstUserId,
+        targetUserId: secondUserId,
+      });
+      await memberAttempted.promise;
+      releaseClaim.resolve();
+
+      await expect(claim).resolves.toMatchObject({ role: WORKSPACE_ROLE.OWNER });
+      await expect(suspend).resolves.toBeUndefined();
+      await expect(
+        workspaceMembersRepo.getMembership(workspace.id, secondUserId, db),
+      ).resolves.toMatchObject({ status: MEMBERSHIP_STATUS.SUSPENDED });
+    } finally {
+      releaseClaim.resolve();
+      claimSpy.mockRestore();
+      memberSpy.mockRestore();
+    }
   });
 });

@@ -1,4 +1,11 @@
-import { auditLogsRepo, getDb, repositoriesRepo, usersRepo, workspaceMembersRepo } from "@folio/db";
+import {
+  auditLogsRepo,
+  getDb,
+  repositoriesRepo,
+  usersRepo,
+  workspaceMembersRepo,
+  workspacesRepo,
+} from "@folio/db";
 import { AUDIT_ACTION, WORKSPACE_ROLE } from "@folio/types";
 import type { Repository } from "@folio/types";
 import { Inject, Injectable } from "@nestjs/common";
@@ -82,7 +89,7 @@ export class RepositoriesFacade {
     }
 
     // Live GitHub checks can be cold; complete them before holding any database row lock.
-    const githubAdmin = await this.repoAccess.assertLevelAtLeast(
+    const githubAdmin = await this.repoAccess.assertLiveLevelAtLeast(
       { owner: repo.owner, repo: repo.name, username: input.user.login },
       "admin",
     );
@@ -91,8 +98,10 @@ export class RepositoriesFacade {
     }
 
     return getDb().transaction(async (transaction) => {
-      // Combined authority transactions lock membership → user → repository; mutation paths
-      // that touch fewer row types use the same subsequence and cannot invert this order.
+      const lockedWorkspace = await workspacesRepo.getByIdForUpdate(workspace.id, transaction);
+      if (!lockedWorkspace) {
+        throw new CoreException(ErrorType.WorkspaceNotFound);
+      }
       const lockedMemberships = await workspaceMembersRepo.getMembershipsForUpdate(
         workspace.id,
         [input.user.id],

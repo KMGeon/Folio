@@ -20,6 +20,7 @@ import {
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { WorkspaceMembershipService } from "../../infrastructure/authorization/workspace-membership.service.js";
 import { GlobalUsersFacade } from "../authorization/global-users.facade.js";
+import { WorkspaceClaimFacade } from "../authorization/workspace-claim.facade.js";
 import { WorkspaceMembersFacade } from "../authorization/workspace-members.facade.js";
 import { RepositoriesFacade } from "./repositories.facade.js";
 
@@ -43,6 +44,7 @@ d("repository activation authority concurrency (e2e)", () => {
   let db: Db;
   let repositories: RepositoriesFacade;
   let globalUsers: GlobalUsersFacade;
+  let claims: WorkspaceClaimFacade;
   let workspaceMembers: WorkspaceMembersFacade;
   let workspaceId: string;
   let repositoryId: string;
@@ -140,9 +142,14 @@ d("repository activation authority concurrency (e2e)", () => {
     activationUserId = activationUser.id;
     repositories = new RepositoriesFacade(
       { firstWorkspaceForUser: vi.fn().mockResolvedValue(workspace) } as never,
-      { assertLevelAtLeast: vi.fn().mockResolvedValue(true) } as never,
+      { assertLiveLevelAtLeast: vi.fn().mockResolvedValue(true) } as never,
     );
     globalUsers = new GlobalUsersFacade();
+    claims = new WorkspaceClaimFacade(
+      { canUseFeature: vi.fn().mockResolvedValue({ entitled: true }) } as never,
+      { firstWorkspaceForUser: vi.fn().mockResolvedValue(workspace) } as never,
+      new WorkspaceMembershipService(),
+    );
     workspaceMembers = new WorkspaceMembersFacade(new WorkspaceMembershipService());
   });
 
@@ -203,10 +210,10 @@ d("repository activation authority concurrency (e2e)", () => {
     const releaseActivation = deferred();
     const demotionAttempted = deferred();
     const completionOrder: string[] = [];
-    const originalLock = workspaceMembersRepo.getMembershipsForUpdate.bind(workspaceMembersRepo);
+    const originalLock = workspacesRepo.getByIdForUpdate.bind(workspacesRepo);
     let lockCalls = 0;
     const lockSpy = vi
-      .spyOn(workspaceMembersRepo, "getMembershipsForUpdate")
+      .spyOn(workspacesRepo, "getByIdForUpdate")
       .mockImplementation(async (...args) => {
         lockCalls += 1;
         if (lockCalls === 2) {
@@ -252,6 +259,98 @@ d("repository activation authority concurrency (e2e)", () => {
     }
   });
 
+  it("serializes workspace claim after activation has locked the workspace", async () => {
+    const activationLocked = deferred();
+    const releaseActivation = deferred();
+    const claimAttempted = deferred();
+    const originalActivationLock = workspacesRepo.getByIdForUpdate.bind(workspacesRepo);
+    const originalClaimUpsert = workspacesRepo.upsertByGithubAccountId.bind(workspacesRepo);
+    const activationSpy = vi
+      .spyOn(workspacesRepo, "getByIdForUpdate")
+      .mockImplementation(async (...args) => {
+        const row = await originalActivationLock(...args);
+        activationLocked.resolve();
+        await releaseActivation.promise;
+        return row;
+      });
+    const claimSpy = vi
+      .spyOn(workspacesRepo, "upsertByGithubAccountId")
+      .mockImplementation((...args) => {
+        claimAttempted.resolve();
+        return originalClaimUpsert(...args);
+      });
+
+    try {
+      const activation = activate();
+      await activationLocked.promise;
+      const claim = claims.claimAsOwner({
+        userId: activationUserId,
+        githubAccountId: 991,
+        accountLogin: "activation-acme",
+        accountType: ACCOUNT_TYPE.ORGANIZATION,
+      });
+      await claimAttempted.promise;
+      releaseActivation.resolve();
+
+      await expect(activation).resolves.toMatchObject({ folioEnabled: true });
+      await expect(claim).resolves.toMatchObject({ role: WORKSPACE_ROLE.ADMIN });
+      await expectActivationAudit();
+    } finally {
+      releaseActivation.resolve();
+      activationSpy.mockRestore();
+      claimSpy.mockRestore();
+    }
+  });
+
+  it("rolls back activation audit failure before a waiting demotion proceeds", async () => {
+    const activationLocked = deferred();
+    const releaseActivation = deferred();
+    const demotionAttempted = deferred();
+    const originalLock = workspacesRepo.getByIdForUpdate.bind(workspacesRepo);
+    let lockCalls = 0;
+    const lockSpy = vi
+      .spyOn(workspacesRepo, "getByIdForUpdate")
+      .mockImplementation(async (...args) => {
+        lockCalls += 1;
+        if (lockCalls === 2) {
+          demotionAttempted.resolve();
+        }
+        const row = await originalLock(...args);
+        if (lockCalls === 1) {
+          activationLocked.resolve();
+          await releaseActivation.promise;
+        }
+        return row;
+      });
+    const auditSpy = vi
+      .spyOn(auditLogsRepo, "record")
+      .mockRejectedValueOnce(new Error("activation audit failed"));
+
+    try {
+      const activation = activate();
+      await activationLocked.promise;
+      const demotion = workspaceMembers.changeRole({
+        workspaceId,
+        actorUserId: ownerUserId,
+        targetUserId: activationUserId,
+        toRole: WORKSPACE_ROLE.REVIEWER,
+      });
+      await demotionAttempted.promise;
+      releaseActivation.resolve();
+
+      await expect(activation).rejects.toThrow("activation audit failed");
+      await expect(demotion).resolves.toBeUndefined();
+      await expect(repositoriesRepo.getById(repositoryId, db)).resolves.toMatchObject({
+        folioEnabled: false,
+      });
+      await expectActivationAudit(0);
+    } finally {
+      releaseActivation.resolve();
+      lockSpy.mockRestore();
+      auditSpy.mockRestore();
+    }
+  });
+
   function activate() {
     return repositories.setEnabled({
       user: { id: activationUserId, login: "activation-admin" },
@@ -260,10 +359,10 @@ d("repository activation authority concurrency (e2e)", () => {
     });
   }
 
-  async function expectActivationAudit(): Promise<void> {
+  async function expectActivationAudit(expected = 1): Promise<void> {
     const auditLogs = await auditLogsRepo.listByWorkspace(workspaceId, db);
     expect(
       auditLogs.filter((auditLog) => auditLog.action === AUDIT_ACTION.REPO_ACTIVATION_CHANGE),
-    ).toHaveLength(1);
+    ).toHaveLength(expected);
   }
 });

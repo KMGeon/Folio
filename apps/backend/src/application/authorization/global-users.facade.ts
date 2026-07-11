@@ -110,7 +110,7 @@ export class GlobalUsersFacade {
         this.forbid();
       }
 
-      // User-only revocations are a subsequence of membership → user → repository lock order.
+      // User-only revocations preserve the workspace → memberships → users → repositories order.
       const updated = conditions
         ? await usersRepo.setGlobalStatusIfCurrent(
             command.targetUserId,

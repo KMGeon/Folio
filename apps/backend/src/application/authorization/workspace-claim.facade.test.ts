@@ -137,6 +137,9 @@ describe("WorkspaceClaimFacade", () => {
         transaction,
       );
       expect(workspacesRepo.getByGithubAccountIdForUpdate).toHaveBeenCalledWith(42, transaction);
+      expect(
+        vi.mocked(workspacesRepo.getByGithubAccountIdForUpdate).mock.invocationCallOrder[0],
+      ).toBeLessThan(vi.mocked(workspaceMembersRepo.getMembership).mock.invocationCallOrder[0]!);
       expect(workspaceMembersRepo.create).toHaveBeenCalledWith(
         {
           workspaceId: "workspace-1",
