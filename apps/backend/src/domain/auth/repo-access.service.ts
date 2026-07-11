@@ -1,8 +1,8 @@
 import type { GitHubRepoAccessLevel } from "@folio/github";
 import { Inject, Injectable } from "@nestjs/common";
 import { GitHubOAuthAdapter } from "../../infrastructure/github/github-oauth.adapter.js";
+import { RepositoryPermissionGrantCache } from "./repository-permission-grant-cache.js";
 
-const CACHE_TTL_MS = 60_000;
 const RANK: Record<GitHubRepoAccessLevel, number> = { none: 0, read: 1, write: 2, admin: 3 };
 
 /**
@@ -11,7 +11,7 @@ const RANK: Record<GitHubRepoAccessLevel, number> = { none: 0, read: 1, write: 2
  */
 @Injectable()
 export class RepoAccessService {
-  private readonly levelCache = new Map<string, { level: GitHubRepoAccessLevel; until: number }>();
+  private readonly levelCache = new RepositoryPermissionGrantCache();
 
   constructor(@Inject(GitHubOAuthAdapter) private readonly github: GitHubOAuthAdapter) {}
 
@@ -22,8 +22,8 @@ export class RepoAccessService {
   }): Promise<GitHubRepoAccessLevel> {
     const key = `${input.username}:${input.owner}/${input.repo}`;
     const cached = this.levelCache.get(key);
-    if (cached && cached.until > Date.now()) {
-      return cached.level;
+    if (cached) {
+      return cached;
     }
     const level = await this.github.getUserRepoPermissionLevel(
       input.owner,
@@ -31,7 +31,7 @@ export class RepoAccessService {
       input.username,
     );
     if (level !== "none") {
-      this.levelCache.set(key, { level, until: Date.now() + CACHE_TTL_MS });
+      this.levelCache.retain(key, level);
     }
     return level;
   }
@@ -56,8 +56,8 @@ export class RepoAccessService {
       const cached = this.levelCache.get(
         this.cacheKey(input.username, repository.owner, repository.name),
       );
-      if (cached && cached.until > Date.now()) {
-        readable[index] = RANK[cached.level] >= RANK.read;
+      if (cached) {
+        readable[index] = RANK[cached] >= RANK.read;
       } else {
         uncached.push({ index, repository });
       }
@@ -73,16 +73,18 @@ export class RepoAccessService {
         })),
         username: input.username,
       });
+      const positiveGrants: { key: string; level: Exclude<GitHubRepoAccessLevel, "none"> }[] = [];
       uncached.forEach(({ index, repository }, batchIndex) => {
         const level = levels[batchIndex] ?? "none";
         readable[index] = RANK[level] >= RANK.read;
         if (level !== "none") {
-          this.levelCache.set(this.cacheKey(input.username, repository.owner, repository.name), {
+          positiveGrants.push({
+            key: this.cacheKey(input.username, repository.owner, repository.name),
             level,
-            until: Date.now() + CACHE_TTL_MS,
           });
         }
       });
+      this.levelCache.retainMany(positiveGrants);
     } catch {
       // A failed batch is a denial for every uncached repository; cached grants remain valid.
     }

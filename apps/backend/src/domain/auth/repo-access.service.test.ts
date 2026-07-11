@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const originalEnv = { ...process.env };
 
 const REF = { owner: "acme", repo: "widget", username: "octocat" };
+const CACHE_TTL_MS = 60_000;
+const CACHE_MAX_ENTRIES = 1_000;
 
 function configureProfile(profile: "dev" | "prd") {
   process.env = { ...originalEnv };
@@ -37,8 +39,13 @@ async function createService(
   return new RepoAccessService(adapter);
 }
 
+function cachedGrantCount(service: object): number {
+  return (service as unknown as { levelCache: { readonly size: number } }).levelCache.size;
+}
+
 describe("RepoAccessService", () => {
   afterEach(() => {
+    vi.useRealTimers();
     process.env = { ...originalEnv };
     vi.clearAllMocks();
   });
@@ -65,6 +72,35 @@ describe("RepoAccessService", () => {
     expect(getLevel).toHaveBeenCalledTimes(2);
   });
 
+  it("prunes expired grants before retaining a fresh grant", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-11T00:00:00.000Z"));
+    const svc = await createService("prd", vi.fn().mockResolvedValue("read"));
+
+    await svc.getAccessLevel({ ...REF, repo: "expired-1" });
+    await svc.getAccessLevel({ ...REF, repo: "expired-2" });
+    vi.advanceTimersByTime(CACHE_TTL_MS + 1);
+    await svc.getAccessLevel({ ...REF, repo: "fresh" });
+
+    expect(cachedGrantCount(svc)).toBe(1);
+  });
+
+  it("evicts the oldest untouched grant while preserving a recently read grant", async () => {
+    const getLevel = vi.fn().mockResolvedValue("read");
+    const svc = await createService("prd", getLevel);
+
+    for (let index = 0; index < CACHE_MAX_ENTRIES; index += 1) {
+      await svc.getAccessLevel({ ...REF, repo: `repo-${index}` });
+    }
+    await svc.getAccessLevel({ ...REF, repo: "repo-0" });
+    await svc.getAccessLevel({ ...REF, repo: "overflow" });
+    await svc.getAccessLevel({ ...REF, repo: "repo-1" });
+    await svc.getAccessLevel({ ...REF, repo: "repo-0" });
+
+    expect(getLevel).toHaveBeenCalledTimes(CACHE_MAX_ENTRIES + 2);
+    expect(cachedGrantCount(svc)).toBe(CACHE_MAX_ENTRIES);
+  });
+
   it("denies unreadable repositories in dev through the injected adapter", async () => {
     const getLevel = vi.fn().mockResolvedValue("none");
     const svc = await createService("dev", getLevel);
@@ -76,6 +112,7 @@ describe("RepoAccessService", () => {
 
 describe("RepoAccessService.filterReadableResolvedRepositories", () => {
   afterEach(() => {
+    vi.useRealTimers();
     process.env = { ...originalEnv };
     vi.clearAllMocks();
   });
@@ -119,6 +156,30 @@ describe("RepoAccessService.filterReadableResolvedRepositories", () => {
     ).resolves.toEqual([]);
   });
 
+  it("keeps dashboard batch grants within the strict cache maximum", async () => {
+    const repositoriesAtCapacity = Array.from({ length: CACHE_MAX_ENTRIES + 1 }, (_, index) => ({
+      id: `repository-${index}`,
+      installationId: "installation-1",
+      owner: "acme",
+      name: `repo-${index}`,
+    }));
+    const svc = await createService(
+      "prd",
+      vi.fn(),
+      vi.fn().mockResolvedValue(Array.from({ length: CACHE_MAX_ENTRIES + 1 }, () => "read")),
+    );
+
+    await expect(
+      svc.filterReadableResolvedRepositories({
+        installations,
+        repositories: repositoriesAtCapacity,
+        username: "octocat",
+      }),
+    ).resolves.toHaveLength(CACHE_MAX_ENTRIES + 1);
+
+    expect(cachedGrantCount(svc)).toBe(CACHE_MAX_ENTRIES);
+  });
+
   it("excludes denied repositories from the dev dashboard batch path", async () => {
     const getBatchLevels = vi.fn().mockResolvedValue(["read", "none"]);
     const svc = await createService("dev", vi.fn(), getBatchLevels);
@@ -139,6 +200,7 @@ describe("RepoAccessService.filterReadableResolvedRepositories", () => {
 
 describe("RepoAccessService.getAccessLevel", () => {
   afterEach(() => {
+    vi.useRealTimers();
     process.env = { ...originalEnv };
     vi.clearAllMocks();
   });
@@ -159,6 +221,7 @@ describe("RepoAccessService.getAccessLevel", () => {
 
 describe("RepoAccessService.assertLevelAtLeast", () => {
   afterEach(() => {
+    vi.useRealTimers();
     process.env = { ...originalEnv };
     vi.clearAllMocks();
   });
