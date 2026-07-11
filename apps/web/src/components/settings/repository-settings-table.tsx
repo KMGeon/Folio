@@ -28,7 +28,7 @@ export function RepositorySettingsTable({
     );
 
   const changeRepository = async (repository: RepositorySummary, enabled: boolean) => {
-    if (disabledReason || !repository.githubAccessActive) {
+    if (disabledReason || !repository.githubAccessActive || pendingRepositoryId !== null) {
       return;
     }
 
@@ -88,7 +88,7 @@ export function RepositorySettingsTable({
                   key={repository.id}
                   repository={repository}
                   disabledReason={disabledReason}
-                  pending={pendingRepositoryId === repository.id}
+                  pending={pendingRepositoryId !== null}
                   error={errorsByRepositoryId[repository.id]}
                   onCheckedChange={(enabled) => void changeRepository(repository, enabled)}
                 />

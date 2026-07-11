@@ -44,6 +44,12 @@ describe("RepositorySettingsTable", () => {
   it("sorts connected repositories first by name and filters immediately without case sensitivity", async () => {
     const container = await mount();
 
+    expect(
+      [...container.querySelectorAll<HTMLTableCellElement>("thead th")].map((header) =>
+        header.textContent?.trim(),
+      ),
+    ).toEqual(["Repository", "Folio review"]);
+
     expect(rows(container).map((row) => row.dataset.repository)).toEqual([
       "acme/alpha",
       "acme/zulu",
@@ -67,7 +73,37 @@ describe("RepositorySettingsTable", () => {
     expect(disconnected.className).toContain("text-muted-foreground");
     expect(switchButton.getAttribute("aria-checked")).toBe("false");
     expect(switchButton.getAttribute("aria-label")).toContain("acme/disconnected");
+    expect(switchButton.tagName).toBe("BUTTON");
+    expect(switchButton.type).toBe("button");
+    expect(switchButton.getAttribute("role")).toBe("switch");
+    expect(switchButton.className).toContain("focus-visible:ring-3");
     expect(switchButton.disabled).toBe(true);
+  });
+
+  it("disables every switch while one repository mutation is pending", async () => {
+    const request = deferred<RepositorySummary>();
+    mocks.setRepositoryEnabled.mockReturnValue(request.promise);
+    const container = await mount();
+    const alphaSwitch = switchFor(container, "acme/alpha");
+    const zuluSwitch = switchFor(container, "acme/zulu");
+
+    await act(async () => {
+      alphaSwitch.click();
+      await Promise.resolve();
+    });
+
+    expect(alphaSwitch.disabled).toBe(true);
+    expect(zuluSwitch.disabled).toBe(true);
+    await act(async () => alphaSwitch.click());
+    expect(mocks.setRepositoryEnabled).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      request.resolve(
+        repository({ id: "repo-alpha", fullName: "acme/alpha", name: "alpha", folioEnabled: true }),
+      );
+    });
+    expect(alphaSwitch.disabled).toBe(false);
+    expect(zuluSwitch.disabled).toBe(false);
   });
 
   it("updates a connected repository from the returned confirmed state", async () => {
@@ -150,6 +186,10 @@ function row(container: HTMLElement, fullName: string): HTMLTableRowElement {
   return rows(container).find((element) => element.dataset.repository === fullName)!;
 }
 
+function switchFor(container: HTMLElement, fullName: string): HTMLButtonElement {
+  return row(container, fullName).querySelector<HTMLButtonElement>('[role="switch"]')!;
+}
+
 function repository(overrides: Partial<RepositorySummary>): RepositorySummary {
   return {
     id: "repo-1",
@@ -169,4 +209,12 @@ function repository(overrides: Partial<RepositorySummary>): RepositorySummary {
 function typeIn(input: HTMLInputElement, value: string) {
   Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(input, value);
   input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
 }

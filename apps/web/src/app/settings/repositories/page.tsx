@@ -1,4 +1,4 @@
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Github } from "lucide-react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -55,6 +55,7 @@ export default async function RepositoriesPage() {
       <SettingsCard
         title="Repositories"
         description="연결된 GitHub 저장소별로 Folio 리뷰를 관리합니다."
+        icon={<Github className="size-4" />}
         action={action}
       >
         <RepositorySettingsTable

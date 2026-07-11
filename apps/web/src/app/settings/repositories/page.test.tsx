@@ -1,7 +1,9 @@
 import React, { isValidElement, type ReactElement, type ReactNode } from "react";
+import { Github } from "lucide-react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { RepositorySettingsTable } from "@/components/settings/repository-settings-table";
+import { SettingsCard } from "@/components/settings/settings-card";
 import type * as WorkspacePermissionModule from "@/lib/workspace-permission";
 
 type WorkspaceContext = WorkspacePermissionModule.WorkspaceContext;
@@ -108,6 +110,7 @@ describe("RepositoriesPage repository activation authorization", () => {
     expect(findRepositoryTable(page)?.props.initialRepositories).toEqual(
       expect.arrayContaining([expect.objectContaining({ id: "repo-1", githubAccessActive: true })]),
     );
+    expect(findSettingsCard(page)?.props.icon).toMatchObject({ type: Github });
   });
 
   it("guides users to connect the GitHub App when no installation exists", async () => {
@@ -142,6 +145,27 @@ function arrangePage(
     ],
   });
   getWorkspaceContext.mockResolvedValue(context);
+}
+
+function findSettingsCard(
+  node: ReactNode,
+): ReactElement<{ icon?: ReactElement; children?: ReactNode }> | null {
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const found = findSettingsCard(child);
+      if (found) {
+        return found;
+      }
+    }
+    return null;
+  }
+  if (!isValidElement(node)) {
+    return null;
+  }
+  if (node.type === SettingsCard) {
+    return node as ReactElement<{ icon?: ReactElement; children?: ReactNode }>;
+  }
+  return findSettingsCard((node.props as { children?: ReactNode }).children);
 }
 
 function findRepositoryTable(node: ReactNode): ReactElement<{
