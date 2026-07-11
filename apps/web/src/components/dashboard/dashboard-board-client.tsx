@@ -1,6 +1,5 @@
 "use client";
 
-import { ListFilter, Search, SlidersHorizontal } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -21,7 +20,7 @@ import {
   finishDashboardRequest,
   resetDashboardRequestScope,
 } from "@/components/dashboard/dashboard-request-scope";
-import { Button } from "@/components/ui/button";
+import { DashboardSearchBar } from "@/components/dashboard/dashboard-search-bar";
 import {
   type DashboardBucket,
   type DashboardCompletedPull,
@@ -30,6 +29,7 @@ import {
   fetchDashboardOpenPullPages,
   fetchDashboardPullPage,
 } from "@/lib/dashboard-api";
+import { createReview } from "@/lib/review-api";
 
 interface ColumnLoadState {
   items: (DashboardPull | DashboardCompletedPull)[];
@@ -55,7 +55,7 @@ const emptyText: Record<DashboardBucket, string> = {
   ready: "No review-ready pull requests.",
   yours: "No open pull requests authored by you.",
   other: "No other open PRs.",
-  completed: "No recently completed pull requests.",
+  completed: "No completed Folio reviews.",
 };
 
 const initialFilters: DashboardFilterState = {
@@ -298,6 +298,28 @@ export function DashboardBoardClient({
     loadBucket,
   ]);
 
+  const hasActiveReviews = hasActiveReviewJobs(columns);
+  useEffect(() => {
+    if (!hasActiveReviews) {
+      return;
+    }
+    const interval = window.setInterval(() => {
+      const openEpoch = resetDashboardRequestScope(
+        inFlightRef.current,
+        requestEpochsRef.current,
+        "open",
+      );
+      const completedEpoch = resetDashboardRequestScope(
+        inFlightRef.current,
+        requestEpochsRef.current,
+        "completed",
+      );
+      void loadOpenBuckets(openEpoch);
+      void loadBucket("completed", "reset", completedEpoch);
+    }, 3000);
+    return () => window.clearInterval(interval);
+  }, [hasActiveReviews, loadBucket, loadOpenBuckets]);
+
   const sentinelRef = useCallback(
     (bucket: DashboardBucket) => (node: HTMLDivElement | null) => {
       observers.current.get(bucket)?.disconnect();
@@ -336,6 +358,27 @@ export function DashboardBoardClient({
     [columns, labels, loadBucket, loadOpenBuckets, sentinelRef],
   );
 
+  const retryReview = useCallback(
+    async (pull: DashboardPull) => {
+      await createReview(pull.org, pull.repo, pull.number);
+      const openEpoch = resetDashboardRequestScope(
+        inFlightRef.current,
+        requestEpochsRef.current,
+        "open",
+      );
+      const completedEpoch = resetDashboardRequestScope(
+        inFlightRef.current,
+        requestEpochsRef.current,
+        "completed",
+      );
+      await Promise.all([
+        loadOpenBuckets(openEpoch),
+        loadBucket("completed", "reset", completedEpoch),
+      ]);
+    },
+    [loadBucket, loadOpenBuckets],
+  );
+
   return (
     <div className="relative space-y-4">
       <DashboardSearchBar
@@ -355,55 +398,17 @@ export function DashboardBoardClient({
         highlightMyPrs={filters.highlightMyPrs}
         visibleProperties={filters.visibleProperties}
         columns={boardColumns}
+        onRetryReview={(pull) => void retryReview(pull)}
       />
       <DashboardFilterPanel open={filterOpen} filters={filters} onChange={setFilters} />
     </div>
   );
 }
 
-function DashboardSearchBar({
-  query,
-  onQueryChange,
-  onFilterClick,
-  onSortClick,
-}: {
-  query: string;
-  onQueryChange: (value: string) => void;
-  onFilterClick: () => void;
-  onSortClick: () => void;
-}) {
-  return (
-    <div className="flex items-center gap-3">
-      <div className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-lg border bg-card px-3 text-muted-foreground">
-        <Search className="size-4 shrink-0" />
-        <input
-          value={query}
-          onChange={(event) => onQueryChange(event.target.value)}
-          placeholder="Search pull requests..."
-          aria-label="Search pull requests"
-          className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
-        />
-      </div>
-      <Button
-        type="button"
-        aria-label="Filter pull requests"
-        variant="ghost"
-        size="icon"
-        className="size-9 shrink-0 text-muted-foreground"
-        onClick={onFilterClick}
-      >
-        <ListFilter className="size-4" />
-      </Button>
-      <Button
-        type="button"
-        aria-label="Sort pull requests"
-        variant="ghost"
-        size="icon"
-        className="size-9 shrink-0 text-muted-foreground"
-        onClick={onSortClick}
-      >
-        <SlidersHorizontal className="size-4" />
-      </Button>
-    </div>
+export function hasActiveReviewJobs(columns: ColumnStateMap): boolean {
+  return Object.values(columns).some((column) =>
+    column.items.some(
+      (item) => item.analysisStatus === "processing" || item.analysisStatus === "retrying",
+    ),
   );
 }

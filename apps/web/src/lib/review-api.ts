@@ -1,4 +1,4 @@
-import { ApiError, apiRequest } from "./api-client";
+import { apiRequest } from "./api-client";
 import type { Prologue } from "@folio/types";
 
 export interface ReviewDiffLine {
@@ -188,11 +188,9 @@ export interface ReviewPayload {
 }
 
 export interface ReviewGenerationResult {
-  prId: string;
-  revisionId: string;
-  chapters: { order: number; title: string }[];
-  commentUrl: string | null;
-  commentError?: string | null;
+  jobId: string;
+  status: string;
+  deduplicated: boolean;
 }
 
 export interface FetchReviewOptions {
@@ -229,24 +227,4 @@ export function createReview(
     headers,
     body: JSON.stringify({ owner: org, repo, number }),
   });
-}
-
-export async function fetchReviewOrCreate(
-  org: string,
-  repo: string,
-  number: number,
-  opts?: FetchReviewOptions,
-): Promise<ReviewPayload> {
-  try {
-    return await fetchReview(org, repo, number, opts);
-  } catch (err) {
-    if (!(err instanceof ApiError) || err.status !== 404) {
-      throw err;
-    }
-  }
-
-  // A missing review is recoverable: generate the existing Folio review artifact,
-  // including the GitHub chapter comment, then read through the normal path.
-  await createReview(org, repo, number, opts);
-  return fetchReview(org, repo, number, opts);
 }

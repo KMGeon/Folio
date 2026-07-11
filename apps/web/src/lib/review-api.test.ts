@@ -29,7 +29,7 @@ vi.mock("./api-client", () => ({
   apiRequest: vi.fn(async () => reviewPayload),
 }));
 
-const { fetchReview, fetchReviewOrCreate } = await import("./review-api.js");
+const { fetchReview } = await import("./review-api.js");
 const { apiRequest } = await import("./api-client");
 
 describe("fetchReview", () => {
@@ -44,31 +44,17 @@ describe("fetchReview", () => {
     expect(payload.chapters[0]?.title).toBe("C1");
   });
 
-  it("creates and refetches the review when the first read returns 404", async () => {
+  it("leaves a missing review as a 404 for the confirmation screen", async () => {
     const { ApiError } = await import("./api-client");
-    vi.mocked(apiRequest)
-      .mockRejectedValueOnce(new ApiError({} as never, 404))
-      .mockResolvedValueOnce({
-        prId: "pr-1",
-        revisionId: "rev-1",
-        chapters: [],
-        commentUrl: null,
-      })
-      .mockResolvedValueOnce(reviewPayload);
+    vi.mocked(apiRequest).mockRejectedValueOnce(new ApiError({} as never, 404));
 
-    const payload = await fetchReviewOrCreate("acme", "widget", 7, { cookie: "sid=123" });
+    await expect(fetchReview("acme", "widget", 7, { cookie: "sid=123" })).rejects.toMatchObject({
+      status: 404,
+    });
 
     expect(apiRequest).toHaveBeenNthCalledWith(1, "/api/v1/pulls/acme/widget/7/review", {
       headers: { cookie: "sid=123" },
     });
-    expect(apiRequest).toHaveBeenNthCalledWith(2, "/api/v1/pulls", {
-      method: "POST",
-      headers: { "content-type": "application/json", cookie: "sid=123" },
-      body: JSON.stringify({ owner: "acme", repo: "widget", number: 7 }),
-    });
-    expect(apiRequest).toHaveBeenNthCalledWith(3, "/api/v1/pulls/acme/widget/7/review", {
-      headers: { cookie: "sid=123" },
-    });
-    expect(payload.chapters[0]?.title).toBe("C1");
+    expect(apiRequest).toHaveBeenCalledTimes(1);
   });
 });

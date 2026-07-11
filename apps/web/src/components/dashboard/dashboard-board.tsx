@@ -1,4 +1,4 @@
-import { Check, GitMerge, GitPullRequest, X } from "lucide-react";
+import { Clock3, GitMerge, GitPullRequest, RotateCcw, X } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -41,6 +41,7 @@ export interface DashboardBoardProps {
   highlightMyPrs: boolean;
   visibleProperties: DashboardCardProperty[];
   columns: DashboardColumnState[];
+  onRetryReview: (pull: DashboardPull) => void;
 }
 
 type SizeMeta = { label: string; tone: "green" | "amber" | "red" };
@@ -51,7 +52,7 @@ export const defaultDashboardBoardLabels: DashboardBoardLabels = {
   ready: "Ready to review",
   yours: "Your pull requests",
   other: "Other",
-  completed: "Recently completed",
+  completed: "Complete",
 };
 
 export function DashboardBoard({
@@ -60,6 +61,7 @@ export function DashboardBoard({
   highlightMyPrs,
   visibleProperties,
   columns,
+  onRetryReview,
 }: DashboardBoardProps) {
   const visibleColumns = showEmptyColumns
     ? columns
@@ -75,6 +77,7 @@ export function DashboardBoard({
           column={column}
           highlightMyPrs={highlightMyPrs}
           visibleProperties={visibleProperties}
+          onRetryReview={onRetryReview}
         />
       ))}
     </div>
@@ -85,10 +88,12 @@ function DashboardColumn({
   column,
   highlightMyPrs,
   visibleProperties,
+  onRetryReview,
 }: {
   column: DashboardColumnState;
   highlightMyPrs: boolean;
   visibleProperties: DashboardCardProperty[];
+  onRetryReview: (pull: DashboardPull) => void;
 }) {
   return (
     <section className="min-w-0">
@@ -139,6 +144,7 @@ function DashboardColumn({
               pull={pull as DashboardPull}
               highlighted={highlightMyPrs && column.bucket === "yours"}
               visibleProperties={visibleProperties}
+              onRetryReview={onRetryReview}
             />
           ),
         )}
@@ -155,33 +161,46 @@ function OpenPullCard({
   pull,
   highlighted,
   visibleProperties,
+  onRetryReview,
 }: {
   pull: DashboardPull;
   highlighted: boolean;
   visibleProperties: DashboardCardProperty[];
+  onRetryReview: (pull: DashboardPull) => void;
 }) {
   const size = sizeMeta(pull.changedFiles, pull.additions + pull.deletions);
-  const ready = pull.status === "ready";
-  const StatusIcon = ready ? Check : X;
+  const failed = pull.analysisStatus === "failed";
+  const retrying = pull.analysisStatus === "retrying";
+  const StatusIcon = failed ? X : retrying ? RotateCcw : Clock3;
 
   return (
-    <Link
-      href={`/${pull.org}/${pull.repo}/pull/${pull.number}/chapters/1`}
-      className={dashboardOpenPullCardClass(highlighted)}
-    >
-      <CardHeader
-        icon={<GitPullRequest className="size-3.5 text-warning" />}
-        repo={pull.repo}
-        number={pull.number}
-        trailing={
-          <StatusIcon className={cn("size-3.5", ready ? "text-primary" : "text-destructive")} />
-        }
-        time={pull.updatedAt}
-        title={pull.title}
-        visibleProperties={visibleProperties}
-      />
-      <CardFooter pull={pull} size={size} visibleProperties={visibleProperties} />
-    </Link>
+    <div className={dashboardOpenPullCardClass(highlighted)}>
+      <Link href={`/${pull.org}/${pull.repo}/pull/${pull.number}`} className="block">
+        <CardHeader
+          icon={<GitPullRequest className="size-3.5 text-warning" />}
+          repo={pull.repo}
+          number={pull.number}
+          trailing={
+            <StatusIcon className={cn("size-3.5", failed ? "text-destructive" : "text-warning")} />
+          }
+          time={pull.updatedAt}
+          title={pull.title}
+          visibleProperties={visibleProperties}
+        />
+        <CardFooter pull={pull} size={size} visibleProperties={visibleProperties} />
+      </Link>
+      {failed ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="xs"
+          className="mt-4"
+          onClick={() => onRetryReview(pull)}
+        >
+          Retry
+        </Button>
+      ) : null}
+    </div>
   );
 }
 
@@ -193,7 +212,8 @@ function CompletedPullCard({
   visibleProperties: DashboardCardProperty[];
 }) {
   const size = sizeMeta(pull.changedFiles, pull.additions + pull.deletions);
-  const StateIcon = pull.completedState === "merged" ? GitMerge : X;
+  const StateIcon =
+    pull.githubStatus === "merged" ? GitMerge : pull.githubStatus === "closed" ? X : GitPullRequest;
 
   return (
     <Link
@@ -205,7 +225,11 @@ function CompletedPullCard({
           <StateIcon
             className={cn(
               "size-3.5",
-              pull.completedState === "merged" ? "text-syntax-emphasis" : "text-destructive",
+              pull.githubStatus === "merged"
+                ? "text-syntax-emphasis"
+                : pull.githubStatus === "closed"
+                  ? "text-destructive"
+                  : "text-primary",
             )}
           />
         }
