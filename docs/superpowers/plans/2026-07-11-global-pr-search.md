@@ -4,7 +4,7 @@
 
 **Goal:** Make the global search modal show recent open pull requests initially and search open pull requests instead of presenting static page navigation.
 
-**Architecture:** `AppSearch` will reuse the existing `fetchDashboardOpenPullPages` API, merge its three open-PR buckets into one deduplicated result list, and rank the API's relative update labels for a compact recent list. The component will own debounced request state and reject stale responses while preserving its existing modal and keyboard behavior.
+**Architecture:** `AppSearch` will reuse the existing `fetchDashboardOpenPullPages` API, merge its three open-PR buckets into one deduplicated result list, and rank exact GitHub update timestamps from the response's `updatedAtIso` field. The existing `updatedAt` field remains the human-readable dashboard label. The component will own debounced request state and reject stale responses while preserving its existing modal and keyboard behavior.
 
 **Tech Stack:** TypeScript ESM, React 19, Next.js App Router, Vitest, Happy DOM, pnpm
 
@@ -22,11 +22,19 @@
 ### Task 1: Implement recent open PR search with request states
 
 **Files:**
+
+- Modify: `apps/backend/src/application/dashboard/dashboard.facade.test.ts`
+- Modify: `apps/backend/src/application/dashboard/dashboard.facade.ts`
+- Modify: `apps/backend/src/application/dashboard/dashboard-open-pull-pages.test.ts`
+- Modify: `apps/backend/src/application/dashboard/dashboard-pull-page.ts`
 - Modify: `apps/web/src/components/app-search.test.tsx`
 - Modify: `apps/web/src/components/app-search.tsx`
+- Modify: `apps/web/src/lib/dashboard-api.ts`
 
 **Interfaces:**
+
 - Consumes: `fetchDashboardOpenPullPages(query: DashboardOpenPullPagesQuery): Promise<DashboardOpenPullPages>` from `apps/web/src/lib/dashboard-api.ts`.
+- Extends: `DashboardPull` with `updatedAtIso: string`, populated directly from GitHub `updated_at` by both backend open-pull mappers while preserving `updatedAt`.
 - Produces: `AppSearch()` with recent open PR result buttons that navigate to `/{org}/{repo}/pull/{number}/chapters/1`.
 
 - [ ] **Step 1: Replace the dashboard mock and add realistic open-PR fixtures**
@@ -43,7 +51,12 @@ vi.mock("@/lib/dashboard-api", () => ({
   fetchDashboardOpenPullPages: dashboardApi.fetchDashboardOpenPullPages,
 }));
 
-function pull(number: number, title: string, updatedAt: string) {
+function pull(
+  number: number,
+  title: string,
+  updatedAt: string,
+  updatedAtIso = "2026-07-11T10:00:00Z",
+) {
   return {
     id: `folio-${number}`,
     org: "KMGeon",
@@ -52,6 +65,7 @@ function pull(number: number, title: string, updatedAt: string) {
     title,
     author: "reviewer",
     updatedAt,
+    updatedAtIso,
     headBranch: `feature-${number}`,
     baseBranch: "main",
     status: "ready" as const,
@@ -73,7 +87,7 @@ function openPages(items = [pull(101, "Newest change", "방금")]) {
 }
 ```
 
-Set `dashboardApi.fetchDashboardOpenPullPages.mockResolvedValue(openPages())` in `afterEach` after clearing mocks.
+Set `dashboardApi.fetchDashboardOpenPullPages.mockResolvedValue(openPages())` in `beforeEach`. Retain unmounting, DOM cleanup, navigation reset, and mock clearing in `afterEach`.
 
 - [ ] **Step 2: Write the failing recent-results behavior test**
 
@@ -83,8 +97,8 @@ Replace the test that activates the dashboard page result with:
 it("shows recent open PRs without page commands and navigates to review", async () => {
   dashboardApi.fetchDashboardOpenPullPages.mockResolvedValue(
     openPages([
-      pull(98, "Older change", "2시간 전"),
-      pull(99, "Newest change", "4분 전"),
+      pull(98, "Older change", "2시간 전", "2026-07-11T08:00:00Z"),
+      pull(99, "Newest change", "4분 전", "2026-07-11T09:56:00Z"),
     ]),
   );
   const container = await mount(React.createElement(AppSearch));
@@ -147,16 +161,6 @@ import {
 
 const RESULT_LIMIT = 10;
 
-function relativeMinutes(value: string): number {
-  if (value === "방금") return 0;
-  const amount = Number.parseInt(value, 10);
-  if (!Number.isFinite(amount)) return Number.POSITIVE_INFINITY;
-  if (value.includes("분")) return amount;
-  if (value.includes("시간")) return amount * 60;
-  if (value.includes("일")) return amount * 24 * 60;
-  return Number.POSITIVE_INFINITY;
-}
-
 function recentSearchItems(pages: DashboardOpenPullPages): SearchItem[] {
   const unique = new Map<string, DashboardPull>();
   for (const page of [pages.ready, pages.yours, pages.other]) {
@@ -165,7 +169,7 @@ function recentSearchItems(pages: DashboardOpenPullPages): SearchItem[] {
     }
   }
   return [...unique.values()]
-    .sort((left, right) => relativeMinutes(left.updatedAt) - relativeMinutes(right.updatedAt))
+    .sort((left, right) => Date.parse(right.updatedAtIso) - Date.parse(left.updatedAtIso))
     .slice(0, RESULT_LIMIT)
     .map((item) => ({
       label: `${item.org}/${item.repo}#${item.number} · ${item.title}`,
@@ -174,6 +178,13 @@ function recentSearchItems(pages: DashboardOpenPullPages): SearchItem[] {
     }));
 }
 ```
+
+Before this mapping, add `updatedAtIso: string` to the backend and frontend
+`DashboardPull` contracts. Populate it with `pr.updated_at` in both
+`DashboardFacade.getForUser` and `openPulls`, and cover each producer with a
+focused backend assertion. Add a cross-bucket component fixture with more than
+10 tied display labels and distinct ISO timestamps to prove the exact global
+ordering and cutoff.
 
 Initialize results as empty and request recent open pages when the modal opens:
 
@@ -208,10 +219,12 @@ Before running, add `await flushPromises()` after opening the dialog in the Tab-
 #### Phase 2: Add debounced search and explicit request states
 
 **Files:**
+
 - Modify: `apps/web/src/components/app-search.test.tsx`
 - Modify: `apps/web/src/components/app-search.tsx`
 
 **Interfaces:**
+
 - Consumes: the recent-results state and `recentSearchItems` mapping from Task 1.
 - Produces: debounced `q` requests, stale-response protection, and loading/empty/error/retry UI in `AppSearch()`.
 
@@ -357,12 +370,12 @@ useEffect(() => {
   setError(false);
   const runSearch = () => {
     void fetchDashboardOpenPullPages({
-        limit: RESULT_LIMIT,
-        ...(normalizedQuery ? { q: normalizedQuery } : {}),
-        ordering: "updated",
-        direction: "desc",
-        showDrafts: true,
-      })
+      limit: RESULT_LIMIT,
+      ...(normalizedQuery ? { q: normalizedQuery } : {}),
+      ordering: "updated",
+      direction: "desc",
+      showDrafts: true,
+    })
       .then((pages) => {
         if (requestId === requestIdRef.current) setItems(recentSearchItems(pages));
       })
@@ -373,9 +386,7 @@ useEffect(() => {
         if (requestId === requestIdRef.current) setLoading(false);
       });
   };
-  const timeout = normalizedQuery
-    ? window.setTimeout(runSearch, SEARCH_DEBOUNCE_MS)
-    : undefined;
+  const timeout = normalizedQuery ? window.setTimeout(runSearch, SEARCH_DEBOUNCE_MS) : undefined;
   if (!normalizedQuery) runSearch();
   return () => {
     requestIdRef.current += 1;
@@ -458,9 +469,11 @@ git commit -m "fix(web): search open PRs from global modal"
 ### Task 2: Repository verification
 
 **Files:**
+
 - Verify only; no planned source changes.
 
 **Interfaces:**
+
 - Consumes: completed global PR search behavior from Task 1.
 - Produces: verification evidence that the monorepo remains healthy.
 

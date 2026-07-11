@@ -2,7 +2,7 @@
 
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const navigation = vi.hoisted(() => ({
   pathname: "/dashboard",
@@ -33,6 +33,10 @@ Object.assign(globalThis, { React });
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
+beforeEach(() => {
+  dashboardApi.fetchDashboardOpenPullPages.mockResolvedValue(openPages());
+});
+
 afterEach(async () => {
   await act(async () => {
     mountedRoots.splice(0).forEach((root) => root.unmount());
@@ -40,13 +44,15 @@ afterEach(async () => {
   document.body.replaceChildren();
   navigation.pathname = "/dashboard";
   vi.clearAllMocks();
-  dashboardApi.fetchDashboardOpenPullPages.mockResolvedValue(openPages());
 });
 
 describe("AppSearch", () => {
   it("shows recent open PRs without page commands and navigates to review", async () => {
     dashboardApi.fetchDashboardOpenPullPages.mockResolvedValue(
-      openPages([pull(98, "Older change", "2시간 전"), pull(99, "Newest change", "4분 전")]),
+      openPages([
+        pull(98, "Older change", "2시간 전", "2026-07-11T08:00:00Z"),
+        pull(99, "Newest change", "4분 전", "2026-07-11T09:56:00Z"),
+      ]),
     );
     const container = await mount(React.createElement(AppSearch));
 
@@ -68,6 +74,46 @@ describe("AppSearch", () => {
 
     await click(results[0]!);
     expect(navigation.push).toHaveBeenCalledWith("/KMGeon/Folio/pull/99/chapters/1");
+  });
+
+  it("uses exact update timestamps for the global top 10 across buckets", async () => {
+    const tiedLabel = "방금";
+    dashboardApi.fetchDashboardOpenPullPages.mockResolvedValue({
+      ready: {
+        items: Array.from({ length: 10 }, (_, index) =>
+          pull(
+            index + 1,
+            `Ready ${index + 1}`,
+            tiedLabel,
+            `2026-07-11T10:${String(index).padStart(2, "0")}:00Z`,
+          ),
+        ),
+        nextCursor: null,
+        count: 10,
+      },
+      yours: {
+        items: [pull(11, "Yours newest", tiedLabel, "2026-07-11T10:59:00Z")],
+        nextCursor: null,
+        count: 1,
+      },
+      other: {
+        items: [pull(12, "Other second", tiedLabel, "2026-07-11T10:58:00Z")],
+        nextCursor: null,
+        count: 1,
+      },
+    });
+    const container = await mount(React.createElement(AppSearch));
+
+    await click(getButton(container, "검색"));
+    await flushPromises();
+
+    const labels = getDialogButtons(container).map((button) => button.textContent);
+    expect(labels).toHaveLength(10);
+    expect(labels[0]).toContain("Folio#11");
+    expect(labels[1]).toContain("Folio#12");
+    expect(labels.at(-1)).toContain("Folio#3");
+    expect(labels.some((label) => label?.includes("Folio#1 ·"))).toBe(false);
+    expect(labels.some((label) => label?.includes("Folio#2 ·"))).toBe(false);
   });
 
   it("autofocuses, dismisses, and returns focus to the invoking rail control", async () => {
@@ -171,6 +217,23 @@ describe("AppSearch", () => {
     expect(emptyContainer.textContent).toContain("열린 PR이 없습니다");
   });
 
+  it("shows a filtered-empty message when a query has no matches", async () => {
+    vi.useFakeTimers();
+    try {
+      const container = await mount(React.createElement(AppSearch));
+      await click(getButton(container, "검색"));
+      await flushPromises();
+      dashboardApi.fetchDashboardOpenPullPages.mockResolvedValue(openPages([]));
+
+      await changeInput(getSearchInput(container), "missing pull");
+      await act(async () => vi.advanceTimersByTimeAsync(200));
+
+      expect(container.textContent).toContain("검색 결과가 없습니다");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("shows an error and retries the open PR request", async () => {
     dashboardApi.fetchDashboardOpenPullPages
       .mockRejectedValueOnce(new Error("offline"))
@@ -208,7 +271,12 @@ describe("AppSearch", () => {
   });
 });
 
-function pull(number: number, title: string, updatedAt: string) {
+function pull(
+  number: number,
+  title: string,
+  updatedAt: string,
+  updatedAtIso = "2026-07-11T10:00:00Z",
+) {
   return {
     id: `folio-${number}`,
     org: "KMGeon",
@@ -217,6 +285,7 @@ function pull(number: number, title: string, updatedAt: string) {
     title,
     author: "reviewer",
     updatedAt,
+    updatedAtIso,
     headBranch: `feature-${number}`,
     baseBranch: "main",
     status: "ready" as const,

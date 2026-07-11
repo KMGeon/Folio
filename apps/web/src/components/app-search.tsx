@@ -26,26 +26,6 @@ interface SearchItem {
 const RESULT_LIMIT = 10;
 const SEARCH_DEBOUNCE_MS = 200;
 
-function relativeMinutes(value: string): number {
-  if (value === "방금") {
-    return 0;
-  }
-  const amount = Number.parseInt(value, 10);
-  if (!Number.isFinite(amount)) {
-    return Number.POSITIVE_INFINITY;
-  }
-  if (value.includes("분")) {
-    return amount;
-  }
-  if (value.includes("시간")) {
-    return amount * 60;
-  }
-  if (value.includes("일")) {
-    return amount * 24 * 60;
-  }
-  return Number.POSITIVE_INFINITY;
-}
-
 function recentSearchItems(pages: DashboardOpenPullPages): SearchItem[] {
   const unique = new Map<string, DashboardPull>();
   for (const page of [pages.ready, pages.yours, pages.other]) {
@@ -56,7 +36,7 @@ function recentSearchItems(pages: DashboardOpenPullPages): SearchItem[] {
     }
   }
   return [...unique.values()]
-    .sort((left, right) => relativeMinutes(left.updatedAt) - relativeMinutes(right.updatedAt))
+    .sort((left, right) => Date.parse(right.updatedAtIso) - Date.parse(left.updatedAtIso))
     .slice(0, RESULT_LIMIT)
     .map((item) => ({
       label: `${item.org}/${item.repo}#${item.number} · ${item.title}`,

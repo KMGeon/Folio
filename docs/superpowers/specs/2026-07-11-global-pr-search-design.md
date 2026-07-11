@@ -21,11 +21,16 @@ pending, the control behaves like a page command menu instead of PR search.
 Recently opened means open pull requests ordered by their latest update time. It
 does not include merged or closed pull requests.
 
+The dashboard response keeps the human-readable `updatedAt` label for cards and
+adds `updatedAtIso`, copied from GitHub's `updated_at`, for exact machine ordering.
+
 ## Data Flow
 
 `AppSearch` will reuse `fetchDashboardOpenPullPages`, requesting the `ready`,
 `yours`, and `other` buckets together. Results will be merged, deduplicated by PR
-identity, sorted by `updatedAt` descending, and capped at 10 results.
+identity, sorted by `Date.parse(updatedAtIso)` descending, and capped at 10 results.
+Sorting happens after bucket merging so rounded labels such as `방금` cannot
+distort the global top-10 cutoff.
 
 Opening the modal triggers an unfiltered request for recent open PRs. Changing
 the query triggers a short debounced request with `q`. A stale request must not
@@ -41,17 +46,29 @@ replace results for a newer query.
 The existing dark modal, tokens, spacing, and navigation rail interaction remain
 unchanged.
 
+## Affected Files
+
+- `apps/backend/src/application/dashboard/dashboard.facade.ts` and its facade test
+  expose the exact timestamp on the legacy dashboard payload.
+- `apps/backend/src/application/dashboard/dashboard-pull-page.ts` and the combined
+  open-page test expose the same timestamp on paged responses.
+- `apps/web/src/lib/dashboard-api.ts` declares `DashboardPull.updatedAtIso`.
+- `apps/web/src/components/app-search.tsx` and its component test use the exact
+  timestamp for global ordering and cutoff behavior.
+
 ## Testing
 
 Component tests will verify that:
 
 1. Opening search requests recently updated open PRs and renders them in recency
    order without application-page entries.
-2. Typing a query sends the debounced query to the open-pulls API and renders the
+2. Pulls from different buckets with identical display labels are globally ordered
+   and capped using `updatedAtIso`.
+3. Typing a query sends the debounced query to the open-pulls API and renders the
    matching result.
-3. A selected result navigates to its first review chapter.
-4. Loading, empty, and error states are visible.
-5. Existing keyboard focus, Escape, Tab trapping, and backdrop behavior continue
+4. A selected result navigates to its first review chapter.
+5. Loading, filtered-empty, unfiltered-empty, and error states are visible.
+6. Existing keyboard focus, Escape, Tab trapping, and backdrop behavior continue
    to pass.
 
 Implementation follows test-driven development: add the smallest failing

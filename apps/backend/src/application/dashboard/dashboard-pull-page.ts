@@ -158,6 +158,7 @@ async function openPulls(candidates: OpenCandidate[]): Promise<DashboardPull[]> 
       title: candidate.pr.title,
       author: candidate.pr.user?.login ?? "unknown",
       updatedAt: relativeTime(candidate.pr.updated_at),
+      updatedAtIso: candidate.pr.updated_at,
       headBranch: candidate.pr.head.ref,
       headSha: candidate.pr.head.sha ?? "",
       baseBranch: candidate.pr.base.ref,

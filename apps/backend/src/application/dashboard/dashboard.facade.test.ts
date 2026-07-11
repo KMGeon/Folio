@@ -124,6 +124,7 @@ describe("DashboardFacade", () => {
       viewedChapters: 1,
       changedFiles: 2, // a.ts + b.ts, deduped across chapters
       title: "Ready PR",
+      updatedAtIso: "2026-06-20T00:00:00Z",
       additions: 10,
       deletions: 2,
     });
