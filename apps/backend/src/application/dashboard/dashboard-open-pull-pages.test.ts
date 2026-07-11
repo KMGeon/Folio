@@ -114,7 +114,13 @@ describe("DashboardFacade combined open pull pages", () => {
     );
 
     expect(combined.ready.items.map((pull) => pull.title)).toEqual(["Newest ready"]);
+    expect(combined.ready.items[0]).toMatchObject({
+      updatedAtIso: "2026-07-09T00:00:00Z",
+    });
     expect(legacy.items.map((pull) => pull.title)).toEqual(["Older ready"]);
+    expect(legacy.items[0]).toMatchObject({
+      updatedAtIso: "2026-07-08T00:00:00Z",
+    });
     expect(legacy.nextCursor).toBeNull();
   });
 });

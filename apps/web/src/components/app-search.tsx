@@ -5,12 +5,17 @@ import { useRouter } from "next/navigation";
 import {
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent,
+  type ReactNode,
   useEffect,
   useRef,
   useState,
 } from "react";
 
-import { fetchDashboard } from "@/lib/dashboard-api";
+import {
+  type DashboardOpenPullPages,
+  type DashboardPull,
+  fetchDashboardOpenPullPages,
+} from "@/lib/dashboard-api";
 
 interface SearchItem {
   label: string;
@@ -18,43 +23,87 @@ interface SearchItem {
   group: string;
 }
 
-// Static app routes are always reachable; PR paths are loaded lazily.
-const ROUTES: SearchItem[] = [
-  { label: "대시보드", href: "/dashboard", group: "페이지" },
-  { label: "설치", href: "/onboarding/install", group: "페이지" },
-  { label: "설정", href: "/settings", group: "페이지" },
-];
+const RESULT_LIMIT = 10;
+const SEARCH_DEBOUNCE_MS = 200;
 
-/** Header search that lists every navigable path (routes + open PRs) and jumps to it. */
+function recentSearchItems(pages: DashboardOpenPullPages): SearchItem[] {
+  const unique = new Map<string, DashboardPull>();
+  for (const page of [pages.ready, pages.yours, pages.other]) {
+    for (const item of page.items) {
+      if ("status" in item) {
+        unique.set(item.id, item);
+      }
+    }
+  }
+  return [...unique.values()]
+    .sort((left, right) => Date.parse(right.updatedAtIso) - Date.parse(left.updatedAtIso))
+    .slice(0, RESULT_LIMIT)
+    .map((item) => ({
+      label: `${item.org}/${item.repo}#${item.number} · ${item.title}`,
+      href: `/${item.org}/${item.repo}/pull/${item.number}/chapters/1`,
+      group: "PR",
+    }));
+}
+
+/** Header search that lists recent open PRs and jumps to the first review chapter. */
 export function AppSearch() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [items, setItems] = useState<SearchItem[]>(ROUTES);
-  const [loaded, setLoaded] = useState(false);
+  const [items, setItems] = useState<SearchItem[]>([]);
+  const [retryVersion, setRetryVersion] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+  const requestIdRef = useRef(0);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const wasOpenRef = useRef(false);
 
-  // Load all PR paths once, lazily on first open (browser fetch carries the cookie).
   useEffect(() => {
-    if (!open || loaded) {
+    if (!open) {
       return;
     }
-    setLoaded(true);
-    fetchDashboard()
-      .then((data) => {
-        const pulls = data.pulls.map((p) => ({
-          label: `${p.org}/${p.repo}#${p.number} · ${p.title}`,
-          href: `/${p.org}/${p.repo}/pull/${p.number}/chapters/1`,
-          group: "PR",
-        }));
-        setItems([...ROUTES, ...pulls]);
+    const requestId = ++requestIdRef.current;
+    const normalizedQuery = query.trim();
+    setLoading(true);
+    setError(false);
+    const runSearch = () => {
+      void fetchDashboardOpenPullPages({
+        limit: RESULT_LIMIT,
+        ...(normalizedQuery ? { q: normalizedQuery } : {}),
+        ordering: "updated",
+        direction: "desc",
+        showDrafts: true,
       })
-      .catch(() => {});
-  }, [open, loaded]);
+        .then((pages) => {
+          if (requestId === requestIdRef.current) {
+            setItems(recentSearchItems(pages));
+          }
+        })
+        .catch(() => {
+          if (requestId === requestIdRef.current) {
+            setError(true);
+          }
+        })
+        .finally(() => {
+          if (requestId === requestIdRef.current) {
+            setLoading(false);
+          }
+        });
+    };
+    const timeout = normalizedQuery ? window.setTimeout(runSearch, SEARCH_DEBOUNCE_MS) : undefined;
+    if (!normalizedQuery) {
+      runSearch();
+    }
+    return () => {
+      requestIdRef.current += 1;
+      if (timeout !== undefined) {
+        window.clearTimeout(timeout);
+      }
+    };
+  }, [open, query, retryVersion]);
 
   useEffect(() => {
     if (open) {
@@ -88,9 +137,6 @@ export function AppSearch() {
     document.addEventListener("keydown", closeOnEscape);
     return () => document.removeEventListener("keydown", closeOnEscape);
   }, [open]);
-
-  const q = query.trim().toLowerCase();
-  const filtered = q ? items.filter((item) => item.label.toLowerCase().includes(q)) : items;
 
   const go = (href: string) => {
     setOpen(false);
@@ -139,7 +185,7 @@ export function AppSearch() {
         className="flex h-7 w-44 items-center gap-2 rounded-md border bg-muted/40 px-2.5 text-xs text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:border-ring sm:w-56"
       >
         <Search className="size-3.5" />
-        <span>PR, repo 검색</span>
+        <span>PR 검색</span>
       </button>
       {open ? (
         <div
@@ -159,22 +205,35 @@ export function AppSearch() {
               <Search className="-translate-y-1/2 absolute top-1/2 left-3 size-4 text-muted-foreground" />
               <input
                 ref={inputRef}
-                aria-label="PR, repo 검색"
+                aria-label="PR 검색"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="PR, repo 검색"
+                placeholder="PR 검색"
                 className="h-11 w-full bg-transparent pr-3 pl-9 text-sm outline-none placeholder:text-muted-foreground"
               />
             </div>
             <div className="max-h-80 overflow-y-auto p-1">
-              {filtered.length === 0 ? (
-                <div className="px-2 py-6 text-center font-mono text-[0.7rem] uppercase tracking-[0.16em] text-muted-foreground">
-                  결과 없음
-                </div>
-              ) : (
-                filtered.map((item) => (
+              {loading ? (
+                <SearchMessage>불러오는 중</SearchMessage>
+              ) : error ? (
+                <div className="flex flex-col items-center gap-2 px-2 py-6">
+                  <SearchMessage>검색 결과를 불러오지 못했습니다</SearchMessage>
                   <button
-                    key={`${item.group}-${item.href}`}
+                    type="button"
+                    onClick={() => setRetryVersion((value) => value + 1)}
+                    className="h-7 rounded-md border px-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:border-ring focus-visible:outline-none"
+                  >
+                    다시 시도
+                  </button>
+                </div>
+              ) : items.length === 0 ? (
+                <SearchMessage>
+                  {query.trim() ? "검색 결과가 없습니다" : "열린 PR이 없습니다"}
+                </SearchMessage>
+              ) : (
+                items.map((item) => (
+                  <button
+                    key={item.href}
                     type="button"
                     onClick={() => go(item.href)}
                     className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-accent"
@@ -191,5 +250,13 @@ export function AppSearch() {
         </div>
       ) : null}
     </>
+  );
+}
+
+function SearchMessage({ children }: { children: ReactNode }) {
+  return (
+    <div className="px-2 py-6 text-center font-mono text-[0.7rem] uppercase tracking-[0.16em] text-muted-foreground">
+      {children}
+    </div>
   );
 }

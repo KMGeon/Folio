@@ -2,11 +2,15 @@
 
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const navigation = vi.hoisted(() => ({
   pathname: "/dashboard",
   push: vi.fn(),
+}));
+
+const dashboardApi = vi.hoisted(() => ({
+  fetchDashboardOpenPullPages: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -15,7 +19,8 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("@/lib/dashboard-api", () => ({
-  fetchDashboard: vi.fn(() => new Promise(() => {})),
+  fetchDashboard: vi.fn(() => Promise.resolve({ pulls: [] })),
+  fetchDashboardOpenPullPages: dashboardApi.fetchDashboardOpenPullPages,
 }));
 
 import { AppSearch } from "./app-search";
@@ -28,6 +33,10 @@ Object.assign(globalThis, { React });
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
+beforeEach(() => {
+  dashboardApi.fetchDashboardOpenPullPages.mockResolvedValue(openPages());
+});
+
 afterEach(async () => {
   await act(async () => {
     mountedRoots.splice(0).forEach((root) => root.unmount());
@@ -38,20 +47,73 @@ afterEach(async () => {
 });
 
 describe("AppSearch", () => {
-  it("uses normal button activation for Enter and Space dashboard navigation", async () => {
+  it("shows recent open PRs without page commands and navigates to review", async () => {
+    dashboardApi.fetchDashboardOpenPullPages.mockResolvedValue(
+      openPages([
+        pull(98, "Older change", "2시간 전", "2026-07-11T08:00:00Z"),
+        pull(99, "Newest change", "4분 전", "2026-07-11T09:56:00Z"),
+      ]),
+    );
     const container = await mount(React.createElement(AppSearch));
-    const trigger = getButton(container, "검색");
 
-    for (const key of ["Enter", " "]) {
-      await click(trigger);
-      const dashboardResult = getButton(container, "대시보드");
+    await click(getButton(container, "검색"));
+    await flushPromises();
 
-      await activateButtonWithKeyboard(dashboardResult, key);
+    expect(dashboardApi.fetchDashboardOpenPullPages).toHaveBeenCalledWith({
+      limit: 10,
+      ordering: "updated",
+      direction: "desc",
+      showDrafts: true,
+    });
+    expect(container.textContent).not.toContain("대시보드");
+    const results = getDialogButtons(container);
+    expect(results.map((button) => button.textContent)).toEqual([
+      expect.stringContaining("Folio#99"),
+      expect.stringContaining("Folio#98"),
+    ]);
 
-      expect(navigation.push).toHaveBeenLastCalledWith("/dashboard");
-      expect(container.querySelector('[role="dialog"]')).toBeNull();
-    }
-    expect(navigation.push).toHaveBeenCalledTimes(2);
+    await click(results[0]!);
+    expect(navigation.push).toHaveBeenCalledWith("/KMGeon/Folio/pull/99/chapters/1");
+  });
+
+  it("uses exact update timestamps for the global top 10 across buckets", async () => {
+    const tiedLabel = "방금";
+    dashboardApi.fetchDashboardOpenPullPages.mockResolvedValue({
+      ready: {
+        items: Array.from({ length: 10 }, (_, index) =>
+          pull(
+            index + 1,
+            `Ready ${index + 1}`,
+            tiedLabel,
+            `2026-07-11T10:${String(index).padStart(2, "0")}:00Z`,
+          ),
+        ),
+        nextCursor: null,
+        count: 10,
+      },
+      yours: {
+        items: [pull(11, "Yours newest", tiedLabel, "2026-07-11T10:59:00Z")],
+        nextCursor: null,
+        count: 1,
+      },
+      other: {
+        items: [pull(12, "Other second", tiedLabel, "2026-07-11T10:58:00Z")],
+        nextCursor: null,
+        count: 1,
+      },
+    });
+    const container = await mount(React.createElement(AppSearch));
+
+    await click(getButton(container, "검색"));
+    await flushPromises();
+
+    const labels = getDialogButtons(container).map((button) => button.textContent);
+    expect(labels).toHaveLength(10);
+    expect(labels[0]).toContain("Folio#11");
+    expect(labels[1]).toContain("Folio#12");
+    expect(labels.at(-1)).toContain("Folio#3");
+    expect(labels.some((label) => label?.includes("Folio#1 ·"))).toBe(false);
+    expect(labels.some((label) => label?.includes("Folio#2 ·"))).toBe(false);
   });
 
   it("autofocuses, dismisses, and returns focus to the invoking rail control", async () => {
@@ -70,7 +132,7 @@ describe("AppSearch", () => {
 
     await click(railSearch!);
 
-    const input = container.querySelector<HTMLInputElement>('input[aria-label="PR, repo 검색"]');
+    const input = container.querySelector<HTMLInputElement>('input[aria-label="PR 검색"]');
     expect(document.activeElement).toBe(input);
 
     await pressKey(document, "Escape");
@@ -82,10 +144,9 @@ describe("AppSearch", () => {
   it("keeps Tab focus within the open search dialog", async () => {
     const container = await mount(React.createElement(AppSearch));
     await click(getButton(container, "검색"));
-    const input = container.querySelector<HTMLInputElement>('input[aria-label="PR, repo 검색"]');
-    const results = Array.from(
-      container.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'),
-    );
+    await flushPromises();
+    const input = container.querySelector<HTMLInputElement>('input[aria-label="PR 검색"]');
+    const results = getDialogButtons(container);
     const lastResult = results.at(-1);
     expect(input).not.toBeNull();
     expect(lastResult).not.toBeUndefined();
@@ -113,7 +174,137 @@ describe("AppSearch", () => {
     expect(container.querySelector('[role="dialog"]')).toBeNull();
     expect(document.activeElement).toBe(trigger);
   });
+
+  it("debounces the query and searches open PRs", async () => {
+    vi.useFakeTimers();
+    try {
+      const container = await mount(React.createElement(AppSearch));
+      await click(getButton(container, "검색"));
+      await flushPromises();
+      dashboardApi.fetchDashboardOpenPullPages.mockClear();
+      dashboardApi.fetchDashboardOpenPullPages.mockResolvedValue(
+        openPages([pull(120, "Search match", "5분 전")]),
+      );
+
+      await changeInput(getSearchInput(container), "Search match");
+      expect(dashboardApi.fetchDashboardOpenPullPages).not.toHaveBeenCalled();
+      await act(async () => vi.advanceTimersByTimeAsync(200));
+
+      expect(dashboardApi.fetchDashboardOpenPullPages).toHaveBeenCalledWith({
+        limit: 10,
+        q: "Search match",
+        ordering: "updated",
+        direction: "desc",
+        showDrafts: true,
+      });
+      expect(container.textContent).toContain("Folio#120");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("shows loading and empty states for recent open PRs", async () => {
+    dashboardApi.fetchDashboardOpenPullPages.mockReturnValue(new Promise(() => {}));
+    const loadingContainer = await mount(React.createElement(AppSearch));
+    await click(getButton(loadingContainer, "검색"));
+    expect(loadingContainer.textContent).toContain("불러오는 중");
+
+    await act(async () => mountedRoots.pop()?.unmount());
+    dashboardApi.fetchDashboardOpenPullPages.mockResolvedValue(openPages([]));
+    const emptyContainer = await mount(React.createElement(AppSearch));
+    await click(getButton(emptyContainer, "검색"));
+    await flushPromises();
+    expect(emptyContainer.textContent).toContain("열린 PR이 없습니다");
+  });
+
+  it("shows a filtered-empty message when a query has no matches", async () => {
+    vi.useFakeTimers();
+    try {
+      const container = await mount(React.createElement(AppSearch));
+      await click(getButton(container, "검색"));
+      await flushPromises();
+      dashboardApi.fetchDashboardOpenPullPages.mockResolvedValue(openPages([]));
+
+      await changeInput(getSearchInput(container), "missing pull");
+      await act(async () => vi.advanceTimersByTimeAsync(200));
+
+      expect(container.textContent).toContain("검색 결과가 없습니다");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("shows an error and retries the open PR request", async () => {
+    dashboardApi.fetchDashboardOpenPullPages
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce(openPages());
+    const container = await mount(React.createElement(AppSearch));
+    await click(getButton(container, "검색"));
+    await flushPromises();
+    expect(container.textContent).toContain("검색 결과를 불러오지 못했습니다");
+
+    await click(getButton(container, "다시 시도"));
+    await flushPromises();
+    expect(dashboardApi.fetchDashboardOpenPullPages).toHaveBeenCalledTimes(2);
+    expect(container.textContent).toContain("Folio#101");
+  });
+
+  it("ignores a response from an older query", async () => {
+    vi.useFakeTimers();
+    try {
+      const recent = deferred<ReturnType<typeof openPages>>();
+      dashboardApi.fetchDashboardOpenPullPages
+        .mockReturnValueOnce(recent.promise)
+        .mockResolvedValueOnce(openPages([pull(120, "Current match", "방금")]));
+      const container = await mount(React.createElement(AppSearch));
+      await click(getButton(container, "검색"));
+
+      await changeInput(getSearchInput(container), "Current");
+      await act(async () => vi.advanceTimersByTimeAsync(200));
+      expect(container.textContent).toContain("Current match");
+
+      await act(async () => recent.resolve(openPages([pull(98, "Stale result", "방금")])));
+      expect(container.textContent).not.toContain("Stale result");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
+
+function pull(
+  number: number,
+  title: string,
+  updatedAt: string,
+  updatedAtIso = "2026-07-11T10:00:00Z",
+) {
+  return {
+    id: `folio-${number}`,
+    org: "KMGeon",
+    repo: "Folio",
+    number,
+    title,
+    author: "reviewer",
+    updatedAt,
+    updatedAtIso,
+    headBranch: `feature-${number}`,
+    baseBranch: "main",
+    status: "ready" as const,
+    chapterCount: 2,
+    viewedChapters: 0,
+    changedFiles: 3,
+    additions: 20,
+    deletions: 4,
+    risk: "low" as const,
+  };
+}
+
+function openPages(items = [pull(101, "Newest change", "방금")]) {
+  return {
+    ready: { items, nextCursor: null, count: items.length },
+    yours: { items: [], nextCursor: null, count: 0 },
+    other: { items: [], nextCursor: null, count: 0 },
+  };
+}
 
 async function mount(element: React.ReactNode) {
   const container = document.createElement("div");
@@ -137,10 +328,44 @@ function getButton(container: ParentNode, name: string) {
   return button;
 }
 
+function getDialogButtons(container: ParentNode) {
+  return Array.from(container.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'));
+}
+
+function getSearchInput(container: ParentNode) {
+  const input = container.querySelector<HTMLInputElement>('input[aria-label="PR 검색"]');
+  if (!input) {
+    throw new Error("Search input not found");
+  }
+  return input;
+}
+
 async function click(element: HTMLElement) {
   await act(async () => {
     element.click();
   });
+}
+
+async function changeInput(input: HTMLInputElement, value: string) {
+  await act(async () => {
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+    setter?.call(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+
+async function flushPromises() {
+  await act(async () => {
+    await Promise.resolve();
+  });
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
 }
 
 async function pressKey(
@@ -152,22 +377,5 @@ async function pressKey(
     target.dispatchEvent(
       new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true, ...init }),
     );
-  });
-}
-
-async function activateButtonWithKeyboard(button: HTMLButtonElement, key: string) {
-  // Happy DOM omits native key-to-click activation, so mirror the browser's event timing.
-  await act(async () => {
-    const keydown = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true });
-    button.dispatchEvent(keydown);
-    if (key === "Enter" && !keydown.defaultPrevented) {
-      button.click();
-    }
-
-    const keyup = new KeyboardEvent("keyup", { key, bubbles: true, cancelable: true });
-    button.dispatchEvent(keyup);
-    if (key === " " && !keyup.defaultPrevented) {
-      button.click();
-    }
   });
 }

@@ -55,7 +55,7 @@ type DashboardPullBase = Record<"id" | "org" | "repo" | "title" | "author", stri
 };
 
 export type DashboardPull = DashboardPullBase &
-  Record<"updatedAt" | "headBranch" | "baseBranch", string> & {
+  Record<"updatedAt" | "updatedAtIso" | "headBranch" | "baseBranch", string> & {
     headSha: string;
     githubStatus: DashboardCompletedState;
     analysisStatus: ReviewAnalysisStatus;
@@ -174,6 +174,7 @@ export class DashboardFacade {
             title: pr.title,
             author: pr.user?.login ?? "unknown",
             updatedAt: relativeTime(pr.updated_at),
+            updatedAtIso: pr.updated_at,
             headBranch: pr.head.ref,
             headSha: pr.head.sha ?? "",
             baseBranch: pr.base.ref,

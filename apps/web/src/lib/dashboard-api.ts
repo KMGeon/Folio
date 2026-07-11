@@ -17,6 +17,7 @@ export interface DashboardPull {
   title: string;
   author: string;
   updatedAt: string;
+  updatedAtIso: string;
   headBranch: string;
   headSha: string;
   baseBranch: string;
