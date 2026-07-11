@@ -28,6 +28,7 @@ export {
   exchangeOAuthCode,
   getAuthenticatedUser,
   type OAuthUser,
+  verifyUserInstallationAccess,
 } from "./auth/user-oauth.js";
 
 // ─── Client ──────────────────────────────────────────────────────────────────

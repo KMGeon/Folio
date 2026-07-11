@@ -9,6 +9,7 @@ import {
   type InstallationAccountIdentity,
   getUserRepoPermissionLevel,
   type OAuthUser,
+  verifyUserInstallationAccess,
 } from "@folio/github";
 import { installationsRepo, repositoriesRepo } from "@folio/db";
 import { Injectable } from "@nestjs/common";
@@ -35,14 +36,18 @@ export class GitHubOAuthAdapter implements GitHubRepositoryPermissionPort {
     });
   }
 
-  async exchangeCodeForUser(code: string): Promise<OAuthUser> {
+  async exchangeCodeForUser(code: string, installationId?: number): Promise<OAuthUser> {
     const { accessToken } = await exchangeOAuthCode({
       clientId: config.GITHUB_APP_CLIENT_ID ?? "",
       clientSecret: config.GITHUB_APP_CLIENT_SECRET ?? "",
       code,
     });
-    // Token is used once for identity, then discarded (design Model B).
-    return getAuthenticatedUser({ accessToken });
+    const user = await getAuthenticatedUser({ accessToken });
+    if (installationId !== undefined) {
+      // Only the user token can prove this callback user controls the claimed installation.
+      await verifyUserInstallationAccess({ accessToken, installationId });
+    }
+    return user;
   }
 
   getInstallationAccount(installationId: number): Promise<InstallationAccountIdentity> {

@@ -77,6 +77,34 @@ describe("AuthFacade", () => {
     expect(sessions.createForUser).toHaveBeenCalledWith("active-user");
   });
 
+  it("binds an installation login to the exact installation during OAuth exchange", async () => {
+    vi.mocked(usersRepo.upsertByGithubId).mockResolvedValue({ id: "active-user" } as never);
+    vi.mocked(usersRepo.getByGithubId).mockResolvedValue({
+      id: "active-user",
+      globalStatus: GLOBAL_STATUS.ACTIVE,
+    } as never);
+
+    const completion = await facade.completeLogin("oauth-code", 123);
+    expect(completion).toEqual({
+      status: "approved",
+      userId: "active-user",
+      ...session,
+    });
+
+    expect(github.exchangeCodeForUser).toHaveBeenCalledWith("oauth-code", 123);
+    expect(JSON.stringify(completion)).not.toContain("gho_");
+  });
+
+  it("does not persist a user or session when installation verification fails", async () => {
+    vi.mocked(github.exchangeCodeForUser).mockRejectedValue(new Error("installation denied"));
+
+    await expect(facade.completeLogin("oauth-code", 999)).rejects.toThrow("installation denied");
+
+    expect(usersRepo.upsertByGithubId).not.toHaveBeenCalled();
+    expect(usersRepo.getByGithubId).not.toHaveBeenCalled();
+    expect(sessions.createForUser).not.toHaveBeenCalled();
+  });
+
   it("keeps the compatible pending response for a non-active refreshed user", async () => {
     vi.mocked(usersRepo.upsertByGithubId).mockResolvedValue({
       id: "u1",

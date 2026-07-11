@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildAuthorizeUrl, exchangeOAuthCode, getAuthenticatedUser } from "../auth/user-oauth.js";
+import {
+  buildAuthorizeUrl,
+  exchangeOAuthCode,
+  getAuthenticatedUser,
+  verifyUserInstallationAccess,
+} from "../auth/user-oauth.js";
 
 describe("buildAuthorizeUrl", () => {
   it("builds the GitHub authorize URL with encoded params", () => {
@@ -73,5 +78,56 @@ describe("getAuthenticatedUser", () => {
       avatarUrl: "https://avatars/octocat",
       email: "octo@github.com",
     });
+  });
+});
+
+describe("verifyUserInstallationAccess", () => {
+  it("accepts the exact installation returned by the authenticated-user API", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ id: 123 }),
+    });
+
+    await expect(
+      verifyUserInstallationAccess({
+        accessToken: "gho_secret",
+        installationId: 123,
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "https://api.github.com/user/installations/123",
+      expect.objectContaining({
+        headers: expect.objectContaining({ authorization: "Bearer gho_secret" }),
+      }),
+    );
+  });
+
+  it("rejects an installation that the authenticated user cannot access", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: false, status: 404 });
+
+    await expect(
+      verifyUserInstallationAccess({
+        accessToken: "gho_secret",
+        installationId: 999,
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      }),
+    ).rejects.toThrow("GitHub user installation access check failed: HTTP 404");
+  });
+
+  it("rejects a mismatched installation response", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ id: 456 }),
+    });
+
+    await expect(
+      verifyUserInstallationAccess({
+        accessToken: "gho_secret",
+        installationId: 123,
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      }),
+    ).rejects.toThrow("GitHub user installation access check returned a mismatched installation");
   });
 });

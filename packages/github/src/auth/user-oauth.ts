@@ -1,7 +1,6 @@
 /**
- * GitHub App user-to-server OAuth. Folio uses this only to *identify* the
- * logged-in user (see design Model B) — the access token is used once to read
- * `/user` and then discarded, never persisted.
+ * GitHub App user-to-server OAuth. The access token is used transiently for
+ * authenticated-user APIs, then discarded and never persisted.
  */
 export interface OAuthUser {
   id: number;
@@ -13,6 +12,7 @@ export interface OAuthUser {
 const AUTHORIZE_URL = "https://github.com/login/oauth/authorize";
 const ACCESS_TOKEN_URL = "https://github.com/login/oauth/access_token";
 const USER_URL = "https://api.github.com/user";
+const USER_INSTALLATIONS_URL = "https://api.github.com/user/installations";
 
 export function buildAuthorizeUrl(input: {
   clientId: string;
@@ -79,4 +79,26 @@ export async function getAuthenticatedUser(input: {
     avatarUrl: data.avatar_url,
     email: data.email ?? null,
   };
+}
+
+export async function verifyUserInstallationAccess(input: {
+  accessToken: string;
+  installationId: number;
+  fetchImpl?: typeof fetch;
+}): Promise<void> {
+  const doFetch = input.fetchImpl ?? fetch;
+  const res = await doFetch(`${USER_INSTALLATIONS_URL}/${input.installationId}`, {
+    headers: {
+      authorization: `Bearer ${input.accessToken}`,
+      accept: "application/vnd.github+json",
+      "user-agent": "folio",
+    },
+  });
+  if (!res.ok) {
+    throw new Error(`GitHub user installation access check failed: HTTP ${res.status}`);
+  }
+  const data = (await res.json()) as { id?: number };
+  if (data.id !== input.installationId) {
+    throw new Error("GitHub user installation access check returned a mismatched installation");
+  }
 }

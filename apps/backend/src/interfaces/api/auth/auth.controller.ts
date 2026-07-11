@@ -86,14 +86,20 @@ export class AuthController {
       // GitHub App installation completion does not echo our OAuth state cookie.
       const parsedInstallationId = Number(installationId);
       if (!/^[1-9]\d*$/.test(installationId) || !Number.isSafeInteger(parsedInstallationId)) {
+        res.clearCookie(INSTALLATION_CLAIM_COOKIE, { path: "/" });
         throw new BadRequestException("installation_id must be a positive integer");
       }
-      await this.completeLoginAndRedirect(
-        code,
-        `/onboarding/install?installation_id=${parsedInstallationId}`,
-        res,
-        parsedInstallationId,
-      );
+      try {
+        await this.completeLoginAndRedirect(
+          code,
+          `/onboarding/install?installation_id=${parsedInstallationId}`,
+          res,
+          parsedInstallationId,
+        );
+      } catch (error) {
+        res.clearCookie(INSTALLATION_CLAIM_COOKIE, { path: "/" });
+        throw error;
+      }
       return;
     }
 
@@ -111,7 +117,7 @@ export class AuthController {
     res: Response,
     installationId?: number,
   ): Promise<void> {
-    const completion = await this.auth.completeLogin(code);
+    const completion = await this.auth.completeLogin(code, installationId);
     res.clearCookie(STATE_COOKIE, { path: "/" });
     if (completion.status === "pending") {
       res.clearCookie(SESSION_COOKIE, { path: "/" });

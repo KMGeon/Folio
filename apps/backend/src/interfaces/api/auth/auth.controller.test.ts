@@ -12,6 +12,16 @@ const setGlobalStatus = vi.fn();
 const getById = vi.fn();
 const getByFullName = vi.fn();
 const sessionStore = new Map<string, { userId: string; expiresAt: Date }>();
+const githubMocks = vi.hoisted(() => ({
+  exchangeOAuthCode: vi.fn(async () => ({ accessToken: "gho_secret" })),
+  getAuthenticatedUser: vi.fn(async () => ({
+    id: 7,
+    login: "octocat",
+    avatarUrl: "https://avatars/octocat",
+    email: null,
+  })),
+  verifyUserInstallationAccess: vi.fn(async () => undefined),
+}));
 
 vi.mock("@folio/db", () => ({
   USER_STATUS: {
@@ -49,13 +59,7 @@ vi.mock("@folio/github", async () => {
   const actual = (await vi.importActual("@folio/github")) as Record<string, unknown>;
   return {
     ...actual,
-    exchangeOAuthCode: vi.fn(async () => ({ accessToken: "gho_x" })),
-    getAuthenticatedUser: vi.fn(async () => ({
-      id: 7,
-      login: "octocat",
-      avatarUrl: "https://avatars/octocat",
-      email: null,
-    })),
+    ...githubMocks,
   };
 });
 
@@ -188,6 +192,73 @@ describe("auth routes", () => {
     const proof = verifyInstallationClaimToken(token ?? "", "webhook-secret");
     expect(proof).toMatchObject({ userId: "u1", installationId: 123 });
     expect(proof?.expiresAt).toBeGreaterThan(Date.now() + 9 * 60 * 1000);
+    expect(githubMocks.verifyUserInstallationAccess).toHaveBeenCalledWith({
+      accessToken: "gho_secret",
+      installationId: 123,
+    });
+    expect(res.text).not.toContain("gho_secret");
+    await app.close();
+  });
+
+  it.each([
+    [
+      "an arbitrary installation id",
+      new Error("GitHub user installation access check failed: HTTP 404"),
+    ],
+    ["a GitHub API failure", new Error("GitHub user installation access check failed: HTTP 503")],
+  ])("does not mint a claim for %s", async (_label, failure) => {
+    upsertByGithubId.mockResolvedValue({
+      id: "u1",
+      login: "octocat",
+      avatarUrl: "https://avatars/octocat",
+      status: "approved",
+      globalStatus: "active",
+    });
+    githubMocks.verifyUserInstallationAccess.mockRejectedValueOnce(failure);
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const app = await createServer();
+
+    const res = await request(app.getHttpServer()).get(
+      "/api/v1/auth/github/callback?code=good&installation_id=999&setup_action=install",
+    );
+
+    expect(res.status).not.toBe(302);
+    expect(res.headers.location).toBeUndefined();
+    const cookies = (res.headers["set-cookie"] as unknown as string[] | undefined) ?? [];
+    expect(cookies.find((cookie) => cookie.startsWith("folio_installation_claim="))).toContain(
+      "Expires=Thu, 01 Jan 1970",
+    );
+    expect(cookies.join()).not.toContain("gho_secret");
+    expect(JSON.stringify(errorLog.mock.calls)).not.toContain("gho_secret");
+    expect(sessionStore.size).toBe(0);
+    await app.close();
+    errorLog.mockRestore();
+  });
+
+  it("does not mint an installation proof for a pending user", async () => {
+    upsertByGithubId.mockResolvedValue({
+      id: "u1",
+      login: "new-reviewer",
+      avatarUrl: "https://avatars/new-reviewer",
+      status: "pending",
+      globalStatus: "pending",
+    });
+    const app = await createServer();
+
+    const res = await request(app.getHttpServer()).get(
+      "/api/v1/auth/github/callback?code=good&installation_id=123&setup_action=install",
+    );
+
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toBe("http://localhost:5173/login?status=pending");
+    const cookies = res.headers["set-cookie"] as unknown as string[];
+    expect(cookies.find((cookie) => cookie.startsWith("folio_installation_claim="))).toContain(
+      "Expires=Thu, 01 Jan 1970",
+    );
+    expect(githubMocks.verifyUserInstallationAccess).toHaveBeenCalledWith({
+      accessToken: "gho_secret",
+      installationId: 123,
+    });
     await app.close();
   });
 

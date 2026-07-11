@@ -26,8 +26,8 @@ export class AuthFacade {
   ) {}
 
   /** Exchange the OAuth code and only open a session for approved users. */
-  async completeLogin(code: string): Promise<LoginCompletion> {
-    const ghUser = await this.github.exchangeCodeForUser(code);
+  async completeLogin(code: string, installationId?: number): Promise<LoginCompletion> {
+    const ghUser = await this.github.exchangeCodeForUser(code, installationId);
     await usersRepo.upsertByGithubId({
       githubUserId: ghUser.id,
       login: ghUser.login,
