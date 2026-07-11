@@ -62,6 +62,14 @@ export const workspaceMembersRepo = {
       .orderBy(asc(workspaceMembers.joinedAt));
   },
 
+  async listByUser(userId: string, db: Db = getDb()): Promise<WorkspaceMemberRow[]> {
+    return db
+      .select()
+      .from(workspaceMembers)
+      .where(eq(workspaceMembers.userId, userId))
+      .orderBy(asc(workspaceMembers.joinedAt), asc(workspaceMembers.id));
+  },
+
   async updateRole(
     id: string,
     role: WorkspaceRole,

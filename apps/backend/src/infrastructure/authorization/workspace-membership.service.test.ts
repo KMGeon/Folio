@@ -110,6 +110,26 @@ describe("WorkspaceMembershipService", () => {
         expect(auditLogsRepo.record).not.toHaveBeenCalled();
       },
     );
+
+    it("uses a supplied transaction for lookup and creation", async () => {
+      const created = memberRow();
+      vi.mocked(workspaceMembersRepo.getMembership).mockResolvedValue(null);
+      vi.mocked(workspaceMembersRepo.create).mockResolvedValue(created);
+
+      await expect(
+        service.ensureReviewer("workspace-1", "user-1", transactionHandle as unknown as Db),
+      ).resolves.toBe(created);
+
+      expect(workspaceMembersRepo.getMembership).toHaveBeenCalledWith(
+        "workspace-1",
+        "user-1",
+        transactionHandle,
+      );
+      expect(workspaceMembersRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ workspaceId: "workspace-1", userId: "user-1" }),
+        transactionHandle,
+      );
+    });
   });
 
   it("atomically suspends the expected reviewer and records its audit", async () => {

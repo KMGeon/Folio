@@ -5,4 +5,8 @@ describe("auditLogs schema", () => {
   it("accepts the explicit system-admin transfer action", () => {
     expect(auditLogs.action.enumValues).toContain("system_admin_transfer");
   });
+
+  it("accepts the explicit workspace claim action", () => {
+    expect(auditLogs.action.enumValues).toContain("workspace_claim");
+  });
 });

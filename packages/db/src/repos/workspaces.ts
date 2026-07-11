@@ -28,6 +28,19 @@ export const workspacesRepo = {
     return row ?? null;
   },
 
+  async getByGithubAccountIdForUpdate(
+    githubAccountId: number,
+    db: Db = getDb(),
+  ): Promise<WorkspaceRow | null> {
+    const [row] = await db
+      .select()
+      .from(workspaces)
+      .where(eq(workspaces.githubAccountId, githubAccountId))
+      .limit(1)
+      .for("update");
+    return row ?? null;
+  },
+
   async upsertByGithubAccountId(input: WorkspaceInsert, db: Db = getDb()): Promise<WorkspaceRow> {
     const [row] = await db
       .insert(workspaces)

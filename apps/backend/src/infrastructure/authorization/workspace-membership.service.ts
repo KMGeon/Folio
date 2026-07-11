@@ -28,18 +28,21 @@ export class WorkspaceMembershipService {
     return workspaceMembersRepo.getMembership(workspaceId, userId);
   }
 
-  async ensureReviewer(workspaceId: string, userId: string): Promise<WorkspaceMemberRow> {
-    const existing = await workspaceMembersRepo.getMembership(workspaceId, userId);
+  async ensureReviewer(workspaceId: string, userId: string, db?: Db): Promise<WorkspaceMemberRow> {
+    const existing = db
+      ? await workspaceMembersRepo.getMembership(workspaceId, userId, db)
+      : await workspaceMembersRepo.getMembership(workspaceId, userId);
     // Suspended rows remain authoritative so GitHub access cannot auto-create around removal.
     if (existing) {
       return existing;
     }
-    return workspaceMembersRepo.create({
+    const input = {
       workspaceId,
       userId,
       role: WORKSPACE_ROLE.REVIEWER,
       status: MEMBERSHIP_STATUS.ACTIVE,
-    });
+    };
+    return db ? workspaceMembersRepo.create(input, db) : workspaceMembersRepo.create(input);
   }
 
   suspendReviewer(input: MemberActionInput, db?: Db): Promise<WorkspaceMemberRow | null> {

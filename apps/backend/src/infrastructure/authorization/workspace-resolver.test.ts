@@ -4,6 +4,7 @@ import {
   type WorkspaceRow,
   installationsRepo,
   repositoriesRepo,
+  workspaceMembersRepo,
   workspacesRepo,
 } from "@folio/db";
 import { ACCOUNT_TYPE } from "@folio/types";
@@ -13,6 +14,7 @@ import { WorkspaceResolver } from "./workspace-resolver.js";
 vi.mock("@folio/db", () => ({
   installationsRepo: { listByWorkspaceAccountId: vi.fn() },
   repositoriesRepo: { getByGithubId: vi.fn() },
+  workspaceMembersRepo: { listByUser: vi.fn() },
   workspacesRepo: {
     getByGithubAccountId: vi.fn(),
     getById: vi.fn(),
@@ -119,5 +121,27 @@ describe("WorkspaceResolver", () => {
     await expect(resolver.listInstallationsForWorkspace(42)).resolves.toBe(installations);
 
     expect(installationsRepo.listByWorkspaceAccountId).toHaveBeenCalledWith(42);
+  });
+
+  it("resolves the first deterministically ordered workspace for a user", async () => {
+    const workspace = workspaceRow();
+    vi.mocked(workspaceMembersRepo.listByUser).mockResolvedValue([
+      { workspaceId: "workspace-1" } as never,
+      { workspaceId: "workspace-2" } as never,
+    ]);
+    vi.mocked(workspacesRepo.getById).mockResolvedValue(workspace);
+
+    await expect(resolver.firstWorkspaceForUser("user-1")).resolves.toBe(workspace);
+
+    expect(workspaceMembersRepo.listByUser).toHaveBeenCalledWith("user-1");
+    expect(workspacesRepo.getById).toHaveBeenCalledWith("workspace-1");
+  });
+
+  it("returns null when a user has no workspace membership", async () => {
+    vi.mocked(workspaceMembersRepo.listByUser).mockResolvedValue([]);
+
+    await expect(resolver.firstWorkspaceForUser("user-1")).resolves.toBeNull();
+
+    expect(workspacesRepo.getById).not.toHaveBeenCalled();
   });
 });

@@ -22,7 +22,9 @@ describe("authorization types", () => {
   it("lists the audited actions and gated features", () => {
     expect(AUDIT_ACTION.OWNER_TRANSFER).toBe("owner_transfer");
     expect(AUDIT_ACTION.SYSTEM_ADMIN_TRANSFER).toBe("system_admin_transfer");
+    expect(AUDIT_ACTION.WORKSPACE_CLAIM).toBe("workspace_claim");
     expect(AuditActionSchema.parse("system_admin_transfer")).toBe("system_admin_transfer");
+    expect(AuditActionSchema.parse("workspace_claim")).toBe("workspace_claim");
     expect(ENTITLEMENT_FEATURE.PR_ANALYSIS).toBe("pr_analysis");
   });
 

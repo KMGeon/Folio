@@ -1,7 +1,9 @@
 import { ACCOUNT_TYPE, MEMBERSHIP_STATUS, WORKSPACE_ROLE } from "@folio/types";
+import { inArray } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import type { Db } from "../src/client.js";
 import { closeDb } from "../src/client.js";
+import { workspaceMembers } from "../src/schema/workspace-members.js";
 import { usersRepo, workspaceMembersRepo, workspacesRepo } from "../src/repos/index.js";
 import { HAS_DB, getTestDb, resetDb } from "./helpers/db.js";
 
@@ -37,6 +39,35 @@ d("workspaceMembersRepo (e2e)", () => {
     const found = await workspaceMembersRepo.getMembership(workspaceId, userId, db);
     expect(found?.role).toBe(WORKSPACE_ROLE.REVIEWER);
     expect(found?.status).toBe(MEMBERSHIP_STATUS.ACTIVE);
+  });
+
+  it("lists a user's memberships by joined time with a stable id tie-breaker", async () => {
+    const otherWorkspace = await workspacesRepo.create(
+      { githubAccountId: 2, accountLogin: "beta", accountType: ACCOUNT_TYPE.ORGANIZATION },
+      db,
+    );
+    const first = await workspaceMembersRepo.create(
+      { workspaceId, userId, role: WORKSPACE_ROLE.REVIEWER, status: MEMBERSHIP_STATUS.ACTIVE },
+      db,
+    );
+    const second = await workspaceMembersRepo.create(
+      {
+        workspaceId: otherWorkspace.id,
+        userId,
+        role: WORKSPACE_ROLE.REVIEWER,
+        status: MEMBERSHIP_STATUS.ACTIVE,
+      },
+      db,
+    );
+    const joinedAt = new Date("2026-07-11T00:00:00.000Z");
+    await db
+      .update(workspaceMembers)
+      .set({ joinedAt })
+      .where(inArray(workspaceMembers.id, [first.id, second.id]));
+
+    const memberships = await workspaceMembersRepo.listByUser(userId, db);
+
+    expect(memberships.map((membership) => membership.id)).toEqual([first.id, second.id].sort());
   });
 
   it("rejects a second owner in the same workspace", async () => {

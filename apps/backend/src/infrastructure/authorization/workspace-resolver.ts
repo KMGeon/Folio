@@ -1,4 +1,10 @@
-import { type WorkspaceRow, installationsRepo, repositoriesRepo, workspacesRepo } from "@folio/db";
+import {
+  type WorkspaceRow,
+  installationsRepo,
+  repositoriesRepo,
+  workspaceMembersRepo,
+  workspacesRepo,
+} from "@folio/db";
 import { Injectable } from "@nestjs/common";
 
 @Injectable()
@@ -21,5 +27,10 @@ export class WorkspaceResolver {
 
   listInstallationsForWorkspace(githubAccountId: number) {
     return installationsRepo.listByWorkspaceAccountId(githubAccountId);
+  }
+
+  async firstWorkspaceForUser(userId: string): Promise<WorkspaceRow | null> {
+    const [membership] = await workspaceMembersRepo.listByUser(userId);
+    return membership ? workspacesRepo.getById(membership.workspaceId) : null;
   }
 }

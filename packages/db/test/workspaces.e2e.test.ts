@@ -39,4 +39,16 @@ d("workspacesRepo (e2e)", () => {
     expect(second.id).toBe(first.id);
     expect(second.accountLogin).toBe("new");
   });
+
+  it("locks a workspace by stable github account id inside a transaction", async () => {
+    const created = await workspacesRepo.create(
+      { githubAccountId: 42, accountLogin: "acme", accountType: ACCOUNT_TYPE.ORGANIZATION },
+      db,
+    );
+
+    await db.transaction(async (transaction) => {
+      const locked = await workspacesRepo.getByGithubAccountIdForUpdate(42, transaction);
+      expect(locked?.id).toBe(created.id);
+    });
+  });
 });

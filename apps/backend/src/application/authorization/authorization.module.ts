@@ -11,9 +11,11 @@ import { SystemAdminGuard } from "../../interfaces/api/authorization/system-admi
 import { WorkspaceRoleGuard } from "../../interfaces/api/authorization/workspace-role.guard.js";
 import { GlobalUsersController } from "../../interfaces/api/admin/global-users.controller.js";
 import { WorkspaceMembersController } from "../../interfaces/api/workspaces/workspace-members.controller.js";
+import { WorkspaceController } from "../../interfaces/api/workspaces/workspace.controller.js";
 import { AuthModule } from "../auth/auth.module.js";
 import { GlobalUsersFacade } from "./global-users.facade.js";
 import { WorkspaceMembersFacade } from "./workspace-members.facade.js";
+import { WorkspaceClaimFacade } from "./workspace-claim.facade.js";
 
 // Feature modules share the same authorization axes while the entitlement
 // implementation remains replaceable without changing guard call sites.
@@ -24,18 +26,20 @@ import { WorkspaceMembersFacade } from "./workspace-members.facade.js";
     WorkspaceMembershipService,
     GlobalUsersFacade,
     WorkspaceMembersFacade,
+    WorkspaceClaimFacade,
     { provide: EntitlementService, useClass: AlwaysEntitledService },
     WorkspaceRoleGuard,
     GlobalStatusGuard,
     SystemAdminGuard,
     EntitlementGuard,
   ],
-  controllers: [WorkspaceMembersController, GlobalUsersController],
+  controllers: [WorkspaceMembersController, WorkspaceController, GlobalUsersController],
   exports: [
     WorkspaceResolver,
     WorkspaceMembershipService,
     GlobalUsersFacade,
     WorkspaceMembersFacade,
+    WorkspaceClaimFacade,
     EntitlementService,
     WorkspaceRoleGuard,
     GlobalStatusGuard,
