@@ -3,10 +3,10 @@ import type { Octokit } from "octokit";
 export type GitHubRepoAccessLevel = "none" | "read" | "write" | "admin";
 
 // GitHub's collaborator-permission strings collapse to four action-gating tiers;
-// "maintain" and "triage" sit between write/read but don't warrant their own tier here.
+// "maintain" lacks admin-only repository controls, while "triage" remains read-scoped.
 const LEVELS: Record<string, GitHubRepoAccessLevel> = {
   admin: "admin",
-  maintain: "admin",
+  maintain: "write",
   write: "write",
   triage: "read",
   read: "read",

@@ -14,7 +14,7 @@ describe("getUserRepoPermissionLevel", () => {
   it("maps GitHub permission strings to levels", async () => {
     const cases: [string, string][] = [
       ["admin", "admin"],
-      ["maintain", "admin"],
+      ["maintain", "write"],
       ["write", "write"],
       ["triage", "read"],
       ["read", "read"],

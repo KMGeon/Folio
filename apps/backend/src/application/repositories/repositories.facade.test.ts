@@ -1,4 +1,6 @@
 import { auditLogsRepo, repositoriesRepo, usersRepo, workspaceMembersRepo } from "@folio/db";
+import { getUserRepoPermissionLevel } from "@folio/github";
+import type { GitHubRepoAccessLevel } from "@folio/github";
 import {
   ACCOUNT_TYPE,
   AUDIT_ACTION,
@@ -73,6 +75,34 @@ const membership = {
   createdAt: now,
   updatedAt: now,
 };
+
+const ACCESS_RANK: Record<GitHubRepoAccessLevel, number> = {
+  none: 0,
+  read: 1,
+  write: 2,
+  admin: 3,
+};
+
+function liveRepoAccess(permission: string) {
+  return {
+    assertLevelAtLeast: vi.fn(
+      async (
+        input: { owner: string; repo: string; username: string },
+        required: GitHubRepoAccessLevel,
+      ) => {
+        const client = {
+          rest: {
+            repos: {
+              getCollaboratorPermissionLevel: vi.fn().mockResolvedValue({ data: { permission } }),
+            },
+          },
+        } as unknown as Parameters<typeof getUserRepoPermissionLevel>[0];
+        const actual = await getUserRepoPermissionLevel(client, input);
+        return ACCESS_RANK[actual] >= ACCESS_RANK[required];
+      },
+    ),
+  };
+}
 
 describe("RepositoriesFacade", () => {
   const resolver = { firstWorkspaceForUser: vi.fn() };
@@ -189,6 +219,42 @@ describe("RepositoriesFacade", () => {
       "admin",
     );
     expect(repositoriesRepo.setFolioEnabled).not.toHaveBeenCalled();
+  });
+
+  it("rejects GitHub maintain permission for repository activation", async () => {
+    const maintainAccess = liveRepoAccess("maintain");
+    facade = new RepositoriesFacade(resolver as never, maintainAccess as never);
+
+    await expectCoreException(
+      facade.setEnabled({
+        user: { id: user.id, login: user.login },
+        repositoryId: repository.id,
+        enabled: true,
+      }),
+      403,
+    );
+    expect(maintainAccess.assertLevelAtLeast).toHaveBeenCalledWith(
+      { owner: repository.owner, repo: repository.name, username: user.login },
+      "admin",
+    );
+    expect(repositoriesRepo.setFolioEnabled).not.toHaveBeenCalled();
+  });
+
+  it("accepts GitHub admin permission for repository activation", async () => {
+    const adminAccess = liveRepoAccess("admin");
+    facade = new RepositoriesFacade(resolver as never, adminAccess as never);
+
+    await expect(
+      facade.setEnabled({
+        user: { id: user.id, login: user.login },
+        repositoryId: repository.id,
+        enabled: true,
+      }),
+    ).resolves.toMatchObject({ id: repository.id, folioEnabled: true });
+    expect(adminAccess.assertLevelAtLeast).toHaveBeenCalledWith(
+      { owner: repository.owner, repo: repository.name, username: user.login },
+      "admin",
+    );
   });
 
   it("updates activation and records one audit in the same transaction", async () => {
