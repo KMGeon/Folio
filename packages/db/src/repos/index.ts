@@ -4,6 +4,12 @@ export { auditLogsRepo } from "./audit-logs.js";
 export { installationsRepo } from "./installations.js";
 export { repositoriesRepo } from "./repositories.js";
 export { usersRepo } from "./users.js";
+export {
+  adminUsersRepo,
+  type AdminUserCursor,
+  type AdminUserListInput,
+  type AdminUserPageRow,
+} from "./admin-users.js";
 export { sessionsRepo } from "./sessions.js";
 export { pullRequestsRepo } from "./pull-requests.js";
 export { revisionsRepo } from "./revisions.js";
