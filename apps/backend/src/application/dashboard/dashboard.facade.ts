@@ -4,6 +4,7 @@ import { chaptersRepo, pullRequestsRepo, reviewStateRepo, revisionsRepo } from "
 export type ActivityDay = { date: string; count: number };
 import { createInstallationOctokit } from "@folio/github";
 import type { Octokit } from "octokit";
+import type { RepoAccessService } from "../../domain/auth/repo-access.service.js";
 import { fetchPublicContributions } from "../../infrastructure/github/github-contributions.js";
 import { pullLineCounts, relativeTime } from "./dashboard-pull-details.js";
 import {
@@ -30,6 +31,7 @@ import type {
 } from "./dashboard-pull-page-types.js";
 import {
   type DashboardWorkspaceScope,
+  type DashboardRepositoryReadAuthorizer,
   loadDashboardWorkspaceScope,
 } from "./dashboard-workspace-scope.js";
 
@@ -85,7 +87,12 @@ export interface DashboardPayload {
 
 export interface DashboardDeps {
   octokitFactory?: (githubInstallationId: number) => Promise<Octokit>;
-  workspaceScopeLoader?: (userId: string) => Promise<DashboardWorkspaceScope | null>;
+  repoAccess?: Pick<RepoAccessService, "assertLevelAtLeast">;
+  workspaceScopeLoader?: (
+    userId: string,
+    userLogin: string,
+    canReadRepository: DashboardRepositoryReadAuthorizer,
+  ) => Promise<DashboardWorkspaceScope | null>;
 }
 
 type PullStatus = Record<"chapterCount" | "viewedChapters" | "changedFiles", number> & {
@@ -106,7 +113,7 @@ export class DashboardFacade {
   /** Live open PRs across the user's installed repos, merged with DB review state. */
   async getForUser(user: { id: string; login: string }): Promise<DashboardPayload> {
     const makeOctokit = this.deps.octokitFactory ?? createInstallationOctokit;
-    const scope = await this.loadWorkspaceScope(user.id);
+    const scope = await this.loadWorkspaceScope(user);
 
     const repos: DashboardRepo[] = [];
     const pulls: DashboardPull[] = [];
@@ -212,7 +219,7 @@ export class DashboardFacade {
   }
 
   async getSummaryForUser(user: { id: string; login: string }) {
-    return getDashboardSummaryForUser(user, await this.loadWorkspaceScope(user.id));
+    return getDashboardSummaryForUser(user, await this.loadWorkspaceScope(user));
   }
 
   async getPullPageForUser(user: { id: string; login: string }, input: DashboardPullPageQuery) {
@@ -224,7 +231,7 @@ export class DashboardFacade {
         listPulls: this.listPulls.bind(this),
         resolveStatus: this.resolveStatus.bind(this),
       },
-      await this.loadWorkspaceScope(user.id),
+      await this.loadWorkspaceScope(user),
     );
   }
 
@@ -240,12 +247,21 @@ export class DashboardFacade {
         listPulls: this.listPulls.bind(this),
         resolveStatus: this.resolveStatus.bind(this),
       },
-      await this.loadWorkspaceScope(user.id),
+      await this.loadWorkspaceScope(user),
     );
   }
 
-  private loadWorkspaceScope(userId: string): Promise<DashboardWorkspaceScope | null> {
-    return (this.deps.workspaceScopeLoader ?? loadDashboardWorkspaceScope)(userId);
+  private loadWorkspaceScope(user: {
+    id: string;
+    login: string;
+  }): Promise<DashboardWorkspaceScope | null> {
+    const canReadRepository: DashboardRepositoryReadAuthorizer = (input) =>
+      this.deps.repoAccess?.assertLevelAtLeast(input, "read") ?? Promise.resolve(false);
+    return (this.deps.workspaceScopeLoader ?? loadDashboardWorkspaceScope)(
+      user.id,
+      user.login,
+      canReadRepository,
+    );
   }
 
   private repoPayload(
