@@ -12,6 +12,7 @@ import {
   GLOBAL_STATUS,
   MEMBERSHIP_STATUS,
   WORKSPACE_ROLE,
+  type GlobalStatus,
   type MembershipStatus,
   type WorkspaceRole,
 } from "@folio/types";
@@ -26,7 +27,7 @@ const dbDouble = vi.hoisted(() => ({ transaction: vi.fn() }));
 vi.mock("@folio/db", () => ({
   auditLogsRepo: { record: vi.fn() },
   getDb: () => ({ transaction: dbDouble.transaction }),
-  usersRepo: { getById: vi.fn() },
+  usersRepo: { getById: vi.fn(), getByIdForUpdate: vi.fn() },
   workspaceMembersRepo: {
     getMembershipsForUpdate: vi.fn(),
     listByWorkspace: vi.fn(),
@@ -64,7 +65,7 @@ function member(
   };
 }
 
-function user(id: string): UserRow {
+function user(id: string, globalStatus: GlobalStatus = GLOBAL_STATUS.ACTIVE): UserRow {
   return {
     id,
     githubUserId: id === "owner-1" ? 1 : 2,
@@ -72,7 +73,7 @@ function user(id: string): UserRow {
     avatarUrl: `https://avatars.example/${id}`,
     email: `${id}@example.com`,
     status: "approved",
-    globalStatus: GLOBAL_STATUS.ACTIVE,
+    globalStatus,
     isSystemAdmin: false,
     createdAt: now,
     updatedAt: now,
@@ -110,6 +111,7 @@ describe("WorkspaceMembersFacade", () => {
     vi.resetAllMocks();
     dbDouble.transaction.mockImplementation(async (callback) => callback(transactionHandle));
     vi.mocked(workspacesRepo.getByIdForUpdate).mockResolvedValue({ id: "workspace-1" } as never);
+    vi.mocked(usersRepo.getByIdForUpdate).mockImplementation(async (id) => user(id));
     facade = new WorkspaceMembersFacade(membership as unknown as WorkspaceMembershipService);
   });
 
@@ -274,6 +276,39 @@ describe("WorkspaceMembersFacade", () => {
     });
 
     expect(order).toEqual(["workspace", "memberships"]);
+  });
+
+  it("locks and revalidates the actor user after workspace memberships", async () => {
+    const order: string[] = [];
+    vi.mocked(workspacesRepo.getByIdForUpdate).mockImplementation(async () => {
+      order.push("workspace");
+      return { id: "workspace-1" } as never;
+    });
+    vi.mocked(workspaceMembersRepo.getMembershipsForUpdate).mockImplementation(async () => {
+      order.push("memberships");
+      return [
+        member("admin-1", WORKSPACE_ROLE.ADMIN),
+        member("reviewer-1", WORKSPACE_ROLE.REVIEWER),
+      ];
+    });
+    vi.mocked(usersRepo.getByIdForUpdate).mockImplementation(async () => {
+      order.push("user");
+      return user("admin-1", GLOBAL_STATUS.SUSPENDED);
+    });
+
+    const error = await facade
+      .suspend({
+        workspaceId: "workspace-1",
+        actorUserId: "admin-1",
+        targetUserId: "reviewer-1",
+      })
+      .catch((caught: unknown) => caught);
+
+    expectCoreError(error, ErrorType.Forbidden);
+    expect(order).toEqual(["workspace", "memberships", "user"]);
+    expect(usersRepo.getByIdForUpdate).toHaveBeenCalledWith("admin-1", transactionHandle);
+    expect(membership.suspendReviewer).not.toHaveBeenCalled();
+    expect(auditLogsRepo.record).not.toHaveBeenCalled();
   });
 
   it.each(["suspend", "remove"] as const)(

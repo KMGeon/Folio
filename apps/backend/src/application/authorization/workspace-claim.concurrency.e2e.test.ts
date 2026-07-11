@@ -8,9 +8,17 @@ import {
   workspaceMembersRepo,
   workspacesRepo,
 } from "@folio/db";
-import { ACCOUNT_TYPE, AUDIT_ACTION, MEMBERSHIP_STATUS, WORKSPACE_ROLE } from "@folio/types";
+import {
+  ACCOUNT_TYPE,
+  AUDIT_ACTION,
+  GLOBAL_STATUS,
+  MEMBERSHIP_STATUS,
+  WORKSPACE_ROLE,
+} from "@folio/types";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { WorkspaceMembershipService } from "../../infrastructure/authorization/workspace-membership.service.js";
+import { ErrorType } from "../../support/error/error-type.js";
+import { GlobalUsersFacade } from "./global-users.facade.js";
 import { WorkspaceClaimFacade } from "./workspace-claim.facade.js";
 import { WorkspaceMembersFacade } from "./workspace-members.facade.js";
 
@@ -27,6 +35,7 @@ function deferred() {
 
 d("workspace claim concurrency (e2e)", () => {
   let db: Db;
+  let systemAdminUserId: string;
   let firstUserId: string;
   let secondUserId: string;
 
@@ -34,10 +43,28 @@ d("workspace claim concurrency (e2e)", () => {
     db = getDb();
     await runMigrations(db);
     await db.execute("truncate table audit_logs, workspace_members, workspaces, users cascade");
-    const [first, second] = await Promise.all([
-      usersRepo.create({ githubUserId: 971, login: "first", avatarUrl: "https://avatars/first" }),
-      usersRepo.create({ githubUserId: 972, login: "second", avatarUrl: "https://avatars/second" }),
+    const [systemAdmin, first, second] = await Promise.all([
+      usersRepo.create({
+        githubUserId: 970,
+        login: "system-admin",
+        avatarUrl: "https://avatars/system-admin",
+        globalStatus: GLOBAL_STATUS.ACTIVE,
+        isSystemAdmin: true,
+      }),
+      usersRepo.create({
+        githubUserId: 971,
+        login: "first",
+        avatarUrl: "https://avatars/first",
+        globalStatus: GLOBAL_STATUS.ACTIVE,
+      }),
+      usersRepo.create({
+        githubUserId: 972,
+        login: "second",
+        avatarUrl: "https://avatars/second",
+        globalStatus: GLOBAL_STATUS.ACTIVE,
+      }),
     ]);
+    systemAdminUserId = systemAdmin.id;
     firstUserId = first.id;
     secondUserId = second.id;
   });
@@ -119,6 +146,85 @@ d("workspace claim concurrency (e2e)", () => {
       status: MEMBERSHIP_STATUS.SUSPENDED,
     });
     await expect(auditLogsRepo.listByWorkspace(workspace.id, db)).resolves.toEqual([]);
+  });
+
+  it("rejects a claim that waits behind global suspension of its actor", async () => {
+    const suspensionLocked = deferred();
+    const releaseSuspension = deferred();
+    const claimAttemptedActorLock = deferred();
+    const originalGlobalLock = usersRepo.getByIdsForUpdate.bind(usersRepo);
+    const originalClaimLock = usersRepo.getByIdForUpdate.bind(usersRepo);
+    const globalLockSpy = vi
+      .spyOn(usersRepo, "getByIdsForUpdate")
+      .mockImplementation(async (...args) => {
+        const rows = await originalGlobalLock(...args);
+        suspensionLocked.resolve();
+        await releaseSuspension.promise;
+        return rows;
+      });
+    const claimLockSpy = vi.spyOn(usersRepo, "getByIdForUpdate").mockImplementation((...args) => {
+      claimAttemptedActorLock.resolve();
+      return originalClaimLock(...args);
+    });
+
+    try {
+      const suspension = new GlobalUsersFacade().suspend({
+        actorUserId: systemAdminUserId,
+        targetUserId: firstUserId,
+      });
+      await suspensionLocked.promise;
+      const claim = facade().claimAsOwner(input(firstUserId));
+      await claimAttemptedActorLock.promise;
+      releaseSuspension.resolve();
+
+      await expect(suspension).resolves.toBeUndefined();
+      await expect(claim).rejects.toMatchObject({ errorType: ErrorType.Forbidden });
+      const workspace = await workspacesRepo.getByGithubAccountId(97, db);
+      expect(workspace).toBeNull();
+    } finally {
+      releaseSuspension.resolve();
+      globalLockSpy.mockRestore();
+      claimLockSpy.mockRestore();
+    }
+  });
+
+  it("rolls back a failed claim audit before waiting suspension commits", async () => {
+    const claimReachedAudit = deferred();
+    const releaseClaimAudit = deferred();
+    const suspensionAttempted = deferred();
+    const originalGlobalLock = usersRepo.getByIdsForUpdate.bind(usersRepo);
+    const globalLockSpy = vi.spyOn(usersRepo, "getByIdsForUpdate").mockImplementation((...args) => {
+      suspensionAttempted.resolve();
+      return originalGlobalLock(...args);
+    });
+    const auditSpy = vi.spyOn(auditLogsRepo, "record").mockImplementationOnce(async () => {
+      claimReachedAudit.resolve();
+      await releaseClaimAudit.promise;
+      throw new Error("claim audit failed");
+    });
+
+    try {
+      const claim = facade().claimAsOwner(input(firstUserId));
+      await claimReachedAudit.promise;
+      const suspension = new GlobalUsersFacade().suspend({
+        actorUserId: systemAdminUserId,
+        targetUserId: firstUserId,
+      });
+      await suspensionAttempted.promise;
+      releaseClaimAudit.resolve();
+
+      await expect(claim).rejects.toThrow("claim audit failed");
+      await expect(suspension).resolves.toBeUndefined();
+      const workspace = await workspacesRepo.getByGithubAccountId(97, db);
+      expect(workspace).toBeNull();
+      await expect(usersRepo.getById(firstUserId, db)).resolves.toMatchObject({
+        globalStatus: GLOBAL_STATUS.SUSPENDED,
+      });
+    } finally {
+      releaseClaimAudit.resolve();
+      globalLockSpy.mockRestore();
+      auditSpy.mockRestore();
+    }
   });
 
   it("serializes a claim before a member mutation on the same workspace", async () => {

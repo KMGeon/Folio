@@ -31,10 +31,11 @@ const dbDouble = vi.hoisted(() => ({ transaction: vi.fn() }));
 vi.mock("@folio/db", () => ({
   auditLogsRepo: { record: vi.fn() },
   getDb: () => ({ transaction: dbDouble.transaction }),
-  usersRepo: { getById: vi.fn() },
+  usersRepo: { getById: vi.fn(), getByIdForUpdate: vi.fn() },
   workspaceMembersRepo: {
     create: vi.fn(),
     getMembership: vi.fn(),
+    getMembershipsForUpdate: vi.fn(),
     listByWorkspace: vi.fn(),
     updateRoleIfCurrent: vi.fn(),
   },
@@ -107,6 +108,7 @@ describe("WorkspaceClaimFacade", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     dbDouble.transaction.mockImplementation(async (callback) => callback(transaction));
+    vi.mocked(usersRepo.getByIdForUpdate).mockResolvedValue(user());
     entitlement = { canUseFeature: vi.fn() };
     membership = { ensureReviewer: vi.fn() };
     resolver = { firstWorkspaceForUser: vi.fn() };
@@ -123,11 +125,43 @@ describe("WorkspaceClaimFacade", () => {
   }
 
   describe("claimAsOwner", () => {
+    it("locks memberships then rejects a globally suspended claimant before mutation or audit", async () => {
+      const order: string[] = [];
+      vi.mocked(workspacesRepo.upsertByGithubAccountId).mockResolvedValue(workspace());
+      vi.mocked(workspacesRepo.getByGithubAccountIdForUpdate).mockImplementation(async () => {
+        order.push("workspace");
+        return workspace();
+      });
+      vi.mocked(workspaceMembersRepo.getMembershipsForUpdate).mockImplementation(async () => {
+        order.push("memberships");
+        return [];
+      });
+      vi.mocked(usersRepo.getByIdForUpdate).mockImplementation(async () => {
+        order.push("user");
+        return { ...user(), globalStatus: GLOBAL_STATUS.SUSPENDED };
+      });
+
+      const error = await facade.claimAsOwner(claimInput).catch((caught: unknown) => caught);
+
+      expect(error).toBeInstanceOf(CoreException);
+      expect((error as CoreException).errorType).toBe(ErrorType.Forbidden);
+      expect(order).toEqual(["workspace", "memberships", "user"]);
+      expect(workspaceMembersRepo.getMembershipsForUpdate).toHaveBeenCalledWith(
+        "workspace-1",
+        ["user-1"],
+        transaction,
+      );
+      expect(usersRepo.getByIdForUpdate).toHaveBeenCalledWith("user-1", transaction);
+      expect(workspaceMembersRepo.create).not.toHaveBeenCalled();
+      expect(workspaceMembersRepo.updateRoleIfCurrent).not.toHaveBeenCalled();
+      expect(auditLogsRepo.record).not.toHaveBeenCalled();
+    });
+
     it("creates and audits the first owner in one transaction", async () => {
       const created = member("user-1", WORKSPACE_ROLE.OWNER);
       arrangeWorkspace();
       vi.mocked(workspaceMembersRepo.listByWorkspace).mockResolvedValue([]);
-      vi.mocked(workspaceMembersRepo.getMembership).mockResolvedValue(null);
+      vi.mocked(workspaceMembersRepo.getMembershipsForUpdate).mockResolvedValue([]);
       vi.mocked(workspaceMembersRepo.create).mockResolvedValue(created);
 
       await expect(facade.claimAsOwner(claimInput)).resolves.toBe(created);
@@ -139,7 +173,9 @@ describe("WorkspaceClaimFacade", () => {
       expect(workspacesRepo.getByGithubAccountIdForUpdate).toHaveBeenCalledWith(42, transaction);
       expect(
         vi.mocked(workspacesRepo.getByGithubAccountIdForUpdate).mock.invocationCallOrder[0],
-      ).toBeLessThan(vi.mocked(workspaceMembersRepo.getMembership).mock.invocationCallOrder[0]!);
+      ).toBeLessThan(
+        vi.mocked(workspaceMembersRepo.getMembershipsForUpdate).mock.invocationCallOrder[0]!,
+      );
       expect(workspaceMembersRepo.create).toHaveBeenCalledWith(
         {
           workspaceId: "workspace-1",
@@ -167,7 +203,7 @@ describe("WorkspaceClaimFacade", () => {
       const before = member("user-1", WORKSPACE_ROLE.ADMIN);
       const after = member("user-1", WORKSPACE_ROLE.OWNER);
       arrangeWorkspace();
-      vi.mocked(workspaceMembersRepo.getMembership).mockResolvedValue(before);
+      vi.mocked(workspaceMembersRepo.getMembershipsForUpdate).mockResolvedValue([before]);
       vi.mocked(workspaceMembersRepo.listByWorkspace).mockResolvedValue([before]);
       vi.mocked(workspaceMembersRepo.updateRoleIfCurrent).mockResolvedValue(after);
 
@@ -194,7 +230,7 @@ describe("WorkspaceClaimFacade", () => {
     it("auto-joins a missing caller as reviewer when an owner exists without auditing", async () => {
       const reviewer = member("user-1");
       arrangeWorkspace();
-      vi.mocked(workspaceMembersRepo.getMembership).mockResolvedValue(null);
+      vi.mocked(workspaceMembersRepo.getMembershipsForUpdate).mockResolvedValue([]);
       vi.mocked(workspaceMembersRepo.listByWorkspace).mockResolvedValue([
         member("owner-1", WORKSPACE_ROLE.OWNER),
       ]);
@@ -215,7 +251,7 @@ describe("WorkspaceClaimFacade", () => {
       async (role, status) => {
         const existing = member("user-1", role, status);
         arrangeWorkspace();
-        vi.mocked(workspaceMembersRepo.getMembership).mockResolvedValue(existing);
+        vi.mocked(workspaceMembersRepo.getMembershipsForUpdate).mockResolvedValue([existing]);
         vi.mocked(workspaceMembersRepo.listByWorkspace).mockResolvedValue([
           member("owner-1", WORKSPACE_ROLE.OWNER),
           existing,
@@ -230,7 +266,7 @@ describe("WorkspaceClaimFacade", () => {
     it("preserves a suspended membership even when the workspace has no owner", async () => {
       const suspended = member("user-1", WORKSPACE_ROLE.ADMIN, MEMBERSHIP_STATUS.SUSPENDED);
       arrangeWorkspace();
-      vi.mocked(workspaceMembersRepo.getMembership).mockResolvedValue(suspended);
+      vi.mocked(workspaceMembersRepo.getMembershipsForUpdate).mockResolvedValue([suspended]);
       vi.mocked(workspaceMembersRepo.listByWorkspace).mockResolvedValue([suspended]);
 
       await expect(facade.claimAsOwner(claimInput)).resolves.toBe(suspended);
@@ -241,7 +277,7 @@ describe("WorkspaceClaimFacade", () => {
     it("rejects a stale promotion and does not emit a false audit", async () => {
       const existing = member("user-1");
       arrangeWorkspace();
-      vi.mocked(workspaceMembersRepo.getMembership).mockResolvedValue(existing);
+      vi.mocked(workspaceMembersRepo.getMembershipsForUpdate).mockResolvedValue([existing]);
       vi.mocked(workspaceMembersRepo.listByWorkspace).mockResolvedValue([existing]);
       vi.mocked(workspaceMembersRepo.updateRoleIfCurrent).mockResolvedValue(null);
 
@@ -265,7 +301,7 @@ describe("WorkspaceClaimFacade", () => {
 
     it("propagates an audit failure from the claim transaction", async () => {
       arrangeWorkspace();
-      vi.mocked(workspaceMembersRepo.getMembership).mockResolvedValue(null);
+      vi.mocked(workspaceMembersRepo.getMembershipsForUpdate).mockResolvedValue([]);
       vi.mocked(workspaceMembersRepo.listByWorkspace).mockResolvedValue([]);
       vi.mocked(workspaceMembersRepo.create).mockResolvedValue(
         member("user-1", WORKSPACE_ROLE.OWNER),

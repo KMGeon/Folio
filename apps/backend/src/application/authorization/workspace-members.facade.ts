@@ -9,6 +9,7 @@ import {
 } from "@folio/db";
 import {
   AUDIT_ACTION,
+  GLOBAL_STATUS,
   MEMBERSHIP_STATUS,
   WORKSPACE_ROLE,
   type MembershipStatus,
@@ -223,6 +224,11 @@ export class WorkspaceMembersFacade {
       const actor = rows.find((row) => row.userId === command.actorUserId);
       const target = rows.find((row) => row.userId === command.targetUserId);
       if (!actor || !target) {
+        this.forbid();
+      }
+      // Global suspension shares the workspace → memberships → users lock order with repo writes.
+      const actorUser = await usersRepo.getByIdForUpdate(command.actorUserId, transaction);
+      if (!actorUser || actorUser.globalStatus !== GLOBAL_STATUS.ACTIVE) {
         this.forbid();
       }
       // Authorization uses the locked current rows, not the controller guard's earlier snapshot.

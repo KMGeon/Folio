@@ -9,6 +9,7 @@ import {
 import {
   AUDIT_ACTION,
   ENTITLEMENT_FEATURE,
+  GLOBAL_STATUS,
   MEMBERSHIP_STATUS,
   WORKSPACE_ROLE,
   type AccountType,
@@ -56,11 +57,17 @@ export class WorkspaceClaimFacade {
         throw new CoreException(ErrorType.WorkspaceNotFound);
       }
 
-      const existing = await workspaceMembersRepo.getMembership(
+      const lockedMemberships = await workspaceMembersRepo.getMembershipsForUpdate(
         workspace.id,
-        input.userId,
+        [input.userId],
         transaction,
       );
+      const existing = lockedMemberships.find((member) => member.userId === input.userId);
+      // Claims use the same workspace → memberships → users order as all authority writes.
+      const actor = await usersRepo.getByIdForUpdate(input.userId, transaction);
+      if (!actor || actor.globalStatus !== GLOBAL_STATUS.ACTIVE) {
+        throw new CoreException(ErrorType.Forbidden);
+      }
       const members = await workspaceMembersRepo.listByWorkspace(workspace.id, transaction);
       const hasOwner = members.some((member) => member.role === WORKSPACE_ROLE.OWNER);
 
