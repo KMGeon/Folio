@@ -8,6 +8,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RepoAccessService } from "../../../domain/auth/repo-access.service.js";
 import { CoreException } from "../../../support/error/core-exception.js";
 import { RepositoryPermissionGuard } from "./repository-permission.guard.js";
+import { REQUIRE_LIVE_REPOSITORY_PERMISSION } from "./require-live-repository-permission.decorator.js";
+import { REQUIRE_REPOSITORY_PERMISSION } from "./require-repository-permission.decorator.js";
 
 type FolioDbModule = Record<string, unknown> & {
   repositoriesRepo: typeof repositoriesRepo;
@@ -40,7 +42,9 @@ describe("RepositoryPermissionGuard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     reflector = new Reflector();
-    vi.spyOn(reflector, "getAllAndOverride").mockReturnValue("write");
+    vi.spyOn(reflector, "getAllAndOverride").mockImplementation((metadataKey) =>
+      metadataKey === REQUIRE_REPOSITORY_PERMISSION ? "write" : undefined,
+    );
     access.assertLevelAtLeast.mockResolvedValue(true);
     access.assertLiveLevelAtLeast.mockResolvedValue(true);
     resolver.resolveById.mockResolvedValue(workspace);
@@ -93,7 +97,7 @@ describe("RepositoryPermissionGuard", () => {
     downgraded: GitHubRepoAccessLevel;
     required: GitHubRepoAccessLevel;
   }[])(
-    "denies $required after a cached $cached grant is downgraded to $downgraded",
+    "denies live $required after a cached $cached grant is downgraded to $downgraded",
     async ({ cached, downgraded, required }) => {
       const getUserRepoPermissionLevel = vi
         .fn()
@@ -104,7 +108,9 @@ describe("RepositoryPermissionGuard", () => {
         getResolvedRepositoryPermissionLevels: vi.fn(),
       } as never);
       await expect(liveAccess.assertLevelAtLeast(REF, cached)).resolves.toBe(true);
-      vi.mocked(reflector.getAllAndOverride).mockReturnValue(required);
+      vi.mocked(reflector.getAllAndOverride).mockImplementation((metadataKey) =>
+        metadataKey === REQUIRE_REPOSITORY_PERMISSION ? required : undefined,
+      );
       guard = new RepositoryPermissionGuard(reflector, liveAccess, resolver as never);
       const { context } = contextFor({ params: { owner: "acme", repo: "folio" } });
 
@@ -115,7 +121,9 @@ describe("RepositoryPermissionGuard", () => {
   );
 
   it("checks route repositories at their declared read level", async () => {
-    vi.mocked(reflector.getAllAndOverride).mockReturnValue("read");
+    vi.mocked(reflector.getAllAndOverride).mockImplementation((metadataKey) =>
+      metadataKey === REQUIRE_REPOSITORY_PERMISSION ? "read" : undefined,
+    );
     const { context } = contextFor({ params: { owner: "acme", repo: "folio" } });
 
     await expect(guard.canActivate(context)).resolves.toBe(true);
@@ -126,6 +134,44 @@ describe("RepositoryPermissionGuard", () => {
     );
     expect(access.assertLiveLevelAtLeast).not.toHaveBeenCalled();
     expect(repositoriesRepo.getByFullName).not.toHaveBeenCalled();
+  });
+
+  it("denies a live read-level mutation after its warmed grant is revoked", async () => {
+    const getUserRepoPermissionLevel = vi
+      .fn()
+      .mockResolvedValueOnce("read")
+      .mockResolvedValueOnce("none");
+    const liveAccess = new RepoAccessService({
+      getUserRepoPermissionLevel,
+      getResolvedRepositoryPermissionLevels: vi.fn(),
+    } as never);
+    await expect(liveAccess.assertLevelAtLeast(REF, "read")).resolves.toBe(true);
+    const { context } = contextFor({ params: { owner: "acme", repo: "folio" } });
+    Reflect.defineMetadata(REQUIRE_LIVE_REPOSITORY_PERMISSION, true, context.getHandler());
+    vi.mocked(reflector.getAllAndOverride).mockRestore();
+    Reflect.defineMetadata(REQUIRE_REPOSITORY_PERMISSION, "read", context.getHandler());
+    guard = new RepositoryPermissionGuard(reflector, liveAccess, resolver as never);
+
+    await expect(guard.canActivate(context)).rejects.toBeInstanceOf(CoreException);
+
+    expect(getUserRepoPermissionLevel).toHaveBeenCalledTimes(2);
+  });
+
+  it("reuses a warmed read grant for cache-eligible routes", async () => {
+    const getUserRepoPermissionLevel = vi.fn().mockResolvedValueOnce("read");
+    const cachedAccess = new RepoAccessService({
+      getUserRepoPermissionLevel,
+      getResolvedRepositoryPermissionLevels: vi.fn(),
+    } as never);
+    await expect(cachedAccess.assertLevelAtLeast(REF, "read")).resolves.toBe(true);
+    const { context } = contextFor({ params: { owner: "acme", repo: "folio" } });
+    vi.mocked(reflector.getAllAndOverride).mockRestore();
+    Reflect.defineMetadata(REQUIRE_REPOSITORY_PERMISSION, "read", context.getHandler());
+    guard = new RepositoryPermissionGuard(reflector, cachedAccess, resolver as never);
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+
+    expect(getUserRepoPermissionLevel).toHaveBeenCalledOnce();
   });
 });
 

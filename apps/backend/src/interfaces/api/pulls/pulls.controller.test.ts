@@ -10,6 +10,7 @@ import { RepoAccessGuard } from "../common/repo-access.guard.js";
 import { type AuthedUser, SessionAuthGuard } from "../common/session-auth.guard.js";
 import { EntitlementGuard } from "../authorization/entitlement.guard.js";
 import { RepositoryPermissionGuard } from "../authorization/repository-permission.guard.js";
+import { REQUIRE_LIVE_REPOSITORY_PERMISSION } from "../authorization/require-live-repository-permission.decorator.js";
 import { REQUIRE_REPOSITORY_PERMISSION } from "../authorization/require-repository-permission.decorator.js";
 import { REQUIRE_ENTITLEMENT } from "../authorization/require-entitlement.decorator.js";
 import { REQUIRE_WORKSPACE_ROLE } from "../authorization/require-workspace-role.decorator.js";
@@ -81,6 +82,24 @@ describe("PullsController", () => {
       WorkspaceRoleGuard,
       EntitlementGuard,
     ]);
+  });
+
+  it.each([
+    "createReview",
+    "setChapterViewed",
+    "setFileViewed",
+    "setKeyChangeViewed",
+    "createInlineComment",
+  ])("requires live repository permission for the %s mutation", (methodName) => {
+    const handler = Object.getOwnPropertyDescriptor(PullsController.prototype, methodName)?.value;
+
+    expect(Reflect.getMetadata(REQUIRE_LIVE_REPOSITORY_PERMISSION, handler)).toBe(true);
+  });
+
+  it("keeps the review GET cache-eligible", () => {
+    const handler = Object.getOwnPropertyDescriptor(PullsController.prototype, "getReview")?.value;
+
+    expect(Reflect.getMetadata(REQUIRE_LIVE_REPOSITORY_PERMISSION, handler)).toBeUndefined();
   });
 
   it("POST triggers a review run", async () => {

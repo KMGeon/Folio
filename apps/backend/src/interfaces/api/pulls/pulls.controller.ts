@@ -21,6 +21,7 @@ import { type AuthedUser, SessionAuthGuard } from "../common/session-auth.guard.
 import { EntitlementGuard } from "../authorization/entitlement.guard.js";
 import { RepositoryPermissionGuard } from "../authorization/repository-permission.guard.js";
 import { RequireEntitlement } from "../authorization/require-entitlement.decorator.js";
+import { RequireLiveRepositoryPermission } from "../authorization/require-live-repository-permission.decorator.js";
 import { RequireRepositoryPermission } from "../authorization/require-repository-permission.decorator.js";
 import { RequireWorkspaceRole } from "../authorization/require-workspace-role.decorator.js";
 import { WorkspaceRoleGuard } from "../authorization/workspace-role.guard.js";
@@ -62,6 +63,7 @@ export class PullsController {
   /** Manually trigger decomposition for a PR (read diff → decompose → persist → comment). */
   @Post()
   @UseGuards(RepositoryPermissionGuard, WorkspaceRoleGuard, EntitlementGuard)
+  @RequireLiveRepositoryPermission()
   @RequireRepositoryPermission("write")
   @RequireWorkspaceRole(WORKSPACE_ROLE.REVIEWER)
   @RequireEntitlement(ENTITLEMENT_FEATURE.PR_ANALYSIS)
@@ -91,6 +93,7 @@ export class PullsController {
   /** Toggle a chapter's viewed mark for the current user; returns updated progress. */
   @Patch(":owner/:repo/:number/chapters/:index/viewed")
   @UseGuards(RepositoryPermissionGuard, WorkspaceRoleGuard, EntitlementGuard)
+  @RequireLiveRepositoryPermission()
   @RequireRepositoryPermission("read")
   @RequireWorkspaceRole(WORKSPACE_ROLE.REVIEWER)
   @RequireEntitlement(ENTITLEMENT_FEATURE.REVIEW_STATE_MUTATION)
@@ -119,6 +122,7 @@ export class PullsController {
   /** Toggle a file's viewed mark for the current user; returns file progress. */
   @Patch(":owner/:repo/:number/files/viewed")
   @UseGuards(RepositoryPermissionGuard, WorkspaceRoleGuard, EntitlementGuard)
+  @RequireLiveRepositoryPermission()
   @RequireRepositoryPermission("read")
   @RequireWorkspaceRole(WORKSPACE_ROLE.REVIEWER)
   @RequireEntitlement(ENTITLEMENT_FEATURE.REVIEW_STATE_MUTATION)
@@ -150,6 +154,7 @@ export class PullsController {
   /** Toggle one generated review question for the current user. */
   @Patch(":owner/:repo/:number/chapters/:index/key-changes/:keyChangeId/viewed")
   @UseGuards(RepositoryPermissionGuard, WorkspaceRoleGuard, EntitlementGuard)
+  @RequireLiveRepositoryPermission()
   @RequireRepositoryPermission("read")
   @RequireWorkspaceRole(WORKSPACE_ROLE.REVIEWER)
   @RequireEntitlement(ENTITLEMENT_FEATURE.REVIEW_STATE_MUTATION)
@@ -182,6 +187,7 @@ export class PullsController {
   /** Create a GitHub inline review comment for a diff line. */
   @Post(":owner/:repo/:number/comments")
   @UseGuards(RepositoryPermissionGuard, WorkspaceRoleGuard, EntitlementGuard)
+  @RequireLiveRepositoryPermission()
   @RequireRepositoryPermission("write")
   @RequireWorkspaceRole(WORKSPACE_ROLE.REVIEWER)
   @RequireEntitlement(ENTITLEMENT_FEATURE.COMMENT)

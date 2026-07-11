@@ -7,6 +7,7 @@ import { WorkspaceResolver } from "../../../infrastructure/authorization/workspa
 import { CoreException } from "../../../support/error/core-exception.js";
 import { ErrorType } from "../../../support/error/error-type.js";
 import type { WorkspaceScopedRequest } from "./workspace-role.guard.js";
+import { REQUIRE_LIVE_REPOSITORY_PERMISSION } from "./require-live-repository-permission.decorator.js";
 import { REQUIRE_REPOSITORY_PERMISSION } from "./require-repository-permission.decorator.js";
 
 const REPOSITORY_NOT_FOUND = {
@@ -26,6 +27,10 @@ export class RepositoryPermissionGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const required = this.reflector.getAllAndOverride<GitHubRepoAccessLevel>(
       REQUIRE_REPOSITORY_PERMISSION,
+      [context.getHandler(), context.getClass()],
+    );
+    const requiresLivePermission = this.reflector.getAllAndOverride<boolean>(
+      REQUIRE_LIVE_REPOSITORY_PERMISSION,
       [context.getHandler(), context.getClass()],
     );
     const request = context.switchToHttp().getRequest<WorkspaceScopedRequest>();
@@ -55,11 +60,11 @@ export class RepositoryPermissionGuard implements CanActivate {
     }
 
     const permissionInput = { owner, repo, username: request.user.login };
-    // Read paths may use the bounded positive cache; mutation authority must reflect revocation now.
+    // Mutation authority must reflect revocation even when the route legitimately requires only read.
     const allowed =
-      required === "read"
-        ? await this.access.assertLevelAtLeast(permissionInput, required)
-        : await this.access.assertLiveLevelAtLeast(permissionInput, required);
+      required !== "read" || requiresLivePermission === true
+        ? await this.access.assertLiveLevelAtLeast(permissionInput, required)
+        : await this.access.assertLevelAtLeast(permissionInput, required);
     if (!allowed) {
       throw new CoreException(ErrorType.RepoAccessDenied);
     }
