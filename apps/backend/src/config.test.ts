@@ -174,7 +174,6 @@ describe("backend config", () => {
     expect(Array.from(keys).sort()).toEqual(
       [
         "APP_PROFILE",
-        "FOLIO_DECOMP_MODEL",
         "FOLIO_WEB_BASE_URL",
         "GITHUB_APP_ID",
         "GITHUB_APP_CLIENT_ID",
@@ -183,12 +182,10 @@ describe("backend config", () => {
         "GITHUB_APP_SLUG",
         "GITHUB_APP_WEBHOOK_SECRET",
         "NEXT_PUBLIC_API_BASE_URL",
-        "NEXT_PUBLIC_APP_PROFILE",
         "NODE_ENV",
         "PORT",
         "PUBLIC_API_BASE_URL",
         "SUPABASE_DATABASE_URL",
-        "SYSTEM_ADMIN_BOOTSTRAP_GITHUB_ID",
         "WEB_ORIGIN",
       ].sort(),
     );
