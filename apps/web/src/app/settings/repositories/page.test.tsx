@@ -1,7 +1,9 @@
 import React, { isValidElement, type ReactElement, type ReactNode } from "react";
+import { Github } from "lucide-react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { RepositoryToggleForm } from "@/components/repository-toggle-form";
+import { RepositorySettingsTable } from "@/components/settings/repository-settings-table";
+import { SettingsCard } from "@/components/settings/settings-card";
 import type * as WorkspacePermissionModule from "@/lib/workspace-permission";
 
 type WorkspaceContext = WorkspacePermissionModule.WorkspaceContext;
@@ -65,10 +67,10 @@ describe("RepositoriesPage repository activation authorization", () => {
     async (context, reason) => {
       arrangePage(context);
 
-      const page = await RepositoriesPage({ searchParams: Promise.resolve({}) });
+      const page = await RepositoriesPage();
 
       expect(getWorkspaceContext).toHaveBeenCalledWith("folio_session=abc; workspace=acme");
-      expect(findToggle(page)?.props.disabledReason).toBe(reason);
+      expect(findRepositoryTable(page)?.props.disabledReason).toBe(reason);
     },
   );
 
@@ -77,30 +79,56 @@ describe("RepositoriesPage repository activation authorization", () => {
     async (role) => {
       arrangePage({ ...baseContext, role });
 
-      const page = await RepositoriesPage({
-        searchParams: Promise.resolve({ repo: "widget", state: "disabled" }),
-      });
+      const page = await RepositoriesPage();
 
       expect(fetchRepositories).toHaveBeenCalledWith({
         cookie: "folio_session=abc; workspace=acme",
       });
-      expect(findToggle(page)?.props.disabledReason).toBeNull();
+      expect(findRepositoryTable(page)?.props.disabledReason).toBeNull();
     },
   );
 
   it("fails closed when workspace context cannot be loaded", async () => {
     arrangePage(null);
 
-    const page = await RepositoriesPage({ searchParams: Promise.resolve({}) });
+    const page = await RepositoriesPage();
 
-    expect(findToggle(page)?.props.disabledReason).toBe(
+    expect(findRepositoryTable(page)?.props.disabledReason).toBe(
       "워크스페이스 권한 정보를 불러올 수 없습니다.",
     );
   });
+
+  it("links to the GitHub App installation and passes access state to the client table", async () => {
+    arrangePage(baseContext);
+
+    const page = await RepositoriesPage();
+
+    expect(findAnchor(page, "Manage on GitHub")?.props.href).toBe(
+      "https://github.com/settings/installations/145418830",
+    );
+    expect(findAnchor(page, "Manage on GitHub")?.props.target).toBe("_blank");
+    expect(findRepositoryTable(page)?.props.initialRepositories).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: "repo-1", githubAccessActive: true })]),
+    );
+    expect(findSettingsCard(page)?.props.icon).toMatchObject({ type: Github });
+  });
+
+  it("guides users to connect the GitHub App when no installation exists", async () => {
+    arrangePage(baseContext, null);
+
+    const page = await RepositoriesPage();
+
+    expect(findText(page, "GitHub App 설치를 연결해 주세요.")).toBe(true);
+    expect(findAnchor(page, "Manage on GitHub")).toBeNull();
+  });
 });
 
-function arrangePage(context: WorkspaceContext | null) {
+function arrangePage(
+  context: WorkspaceContext | null,
+  githubInstallationId: number | null = 145418830,
+) {
   fetchRepositories.mockResolvedValue({
+    githubInstallationId,
     repositories: [
       {
         id: "repo-1",
@@ -112,16 +140,19 @@ function arrangePage(context: WorkspaceContext | null) {
         private: true,
         defaultBranch: "main",
         folioEnabled: false,
+        githubAccessActive: true,
       },
     ],
   });
   getWorkspaceContext.mockResolvedValue(context);
 }
 
-function findToggle(node: ReactNode): ReactElement<{ disabledReason: string | null }> | null {
+function findSettingsCard(
+  node: ReactNode,
+): ReactElement<{ icon?: ReactElement; children?: ReactNode }> | null {
   if (Array.isArray(node)) {
     for (const child of node) {
-      const found = findToggle(child);
+      const found = findSettingsCard(child);
       if (found) {
         return found;
       }
@@ -131,8 +162,70 @@ function findToggle(node: ReactNode): ReactElement<{ disabledReason: string | nu
   if (!isValidElement(node)) {
     return null;
   }
-  if (node.type === RepositoryToggleForm) {
-    return node as ReactElement<{ disabledReason: string | null }>;
+  if (node.type === SettingsCard) {
+    return node as ReactElement<{ icon?: ReactElement; children?: ReactNode }>;
   }
-  return findToggle((node.props as { children?: ReactNode }).children);
+  return findSettingsCard((node.props as { children?: ReactNode }).children);
+}
+
+function findRepositoryTable(node: ReactNode): ReactElement<{
+  disabledReason: string | null;
+  initialRepositories: { id: string; githubAccessActive: boolean }[];
+}> | null {
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const found = findRepositoryTable(child);
+      if (found) {
+        return found;
+      }
+    }
+    return null;
+  }
+  if (!isValidElement(node)) {
+    return null;
+  }
+  if (node.type === RepositorySettingsTable) {
+    return node as ReactElement<{
+      disabledReason: string | null;
+      initialRepositories: { id: string; githubAccessActive: boolean }[];
+    }>;
+  }
+  return findRepositoryTable((node.props as { children?: ReactNode }).children);
+}
+
+function findAnchor(
+  node: ReactNode,
+  text: string,
+): ReactElement<{ href: string; target?: string; children?: ReactNode }> | null {
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const found = findAnchor(child, text);
+      if (found) {
+        return found;
+      }
+    }
+    return null;
+  }
+  if (!isValidElement(node)) {
+    return null;
+  }
+  const props = node.props as { href?: string; target?: string; children?: ReactNode };
+  if (node.type === "a" && findText(props.children, text)) {
+    return node as ReactElement<{ href: string; target?: string; children?: ReactNode }>;
+  }
+  return findAnchor([props.children, (props as { action?: ReactNode }).action], text);
+}
+
+function findText(node: ReactNode, text: string): boolean {
+  if (typeof node === "string") {
+    return node.includes(text);
+  }
+  if (Array.isArray(node)) {
+    return node.some((child) => findText(child, text));
+  }
+  if (!isValidElement(node)) {
+    return false;
+  }
+  const props = node.props as { action?: ReactNode; children?: ReactNode };
+  return findText([props.children, props.action], text);
 }

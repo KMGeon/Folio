@@ -1,0 +1,1 @@
+ALTER TABLE "repositories" ADD COLUMN "github_access_active" boolean DEFAULT true NOT NULL;

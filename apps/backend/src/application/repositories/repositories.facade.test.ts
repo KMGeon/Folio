@@ -1,5 +1,6 @@
 import {
   auditLogsRepo,
+  installationsRepo,
   repositoriesRepo,
   usersRepo,
   workspaceMembersRepo,
@@ -16,6 +17,7 @@ import {
 } from "@folio/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CoreException } from "../../support/error/core-exception.js";
+import { ErrorType } from "../../support/error/error-type.js";
 import { RepositoriesFacade } from "./repositories.facade.js";
 
 const transaction = { transaction: vi.fn() };
@@ -23,7 +25,7 @@ const transaction = { transaction: vi.fn() };
 vi.mock("@folio/db", () => ({
   auditLogsRepo: { record: vi.fn() },
   getDb: vi.fn(() => transaction),
-  installationsRepo: { listByAccountLogin: vi.fn(async () => []) },
+  installationsRepo: { listByWorkspaceAccountId: vi.fn() },
   repositoriesRepo: {
     getById: vi.fn(),
     getByIdForUpdate: vi.fn(),
@@ -56,6 +58,17 @@ const repository = {
   private: true,
   defaultBranch: "main",
   folioEnabled: false,
+  githubAccessActive: true,
+  createdAt: now,
+  updatedAt: now,
+};
+const installation = {
+  id: "installation-1",
+  githubInstallationId: 100,
+  githubAccountId: workspace.githubAccountId,
+  accountLogin: workspace.accountLogin,
+  accountType: workspace.accountType,
+  suspendedAt: null,
   createdAt: now,
   updatedAt: now,
 };
@@ -129,6 +142,15 @@ describe("RepositoriesFacade", () => {
     vi.mocked(repositoriesRepo.getById).mockResolvedValue(repository);
     vi.mocked(repositoriesRepo.getByIdForUpdate).mockResolvedValue(repository);
     vi.mocked(repositoriesRepo.listByWorkspaceId).mockResolvedValue([repository]);
+    vi.mocked(installationsRepo.listByWorkspaceAccountId).mockResolvedValue([
+      { ...installation, suspendedAt: now },
+      {
+        ...installation,
+        id: "installation-2",
+        githubInstallationId: 145418830,
+        suspendedAt: null,
+      },
+    ]);
     vi.mocked(repositoriesRepo.setFolioEnabled).mockResolvedValue({
       ...repository,
       folioEnabled: true,
@@ -154,18 +176,59 @@ describe("RepositoriesFacade", () => {
 
     expect(resolver.firstWorkspaceForUser).toHaveBeenCalledWith(user.id);
     expect(repositoriesRepo.listByWorkspaceId).toHaveBeenCalledWith(workspace.id);
-    expect(result.repositories).toEqual([
-      expect.objectContaining({ id: repository.id, fullName: repository.fullName }),
+    expect(result).toEqual({
+      githubInstallationId: 145418830,
+      repositories: [
+        expect.objectContaining({
+          id: repository.id,
+          fullName: repository.fullName,
+          githubAccessActive: true,
+        }),
+      ],
+    });
+  });
+
+  it("deterministically selects the newest active GitHub installation", async () => {
+    vi.mocked(installationsRepo.listByWorkspaceAccountId).mockResolvedValue([
+      { ...installation, id: "installation-z", githubInstallationId: 200, suspendedAt: null },
+      { ...installation, id: "installation-a", githubInstallationId: 300, suspendedAt: null },
+      { ...installation, id: "installation-old", githubInstallationId: 999, suspendedAt: now },
     ]);
+
+    const result = await facade.listForUser({ userId: user.id, login: user.login });
+
+    expect(result.githubInstallationId).toBe(300);
   });
 
   it("returns an empty list when the actor has no workspace", async () => {
     resolver.firstWorkspaceForUser.mockResolvedValue(null);
 
     await expect(facade.listForUser({ userId: user.id, login: user.login })).resolves.toEqual({
+      githubInstallationId: null,
       repositories: [],
     });
     expect(repositoriesRepo.listByWorkspaceId).not.toHaveBeenCalled();
+  });
+
+  it("rejects activation when the locked repository is disconnected", async () => {
+    vi.mocked(repositoriesRepo.getByIdForUpdate).mockResolvedValue({
+      ...repository,
+      githubAccessActive: false,
+      folioEnabled: false,
+    });
+
+    const error = await facade
+      .setEnabled({
+        user: { id: user.id, login: user.login },
+        repositoryId: repository.id,
+        enabled: true,
+      })
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(CoreException);
+    expect((error as CoreException).errorType).toBe(ErrorType.RepositoryDisconnected);
+    expect(repositoriesRepo.setFolioEnabled).not.toHaveBeenCalled();
+    expect(auditLogsRepo.record).not.toHaveBeenCalled();
   });
 
   it("denies repository listing to a suspended workspace member", async () => {

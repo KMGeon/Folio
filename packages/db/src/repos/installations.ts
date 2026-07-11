@@ -20,6 +20,16 @@ export const installationsRepo = {
     return row ?? null;
   },
 
+  async getByIdForUpdate(id: string, db: Db = getDb()): Promise<InstallationRow | null> {
+    const [row] = await db
+      .select()
+      .from(installations)
+      .where(eq(installations.id, id))
+      .limit(1)
+      .for("update");
+    return row ?? null;
+  },
+
   async getByGithubId(
     githubInstallationId: number,
     db: Db = getDb(),
@@ -64,6 +74,19 @@ export const installationsRepo = {
     const [row] = await db
       .update(installations)
       .set({ githubAccountId, updatedAt: new Date() })
+      .where(eq(installations.id, id))
+      .returning();
+    return row ?? null;
+  },
+
+  async setSuspendedAt(
+    id: string,
+    suspendedAt: Date | null,
+    db: Db = getDb(),
+  ): Promise<InstallationRow | null> {
+    const [row] = await db
+      .update(installations)
+      .set({ suspendedAt, updatedAt: new Date() })
       .where(eq(installations.id, id))
       .returning();
     return row ?? null;

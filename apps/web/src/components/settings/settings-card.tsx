@@ -11,21 +11,28 @@ export function SettingsCard({
   title,
   description,
   icon,
+  action,
   children,
 }: {
   title: string;
   description?: string;
   icon?: React.ReactNode;
+  action?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <section className="rounded-lg border bg-card p-5">
-      <div className="flex items-start gap-2.5">
-        {icon ? <span className="mt-0.5 text-muted-foreground">{icon}</span> : null}
-        <div>
-          <h2 className="text-base font-semibold">{title}</h2>
-          {description ? <p className="mt-1 text-sm text-muted-foreground">{description}</p> : null}
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-2.5">
+          {icon ? <span className="mt-0.5 text-muted-foreground">{icon}</span> : null}
+          <div>
+            <h2 className="text-base font-semibold">{title}</h2>
+            {description ? (
+              <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+            ) : null}
+          </div>
         </div>
+        {action}
       </div>
       <div className="mt-5">{children}</div>
     </section>

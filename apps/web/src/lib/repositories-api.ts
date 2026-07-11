@@ -1,8 +1,4 @@
-import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
-
-import { ApiError, apiRequest } from "./api-client";
+import { apiRequest } from "./api-client";
 
 export interface RepositorySummary {
   id: string;
@@ -14,9 +10,11 @@ export interface RepositorySummary {
   private: boolean;
   defaultBranch: string;
   folioEnabled: boolean;
+  githubAccessActive: boolean;
 }
 
 export interface RepositoryListPayload {
+  githubInstallationId: number | null;
   repositories: RepositorySummary[];
 }
 
@@ -45,31 +43,4 @@ export async function setRepositoryEnabled(
     },
     body: JSON.stringify({ enabled }),
   });
-}
-
-export async function toggleRepositoryEnabled(formData: FormData) {
-  "use server";
-
-  const repositoryId = String(formData.get("repositoryId") ?? "");
-  const enabled = formData.get("enabled") === "true";
-  if (!repositoryId) {
-    throw new Error("repositoryId is required");
-  }
-
-  const cookieHeader = (await cookies())
-    .getAll()
-    .map((c) => `${c.name}=${c.value}`)
-    .join("; ");
-
-  try {
-    await setRepositoryEnabled(repositoryId, enabled, cookieHeader);
-  } catch (err) {
-    if (err instanceof ApiError && err.status === 401) {
-      redirect("/login?redirect=/settings/repositories");
-    }
-    throw err;
-  }
-
-  revalidatePath("/");
-  revalidatePath("/settings/repositories");
 }

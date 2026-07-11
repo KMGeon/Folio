@@ -16,6 +16,7 @@ export const repositories = pgTable("repositories", {
   fullName: text("full_name").notNull(),
   private: boolean("private").notNull().default(false),
   defaultBranch: text("default_branch").notNull(),
+  githubAccessActive: boolean("github_access_active").notNull().default(true),
   folioEnabled: boolean("folio_enabled").notNull().default(false),
 });
 

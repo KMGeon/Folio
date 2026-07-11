@@ -10,5 +10,6 @@ export const RepositorySchema = z.object({
   private: z.boolean(),
   defaultBranch: z.string(),
   folioEnabled: z.boolean(),
+  githubAccessActive: z.boolean(),
 });
 export type Repository = z.infer<typeof RepositorySchema>;

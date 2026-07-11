@@ -97,6 +97,24 @@ d("repositories (e2e)", () => {
     expect(repo.folioEnabled).toBe(false);
   });
 
+  it("creates synchronized repositories with active GitHub access by default", async () => {
+    const row = await repositoriesRepo.create(
+      {
+        installationId: base.installationId,
+        githubRepoId: 987656,
+        owner: "acme",
+        name: "access-default",
+        fullName: "acme/access-default",
+        private: false,
+        defaultBranch: "main",
+      },
+      db,
+    );
+
+    expect(row.githubAccessActive).toBe(true);
+    expect(row.folioEnabled).toBe(false);
+  });
+
   it("preserves repository activation when syncing an existing repository", async () => {
     const enabled = await repositoriesRepo.setFolioEnabled(base.repoId, true, db);
 
@@ -116,6 +134,165 @@ d("repositories (e2e)", () => {
     expect(synced.id).toBe(base.repoId);
     expect(synced.defaultBranch).toBe("trunk");
     expect(synced.folioEnabled).toBe(true);
+  });
+
+  it("reconciles an installation and disconnects repositories absent from GitHub", async () => {
+    await repositoriesRepo.setFolioEnabled(base.repoId, true, db);
+
+    const [connected] = await repositoriesRepo.reconcileInstallationAccess(
+      base.installationId,
+      null,
+      [
+        {
+          githubRepoId: 777001,
+          owner: "acme",
+          name: "new-repo",
+          fullName: "acme/new-repo",
+          private: false,
+          defaultBranch: "main",
+        },
+      ],
+      db,
+    );
+    const disconnected = await repositoriesRepo.getById(base.repoId, db);
+
+    expect(connected).toMatchObject({
+      fullName: "acme/new-repo",
+      githubAccessActive: true,
+      folioEnabled: false,
+    });
+    expect(disconnected).toMatchObject({
+      githubAccessActive: false,
+      folioEnabled: false,
+    });
+  });
+
+  it("reconnects a repository without restoring its Folio preference", async () => {
+    const original = await repositoriesRepo.getById(base.repoId, db);
+    await repositoriesRepo.setFolioEnabled(base.repoId, true, db);
+    await repositoriesRepo.disconnectInstallation(base.installationId, db);
+
+    await repositoriesRepo.reconcileInstallationAccess(
+      base.installationId,
+      null,
+      [
+        {
+          githubRepoId: original!.githubRepoId,
+          owner: original!.owner,
+          name: original!.name,
+          fullName: original!.fullName,
+          private: original!.private,
+          defaultBranch: original!.defaultBranch,
+        },
+      ],
+      db,
+    );
+
+    await expect(repositoriesRepo.getById(base.repoId, db)).resolves.toMatchObject({
+      githubAccessActive: true,
+      folioEnabled: false,
+    });
+  });
+
+  it("skips reconciliation after the installation is suspended", async () => {
+    const original = await repositoriesRepo.getById(base.repoId, db);
+    await repositoriesRepo.setFolioEnabled(base.repoId, true, db);
+    await installationsRepo.setSuspendedAt(base.installationId, new Date(), db);
+    await repositoriesRepo.disconnectInstallation(base.installationId, db);
+
+    const reconciled = await repositoriesRepo.reconcileInstallationAccess(
+      base.installationId,
+      null,
+      [
+        {
+          githubRepoId: original!.githubRepoId,
+          owner: original!.owner,
+          name: original!.name,
+          fullName: original!.fullName,
+          private: original!.private,
+          defaultBranch: original!.defaultBranch,
+        },
+      ],
+      db,
+    );
+
+    expect(reconciled).toEqual([]);
+    await expect(repositoriesRepo.getById(base.repoId, db)).resolves.toMatchObject({
+      githubAccessActive: false,
+      folioEnabled: false,
+    });
+  });
+
+  it("preserves an existing workspace link when reconciliation has no workspace", async () => {
+    const original = await repositoriesRepo.getById(base.repoId, db);
+    const workspace = await workspacesRepo.create(
+      {
+        githubAccountId: 777002,
+        accountLogin: "acme",
+        accountType: ACCOUNT_TYPE.ORGANIZATION,
+      },
+      db,
+    );
+    await repositoriesRepo.upsertByGithubId(
+      {
+        installationId: original!.installationId,
+        workspaceId: workspace.id,
+        githubRepoId: original!.githubRepoId,
+        owner: original!.owner,
+        name: original!.name,
+        fullName: original!.fullName,
+        private: original!.private,
+        defaultBranch: original!.defaultBranch,
+      },
+      db,
+    );
+
+    const [reconciled] = await repositoriesRepo.reconcileInstallationAccess(
+      base.installationId,
+      null,
+      [
+        {
+          githubRepoId: original!.githubRepoId,
+          owner: original!.owner,
+          name: original!.name,
+          fullName: original!.fullName,
+          private: original!.private,
+          defaultBranch: original!.defaultBranch,
+        },
+      ],
+      db,
+    );
+
+    expect(reconciled?.workspaceId).toBe(workspace.id);
+  });
+
+  it("rejects enabling a repository after its installation is disconnected", async () => {
+    await repositoriesRepo.disconnectInstallation(base.installationId, db);
+
+    await expect(repositoriesRepo.setFolioEnabled(base.repoId, true, db)).rejects.toThrow(
+      "repository not found or ineligible",
+    );
+    await expect(repositoriesRepo.getById(base.repoId, db)).resolves.toMatchObject({
+      githubAccessActive: false,
+      folioEnabled: false,
+    });
+  });
+
+  it("fails closed when processing eligibility is queried", async () => {
+    await repositoriesRepo.setFolioEnabled(base.repoId, true, db);
+    const row = await repositoriesRepo.getById(base.repoId, db);
+    await repositoriesRepo.disconnectInstallation(base.installationId, db);
+
+    await expect(repositoriesRepo.isFolioEnabledByFullName(row!.fullName, db)).resolves.toBe(false);
+  });
+
+  it("preserves pull request history when an installation is disconnected", async () => {
+    await repositoriesRepo.disconnectInstallation(base.installationId, db);
+
+    await expect(pullRequestsRepo.getById(base.prId, db)).resolves.toMatchObject({
+      id: base.prId,
+      repoId: base.repoId,
+    });
   });
 
   it("updates repository activation and lists enabled repositories", async () => {

@@ -50,6 +50,11 @@ export const ErrorType = {
     statusCode: 409,
     message: "Workspace membership changed. Refresh and try again.",
   },
+  RepositoryDisconnected: {
+    code: "repository_disconnected",
+    statusCode: 409,
+    message: "Repository is no longer connected to the GitHub App.",
+  },
   NotEntitled: {
     code: "not_entitled",
     statusCode: 403,

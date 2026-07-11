@@ -1,6 +1,7 @@
 import {
   auditLogsRepo,
   getDb,
+  installationsRepo,
   repositoriesRepo,
   usersRepo,
   workspaceMembersRepo,
@@ -22,6 +23,7 @@ const REPOSITORY_NOT_FOUND = {
 } as const;
 
 export interface RepositoryListPayload {
+  githubInstallationId: number | null;
   repositories: Repository[];
 }
 
@@ -41,7 +43,7 @@ export class RepositoriesFacade {
   async listForUser(user: { userId: string; login: string }): Promise<RepositoryListPayload> {
     const workspace = await this.workspaceResolver.firstWorkspaceForUser(user.userId);
     if (!workspace) {
-      return { repositories: [] };
+      return { githubInstallationId: null, repositories: [] };
     }
     const [actor, membership] = await Promise.all([
       usersRepo.getById(user.userId),
@@ -58,8 +60,18 @@ export class RepositoriesFacade {
     ) {
       throw new CoreException(ErrorType.Forbidden);
     }
-    const repos = await repositoriesRepo.listByWorkspaceId(workspace.id);
-    return { repositories: repos.map(toRepository) };
+    const [repos, installations] = await Promise.all([
+      repositoriesRepo.listByWorkspaceId(workspace.id),
+      installationsRepo.listByWorkspaceAccountId(workspace.githubAccountId),
+    ]);
+    // GitHub installation ids increase over time, so the newest active row wins if legacy data is corrupt.
+    const activeInstallation = installations
+      .filter((installation) => installation.suspendedAt === null)
+      .sort((left, right) => right.githubInstallationId - left.githubInstallationId)[0];
+    return {
+      githubInstallationId: activeInstallation?.githubInstallationId ?? null,
+      repositories: repos.map(toRepository),
+    };
   }
 
   async setEnabled(input: ToggleRepositoryInput): Promise<Repository> {
@@ -137,6 +149,11 @@ export class RepositoriesFacade {
         throw new CoreException(REPOSITORY_NOT_FOUND);
       }
 
+      // Revalidate connectivity under the repository lock so stale settings pages fail closed.
+      if (!lockedRepo.githubAccessActive) {
+        throw new CoreException(ErrorType.RepositoryDisconnected);
+      }
+
       if (lockedRepo.folioEnabled === input.enabled) {
         return toRepository(lockedRepo);
       }
@@ -173,6 +190,7 @@ function toRepository(row: {
   private: boolean;
   defaultBranch: string;
   folioEnabled: boolean;
+  githubAccessActive: boolean;
 }): Repository {
   return {
     id: row.id,
@@ -184,5 +202,6 @@ function toRepository(row: {
     private: row.private,
     defaultBranch: row.defaultBranch,
     folioEnabled: row.folioEnabled,
+    githubAccessActive: row.githubAccessActive,
   };
 }
