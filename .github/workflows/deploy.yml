@@ -116,15 +116,17 @@ jobs:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
         run: |
           set -euo pipefail
-          ssh folio-ec2 "mkdir -p '$DEPLOY_PATH'"
+          release_dir="$(mktemp -d)"
+          trap 'rm -rf "$release_dir"' EXIT
+          install -D -m 0644 docker-compose.yml "$release_dir/docker-compose.yml"
+          install -D -m 0644 nginx/folio.conf "$release_dir/nginx/folio.conf"
+          install -D -m 0644 nginx/folio-http.conf "$release_dir/nginx/folio-http.conf"
+          test "$(find "$release_dir" -type f | wc -l)" -eq 3
+          ssh folio-ec2 "test -f '$DEPLOY_PATH/.env' && mkdir -p '$DEPLOY_PATH'"
+          # Production secrets are server-managed; everything else follows the release bundle.
           rsync -az --delete \
-            --exclude '.git/' \
-            --exclude '.env' \
-            --exclude '.env.*' \
-            --exclude 'node_modules/' \
-            --exclude '.next/' \
-            --exclude 'dist/' \
-            ./ "folio-ec2:$DEPLOY_PATH/"
+            --filter='protect /.env' \
+            "$release_dir/" "folio-ec2:$DEPLOY_PATH/"
 
       - name: Rebuild and restart
         env:
