@@ -38,7 +38,7 @@ describe("GitHubOAuthAdapter", () => {
     };
     vi.mocked(getInstallationAccount).mockResolvedValue(identity);
 
-    await expect(new GitHubOAuthAdapter().getInstallationAccount(123)).resolves.toBe(identity);
+    await expect(new GitHubOAuthAdapter().resolveInstallationIdentity(123)).resolves.toBe(identity);
     expect(getInstallationAccount).toHaveBeenCalledWith(123);
   });
 

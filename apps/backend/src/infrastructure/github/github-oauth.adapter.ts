@@ -6,7 +6,6 @@ import {
   getAuthenticatedUser,
   getInstallationAccount as resolveInstallationAccount,
   type GitHubRepoAccessLevel,
-  type InstallationAccountIdentity,
   getUserRepoPermissionLevel,
   type OAuthUser,
   verifyUserInstallationAccess,
@@ -14,6 +13,10 @@ import {
 import { installationsRepo, repositoriesRepo } from "@folio/db";
 import { Injectable } from "@nestjs/common";
 import { config } from "../../config.js";
+import type {
+  GitHubInstallationIdentity,
+  GitHubInstallationIdentityPort,
+} from "../../domain/auth/github-installation-identity.port.js";
 import {
   type GitHubRepositoryPermissionPort,
   type ResolvedInstallationPermissionInput,
@@ -23,7 +26,9 @@ import {
 export const RESOLVED_REPOSITORY_PERMISSION_CONCURRENCY = 4;
 
 @Injectable()
-export class GitHubOAuthAdapter implements GitHubRepositoryPermissionPort {
+export class GitHubOAuthAdapter
+  implements GitHubInstallationIdentityPort, GitHubRepositoryPermissionPort
+{
   private callbackUrl(): string {
     return `${config.PUBLIC_API_BASE_URL}/api/v1/auth/github/callback`;
   }
@@ -50,7 +55,7 @@ export class GitHubOAuthAdapter implements GitHubRepositoryPermissionPort {
     return user;
   }
 
-  getInstallationAccount(installationId: number): Promise<InstallationAccountIdentity> {
+  resolveInstallationIdentity(installationId: number): Promise<GitHubInstallationIdentity> {
     return resolveInstallationAccount(installationId);
   }
 

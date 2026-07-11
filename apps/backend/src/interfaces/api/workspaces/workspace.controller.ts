@@ -14,7 +14,6 @@ import { z } from "zod";
 import { WorkspaceClaimFacade } from "../../../application/authorization/workspace-claim.facade.js";
 import { config } from "../../../config.js";
 import { verifyInstallationClaimToken } from "../../../domain/auth/installation-claim-token.js";
-import { GitHubOAuthAdapter } from "../../../infrastructure/github/github-oauth.adapter.js";
 import { CoreException } from "../../../support/error/core-exception.js";
 import { ErrorType } from "../../../support/error/error-type.js";
 import { CurrentUser } from "../common/current-user.decorator.js";
@@ -30,10 +29,7 @@ const ClaimBodySchema = z.object({ installationId: z.number().int().positive() }
 @Controller("api/v1/workspaces")
 @UseGuards(SessionAuthGuard)
 export class WorkspaceController {
-  constructor(
-    @Inject(WorkspaceClaimFacade) private readonly claimFacade: WorkspaceClaimFacade,
-    @Inject(GitHubOAuthAdapter) private readonly github: GitHubOAuthAdapter,
-  ) {}
+  constructor(@Inject(WorkspaceClaimFacade) private readonly claimFacade: WorkspaceClaimFacade) {}
 
   @Get("current")
   current(@CurrentUser() user: AuthedUser) {
@@ -60,8 +56,10 @@ export class WorkspaceController {
       throw new CoreException(ErrorType.WorkspaceNotFound);
     }
 
-    const account = await this.github.getInstallationAccount(parsed.data.installationId);
-    const member = await this.claimFacade.claimAsOwner({ userId: user.id, ...account });
+    const member = await this.claimFacade.claimAsOwner({
+      userId: user.id,
+      installationId: parsed.data.installationId,
+    });
     res.clearCookie(INSTALLATION_CLAIM_COOKIE, { path: "/" });
     return member;
   }

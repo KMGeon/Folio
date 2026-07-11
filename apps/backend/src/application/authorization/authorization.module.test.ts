@@ -7,6 +7,8 @@ import {
   AlwaysEntitledService,
   EntitlementService,
 } from "../../domain/authorization/entitlement.service.js";
+import { GitHubInstallationIdentityPort } from "../../domain/auth/github-installation-identity.port.js";
+import { GitHubOAuthAdapter } from "../../infrastructure/github/github-oauth.adapter.js";
 import { WorkspaceMembershipService } from "../../infrastructure/authorization/workspace-membership.service.js";
 import { WorkspaceResolver } from "../../infrastructure/authorization/workspace-resolver.js";
 import { EntitlementGuard } from "../../interfaces/api/authorization/entitlement.guard.js";
@@ -70,6 +72,7 @@ describe("AuthorizationModule", () => {
     const moduleRef = await Test.createTestingModule({ imports: [AuthorizationModule] }).compile();
 
     expect(moduleRef.get(EntitlementService)).toBeInstanceOf(AlwaysEntitledService);
+    expect(moduleRef.get(GitHubInstallationIdentityPort)).toBe(moduleRef.get(GitHubOAuthAdapter));
     for (const dependency of [
       WorkspaceResolver,
       WorkspaceMembershipService,

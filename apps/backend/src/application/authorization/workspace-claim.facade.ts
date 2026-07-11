@@ -16,6 +16,7 @@ import {
   type EntitlementFeature,
 } from "@folio/types";
 import { Inject, Injectable } from "@nestjs/common";
+import { GitHubInstallationIdentityPort } from "../../domain/auth/github-installation-identity.port.js";
 import { EntitlementService } from "../../domain/authorization/entitlement.service.js";
 import { WorkspaceMembershipService } from "../../infrastructure/authorization/workspace-membership.service.js";
 import { WorkspaceResolver } from "../../infrastructure/authorization/workspace-resolver.js";
@@ -23,6 +24,11 @@ import { CoreException } from "../../support/error/core-exception.js";
 import { ErrorType } from "../../support/error/error-type.js";
 
 export interface ClaimInput {
+  userId: string;
+  installationId: number;
+}
+
+interface ResolvedClaimInput {
   userId: string;
   githubAccountId: number;
   accountLogin: string;
@@ -36,9 +42,18 @@ export class WorkspaceClaimFacade {
     @Inject(WorkspaceResolver) private readonly resolver: WorkspaceResolver,
     @Inject(WorkspaceMembershipService)
     private readonly membership: WorkspaceMembershipService,
+    @Inject(GitHubInstallationIdentityPort)
+    private readonly installationIdentity: GitHubInstallationIdentityPort,
   ) {}
 
-  claimAsOwner(input: ClaimInput): Promise<WorkspaceMemberRow> {
+  async claimAsOwner(input: ClaimInput): Promise<WorkspaceMemberRow> {
+    const account = await this.installationIdentity.resolveInstallationIdentity(
+      input.installationId,
+    );
+    return this.claimResolvedAccountAsOwner({ userId: input.userId, ...account });
+  }
+
+  private claimResolvedAccountAsOwner(input: ResolvedClaimInput): Promise<WorkspaceMemberRow> {
     return getDb().transaction(async (transaction) => {
       await workspacesRepo.upsertByGithubAccountId(
         {

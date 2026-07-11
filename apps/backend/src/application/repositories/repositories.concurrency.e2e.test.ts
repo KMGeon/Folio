@@ -149,6 +149,13 @@ d("repository activation authority concurrency (e2e)", () => {
       { canUseFeature: vi.fn().mockResolvedValue({ entitled: true }) } as never,
       { firstWorkspaceForUser: vi.fn().mockResolvedValue(workspace) } as never,
       new WorkspaceMembershipService(),
+      {
+        resolveInstallationIdentity: vi.fn().mockResolvedValue({
+          githubAccountId: 991,
+          accountLogin: "activation-acme",
+          accountType: ACCOUNT_TYPE.ORGANIZATION,
+        }),
+      } as never,
     );
     workspaceMembers = new WorkspaceMembersFacade(new WorkspaceMembershipService());
   });
@@ -285,9 +292,7 @@ d("repository activation authority concurrency (e2e)", () => {
       await activationLocked.promise;
       const claim = claims.claimAsOwner({
         userId: activationUserId,
-        githubAccountId: 991,
-        accountLogin: "activation-acme",
-        accountType: ACCOUNT_TYPE.ORGANIZATION,
+        installationId: 123,
       });
       await claimAttempted.promise;
       releaseActivation.resolve();

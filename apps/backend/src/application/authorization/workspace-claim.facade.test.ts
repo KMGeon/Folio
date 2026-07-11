@@ -49,9 +49,7 @@ const transaction = { kind: "transaction" };
 const now = new Date("2026-07-11T00:00:00.000Z");
 const claimInput = {
   userId: "user-1",
-  githubAccountId: 42,
-  accountLogin: "acme",
-  accountType: ACCOUNT_TYPE.ORGANIZATION,
+  installationId: 123,
 };
 
 function workspace(): WorkspaceRow {
@@ -103,6 +101,7 @@ describe("WorkspaceClaimFacade", () => {
   let entitlement: { canUseFeature: ReturnType<typeof vi.fn> };
   let membership: { ensureReviewer: ReturnType<typeof vi.fn> };
   let resolver: { firstWorkspaceForUser: ReturnType<typeof vi.fn> };
+  let installationIdentity: { resolveInstallationIdentity: ReturnType<typeof vi.fn> };
   let facade: WorkspaceClaimFacade;
 
   beforeEach(() => {
@@ -112,10 +111,18 @@ describe("WorkspaceClaimFacade", () => {
     entitlement = { canUseFeature: vi.fn() };
     membership = { ensureReviewer: vi.fn() };
     resolver = { firstWorkspaceForUser: vi.fn() };
+    installationIdentity = {
+      resolveInstallationIdentity: vi.fn().mockResolvedValue({
+        githubAccountId: 42,
+        accountLogin: "acme",
+        accountType: ACCOUNT_TYPE.ORGANIZATION,
+      }),
+    };
     facade = new WorkspaceClaimFacade(
       entitlement as unknown as EntitlementService,
       resolver as unknown as WorkspaceResolver,
       membership as unknown as WorkspaceMembershipService,
+      installationIdentity as never,
     );
   });
 
@@ -125,6 +132,30 @@ describe("WorkspaceClaimFacade", () => {
   }
 
   describe("claimAsOwner", () => {
+    it("resolves the verified installation id before opening the claim transaction", async () => {
+      arrangeWorkspace();
+      vi.mocked(workspaceMembersRepo.getMembershipsForUpdate).mockResolvedValue([]);
+      vi.mocked(workspaceMembersRepo.listByWorkspace).mockResolvedValue([]);
+      vi.mocked(workspaceMembersRepo.create).mockResolvedValue(
+        member("user-1", WORKSPACE_ROLE.OWNER),
+      );
+
+      await facade.claimAsOwner(claimInput);
+
+      expect(installationIdentity.resolveInstallationIdentity).toHaveBeenCalledWith(123);
+      expect(
+        installationIdentity.resolveInstallationIdentity.mock.invocationCallOrder[0],
+      ).toBeLessThan(dbDouble.transaction.mock.invocationCallOrder[0]!);
+      expect(workspacesRepo.upsertByGithubAccountId).toHaveBeenCalledWith(
+        {
+          githubAccountId: 42,
+          accountLogin: "acme",
+          accountType: ACCOUNT_TYPE.ORGANIZATION,
+        },
+        transaction,
+      );
+    });
+
     it("locks memberships then rejects a globally suspended claimant before mutation or audit", async () => {
       const order: string[] = [];
       vi.mocked(workspacesRepo.upsertByGithubAccountId).mockResolvedValue(workspace());

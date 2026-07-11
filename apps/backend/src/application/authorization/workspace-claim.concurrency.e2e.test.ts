@@ -78,15 +78,20 @@ d("workspace claim concurrency (e2e)", () => {
       { canUseFeature: async () => ({ entitled: true }) } as never,
       { firstWorkspaceForUser: async () => null } as never,
       new WorkspaceMembershipService(),
+      {
+        resolveInstallationIdentity: async () => ({
+          githubAccountId: 97,
+          accountLogin: "claim-acme",
+          accountType: ACCOUNT_TYPE.ORGANIZATION,
+        }),
+      } as never,
     );
   }
 
   function input(userId: string) {
     return {
       userId,
-      githubAccountId: 97,
-      accountLogin: "claim-acme",
-      accountType: ACCOUNT_TYPE.ORGANIZATION,
+      installationId: 123,
     };
   }
 

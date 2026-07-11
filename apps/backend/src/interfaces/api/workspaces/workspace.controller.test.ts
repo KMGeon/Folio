@@ -5,7 +5,6 @@ import { GUARDS_METADATA, METHOD_METADATA, PATH_METADATA } from "@nestjs/common/
 import { describe, expect, it, vi } from "vitest";
 import type { WorkspaceClaimFacade } from "../../../application/authorization/workspace-claim.facade.js";
 import { createInstallationClaimToken } from "../../../domain/auth/installation-claim-token.js";
-import type { GitHubOAuthAdapter } from "../../../infrastructure/github/github-oauth.adapter.js";
 import { CoreException } from "../../../support/error/core-exception.js";
 import { ErrorType } from "../../../support/error/error-type.js";
 import { successResponse } from "../common/api-response.js";
@@ -24,14 +23,9 @@ const user: AuthedUser = {
 
 function createController() {
   const facade = { claimAsOwner: vi.fn(), currentContext: vi.fn() };
-  const github = { getInstallationAccount: vi.fn() };
   return {
-    controller: new WorkspaceController(
-      facade as unknown as WorkspaceClaimFacade,
-      github as unknown as GitHubOAuthAdapter,
-    ),
+    controller: new WorkspaceController(facade as unknown as WorkspaceClaimFacade),
     facade,
-    github,
   };
 }
 
@@ -80,14 +74,9 @@ describe("WorkspaceController", () => {
     expect(facade.currentContext).toHaveBeenCalledWith("user-1");
   });
 
-  it("claims from server-resolved installation identity and clears the proof", async () => {
-    const { controller, facade, github } = createController();
+  it("passes the verified installation id to the claim facade and clears the proof", async () => {
+    const { controller, facade } = createController();
     const member = { id: "member-1" };
-    github.getInstallationAccount.mockResolvedValue({
-      githubAccountId: 42,
-      accountLogin: "acme",
-      accountType: "Organization",
-    });
     facade.claimAsOwner.mockResolvedValue(member);
     const response = { clearCookie: vi.fn() };
 
@@ -100,12 +89,9 @@ describe("WorkspaceController", () => {
       ),
     ).resolves.toBe(member);
 
-    expect(github.getInstallationAccount).toHaveBeenCalledWith(123);
     expect(facade.claimAsOwner).toHaveBeenCalledWith({
       userId: "user-1",
-      githubAccountId: 42,
-      accountLogin: "acme",
-      accountType: "Organization",
+      installationId: 123,
     });
     expect(response.clearCookie).toHaveBeenCalledWith("folio_installation_claim", { path: "/" });
   });
@@ -115,7 +101,7 @@ describe("WorkspaceController", () => {
     [claimToken({ installationId: 999 }), { installationId: 123 }],
     ["invalid-token", { installationId: 123 }],
   ])("fails claim closed when proof is absent or does not match", async (token, body) => {
-    const { controller, facade, github } = createController();
+    const { controller, facade } = createController();
     const response = { clearCookie: vi.fn() };
 
     const error = await controller
@@ -125,7 +111,6 @@ describe("WorkspaceController", () => {
     expect(error).toBeInstanceOf(CoreException);
     expect((error as CoreException).errorType).toBe(ErrorType.WorkspaceNotFound);
     expect(facade.claimAsOwner).not.toHaveBeenCalled();
-    expect(github.getInstallationAccount).not.toHaveBeenCalled();
     expect(response.clearCookie).not.toHaveBeenCalled();
   });
 
