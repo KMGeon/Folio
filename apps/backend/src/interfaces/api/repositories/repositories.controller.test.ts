@@ -8,13 +8,17 @@ import { RepositoriesController } from "./repositories.controller.js";
 describe("RepositoriesController", () => {
   it("lists repositories for the authenticated user", async () => {
     const facade = {
-      listForUser: vi.fn().mockResolvedValue({ repositories: [] }),
+      listForUser: vi.fn().mockResolvedValue({
+        githubInstallationId: 145418830,
+        repositories: [],
+      }),
     } as unknown as RepositoriesFacade;
     const controller = new RepositoriesController(facade);
 
     await expect(
       controller.list({ id: "user-1", login: "KMGeon", avatarUrl: "https://avatars/KMGeon" }),
     ).resolves.toEqual({
+      githubInstallationId: 145418830,
       repositories: [],
     });
     expect(facade.listForUser).toHaveBeenCalledWith({ userId: "user-1", login: "KMGeon" });

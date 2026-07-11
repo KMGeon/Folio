@@ -54,6 +54,7 @@ describe("persistReview", () => {
       private: false,
       defaultBranch: "main",
       folioEnabled: true,
+      githubAccessActive: true,
       createdAt: new Date(),
       updatedAt: new Date(),
     });

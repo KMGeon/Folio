@@ -59,6 +59,7 @@ describe("RepositoryPermissionGuard", () => {
       private: true,
       defaultBranch: "main",
       folioEnabled: true,
+      githubAccessActive: true,
       createdAt: now,
       updatedAt: now,
     });

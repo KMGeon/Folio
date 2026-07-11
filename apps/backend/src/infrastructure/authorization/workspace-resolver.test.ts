@@ -47,6 +47,7 @@ function repositoryRow(overrides: Partial<RepositoryRow> = {}): RepositoryRow {
     private: true,
     defaultBranch: "main",
     folioEnabled: true,
+    githubAccessActive: true,
     createdAt: now,
     updatedAt: now,
     ...overrides,
