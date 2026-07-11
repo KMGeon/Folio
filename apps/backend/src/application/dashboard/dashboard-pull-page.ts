@@ -10,12 +10,18 @@ import { pullLineCountsForPulls, relativeTime } from "./dashboard-pull-details.j
 import type { DashboardCompletedPull, DashboardPull } from "./dashboard.facade.js";
 import type {
   CompletedCandidate,
-  DashboardOpenBucket,
   DashboardOpenPullPageQuery,
   DashboardOpenPullPages,
   DashboardPullPage,
   DashboardPullPageQuery,
 } from "./dashboard-pull-page-types.js";
+import {
+  emptyOpenBuckets,
+  matchesOpenBucket,
+  openBucketFor,
+  OPEN_BUCKETS,
+  partitionOpenCandidates,
+} from "./dashboard-open-buckets.js";
 import {
   collectRepoCandidatesForRepos,
   type DashboardCursor,
@@ -29,7 +35,6 @@ import type { DashboardWorkspaceScope } from "./dashboard-workspace-scope.js";
 const DEFAULT_PULL_PAGE_LIMIT = 20;
 const MAX_PULL_PAGE_LIMIT = 50;
 const REPO_FETCH_CONCURRENCY = 4;
-const OPEN_BUCKETS = ["ready", "yours", "other"] as const;
 
 type CollectedCandidates = {
   openCandidates: OpenCandidate[];
@@ -154,7 +159,13 @@ async function openPulls(candidates: OpenCandidate[]): Promise<DashboardPull[]> 
       author: candidate.pr.user?.login ?? "unknown",
       updatedAt: relativeTime(candidate.pr.updated_at),
       headBranch: candidate.pr.head.ref,
+      headSha: candidate.pr.head.sha ?? "",
       baseBranch: candidate.pr.base.ref,
+      githubStatus: candidate.pr.merged_at
+        ? "merged"
+        : candidate.pr.draft
+          ? "draft"
+          : (candidate.pr.state ?? "open"),
       risk: "low",
       ...counts,
       ...candidate.status,
@@ -176,7 +187,7 @@ async function pagesByUpdated(
   userLogin: string,
   query: NormalizedQuery,
 ): Promise<DashboardOpenPullPages> {
-  const partitions = partitionCandidates(candidates, userLogin);
+  const partitions = partitionOpenCandidates(candidates, userLogin);
   const selected = OPEN_BUCKETS.map((bucket) =>
     [...partitions[bucket]]
       .sort((a, b) => dateDelta(a.pr.updated_at, b.pr.updated_at, query))
@@ -211,36 +222,6 @@ function pagesByLines(
   return Object.fromEntries(
     OPEN_BUCKETS.map((bucket) => [bucket, pageByLines(partitions[bucket], 0, query)]),
   ) as DashboardOpenPullPages;
-}
-
-function partitionCandidates(
-  candidates: OpenCandidate[],
-  userLogin: string,
-): Record<DashboardOpenBucket, OpenCandidate[]> {
-  const partitions = emptyOpenBuckets<OpenCandidate>();
-  for (const candidate of candidates) {
-    partitions[openBucketFor(userLogin, candidate)].push(candidate);
-  }
-  return partitions;
-}
-
-function emptyOpenBuckets<T>(): Record<DashboardOpenBucket, T[]> {
-  return { ready: [], yours: [], other: [] };
-}
-
-function matchesOpenBucket(
-  bucket: DashboardPullPageQuery["bucket"],
-  userLogin: string,
-  candidate: OpenCandidate,
-): boolean {
-  return bucket !== "completed" && openBucketFor(userLogin, candidate) === bucket;
-}
-
-function openBucketFor(userLogin: string, candidate: OpenCandidate): DashboardOpenBucket {
-  if (candidate.pr.user?.login === userLogin) {
-    return "yours";
-  }
-  return candidate.status.status === "ready" ? "ready" : "other";
 }
 
 function pageByLines<T extends DashboardPull | DashboardCompletedPull>(
