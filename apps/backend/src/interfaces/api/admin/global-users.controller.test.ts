@@ -12,6 +12,7 @@ const authedUser: AuthedUser = {
   id: "admin-1",
   login: "admin-login",
   avatarUrl: "https://avatars.example/admin-1",
+  isSystemAdmin: true,
 };
 
 function createController() {

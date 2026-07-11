@@ -454,11 +454,12 @@ describe("auth routes", () => {
 
   it("me returns the user with a valid session cookie", async () => {
     getById.mockResolvedValue({
-      id: "u1",
-      login: "octocat",
-      avatarUrl: "https://a",
+      id: "user-1",
+      login: "root",
+      avatarUrl: "https://avatars/root",
       status: "approved",
       globalStatus: "active",
+      isSystemAdmin: true,
     });
     upsertByGithubId.mockResolvedValue({
       id: "u1",
@@ -479,7 +480,17 @@ describe("auth routes", () => {
       .get("/api/v1/auth/me")
       .set("Cookie", sessionCookie ?? "");
     expect(me.status).toBe(200);
-    expect(me.body).toMatchObject({ success: true, data: { user: { login: "octocat" } } });
+    expect(me.body).toEqual({
+      success: true,
+      data: {
+        user: {
+          id: "user-1",
+          login: "root",
+          avatarUrl: "https://avatars/root",
+          isSystemAdmin: true,
+        },
+      },
+    });
     await app.close();
   });
 

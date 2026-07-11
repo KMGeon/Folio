@@ -10,6 +10,7 @@ export interface AuthedUser {
   id: string;
   login: string;
   avatarUrl: string;
+  isSystemAdmin: boolean;
 }
 
 export interface AuthedRequest extends Request {
@@ -31,7 +32,12 @@ export class SessionAuthGuard implements CanActivate {
     if (!user || user.globalStatus !== GLOBAL_STATUS.ACTIVE) {
       throw new CoreException(ErrorType.Unauthorized);
     }
-    request.user = { id: user.id, login: user.login, avatarUrl: user.avatarUrl };
+    request.user = {
+      id: user.id,
+      login: user.login,
+      avatarUrl: user.avatarUrl,
+      isSystemAdmin: user.isSystemAdmin,
+    };
     return true;
   }
 }

@@ -15,6 +15,7 @@ const authedUser: AuthedUser = {
   id: "owner-1",
   login: "owner-login",
   avatarUrl: "https://avatars.example/owner-1",
+  isSystemAdmin: false,
 };
 
 function createController() {

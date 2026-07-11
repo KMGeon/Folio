@@ -24,13 +24,17 @@ export function middleware(req: NextRequest): NextResponse {
   if (pathname === "/" || PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))) {
     return NextResponse.next();
   }
-  const hasSession = req.cookies.has("folio_session");
-  if (!hasSession) {
+  const requestedPath = `${req.nextUrl.pathname}${req.nextUrl.search}`;
+  if (!req.cookies.has("folio_session")) {
     const url = req.nextUrl.clone();
     url.pathname = "/login";
+    url.search = "";
+    url.searchParams.set("redirect", requestedPath);
     return NextResponse.redirect(url);
   }
-  return NextResponse.next();
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-folio-request-path", requestedPath);
+  return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
 export const config = {

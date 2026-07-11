@@ -20,7 +20,12 @@ import { PullsController } from "./pulls.controller.js";
 // This unit test calls controller methods directly; bypass the auth guards
 // (their DI lives in AuthModule) so the test stays focused on controller logic.
 const allowGuard = { canActivate: () => true };
-const user: AuthedUser = { id: "u1", login: "octocat", avatarUrl: "https://a/u1" };
+const user: AuthedUser = {
+  id: "u1",
+  login: "octocat",
+  avatarUrl: "https://a/u1",
+  isSystemAdmin: false,
+};
 
 async function buildController(overrides: {
   enqueue?: ReturnType<typeof vi.fn>;

@@ -3,6 +3,7 @@ import {
   AuthorizationApiError,
   approveGlobalUser,
   changeMemberRole,
+  getMe,
   installationUrl,
   listGlobalUsers,
   listWorkspaceMembers,
@@ -47,6 +48,19 @@ afterEach(() => {
 describe("authorization API clients", () => {
   it("builds the backend GitHub App installation initiation URL", () => {
     expect(installationUrl()).toBe("http://localhost:8080/api/v1/auth/github/install");
+  });
+
+  it("returns the current user's system-admin flag", async () => {
+    const user = {
+      id: "user-1",
+      login: "root",
+      avatarUrl: "https://avatars/root",
+      isSystemAdmin: true,
+    };
+    fetchMock.mockResolvedValueOnce(success({ user }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(getMe()).resolves.toEqual(user);
   });
 
   it("lists exact workspace member fields and forwards a server cookie", async () => {

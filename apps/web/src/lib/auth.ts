@@ -39,6 +39,7 @@ export interface SessionUser {
   id: string;
   login: string;
   avatarUrl: string;
+  isSystemAdmin: boolean;
 }
 
 export interface PendingUser {
