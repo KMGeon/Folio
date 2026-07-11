@@ -1,6 +1,7 @@
 import { Test } from "@nestjs/testing";
 import request from "supertest";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { verifyInstallationClaimToken } from "../../../domain/auth/installation-claim-token.js";
 
 const originalEnv = { ...process.env };
 
@@ -175,10 +176,41 @@ describe("auth routes", () => {
       "/api/v1/auth/github/callback?code=good&installation_id=123&setup_action=install",
     );
     expect(res.status).toBe(302);
-    expect(res.headers.location).toBe("http://localhost:5173/");
-    expect((res.headers["set-cookie"] as unknown as string[]).join()).toContain("folio_session");
+    expect(res.headers.location).toBe(
+      "http://localhost:5173/onboarding/install?installation_id=123",
+    );
+    const cookies = res.headers["set-cookie"] as unknown as string[];
+    expect(cookies.join()).toContain("folio_session");
+    const claimCookie = cookies.find((cookie) => cookie.startsWith("folio_installation_claim="));
+    expect(claimCookie).toContain("HttpOnly");
+    expect(claimCookie).toContain("Max-Age=600");
+    const token = claimCookie?.split(";", 1)[0]?.split("=", 2)[1];
+    const proof = verifyInstallationClaimToken(token ?? "", "webhook-secret");
+    expect(proof).toMatchObject({ userId: "u1", installationId: 123 });
+    expect(proof?.expiresAt).toBeGreaterThan(Date.now() + 9 * 60 * 1000);
     await app.close();
   });
+
+  it.each(["0", "-1", "1.5", "not-a-number"])(
+    "rejects invalid installation callback id %s",
+    async (installationId) => {
+      upsertByGithubId.mockResolvedValue({
+        id: "u1",
+        login: "octocat",
+        avatarUrl: "https://avatars/octocat",
+        status: "approved",
+        globalStatus: "active",
+      });
+      const app = await createServer();
+
+      const res = await request(app.getHttpServer()).get(
+        `/api/v1/auth/github/callback?code=good&installation_id=${installationId}&setup_action=install`,
+      );
+
+      expect(res.status).toBe(400);
+      await app.close();
+    },
+  );
 
   it("records a new pending user but does not create a session until approved", async () => {
     upsertByGithubId.mockResolvedValue({

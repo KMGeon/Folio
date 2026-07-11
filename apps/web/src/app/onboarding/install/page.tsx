@@ -2,6 +2,7 @@ import { ArrowUpRight, Github, PlugZap } from "lucide-react";
 import { cookies } from "next/headers";
 
 import { AppLayout } from "@/components/app-layout";
+import { ClaimWorkspaceButton } from "@/components/claim-workspace-button";
 import { Button } from "@/components/ui/button";
 import { getMe } from "@/lib/auth";
 
@@ -22,7 +23,15 @@ const flowSteps = [
   "Open in Folio comment 작성",
 ];
 
-export default async function InstallPage() {
+export default async function InstallPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ installation_id?: string | string[] }>;
+}) {
+  const { installation_id: rawInstallationId } = await searchParams;
+  const installationId = parseInstallationId(rawInstallationId);
+  const appSlug = process.env.GITHUB_APP_SLUG ?? process.env.NEXT_PUBLIC_GITHUB_APP_SLUG;
+  const installationUrl = appSlug ? `https://github.com/apps/${appSlug}/installations/new` : null;
   const cookieHeader = (await cookies())
     .getAll()
     .map((c) => `${c.name}=${c.value}`)
@@ -85,11 +94,21 @@ export default async function InstallPage() {
                 </ul>
               </div>
 
-              <Button className="mt-8">
-                <Github className="size-4" />
-                GitHub에서 설치
-                <ArrowUpRight className="size-4" />
-              </Button>
+              {installationId ? (
+                <ClaimWorkspaceButton installationId={installationId} />
+              ) : installationUrl ? (
+                <Button className="mt-8" asChild>
+                  <a href={installationUrl}>
+                    <Github className="size-4" />
+                    GitHub에서 설치
+                    <ArrowUpRight className="size-4" />
+                  </a>
+                </Button>
+              ) : (
+                <Button className="mt-8" disabled>
+                  GitHub App 설정 필요
+                </Button>
+              )}
             </section>
 
             <aside className="min-w-0">
@@ -113,4 +132,12 @@ export default async function InstallPage() {
       </div>
     </AppLayout>
   );
+}
+
+function parseInstallationId(value: string | string[] | undefined): number | null {
+  if (typeof value !== "string" || !/^[1-9]\d*$/.test(value)) {
+    return null;
+  }
+  const installationId = Number(value);
+  return Number.isSafeInteger(installationId) ? installationId : null;
 }

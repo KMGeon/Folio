@@ -1,5 +1,12 @@
-import { createInstallationOctokit } from "./client.js";
+import { ACCOUNT_TYPE, type AccountType } from "@folio/types";
+import { createAppOctokit, createInstallationOctokit } from "./client.js";
 import type { GitHubConfig } from "./config.js";
+
+export interface InstallationAccountIdentity {
+  githubAccountId: number;
+  accountLogin: string;
+  accountType: AccountType;
+}
 
 /**
  * Public install URL for the App. W2's "Install Folio" flow links here; the user
@@ -7,6 +14,29 @@ import type { GitHubConfig } from "./config.js";
  */
 export function getInstallationUrl(cfg: Pick<GitHubConfig, "appSlug">): string {
   return `https://github.com/apps/${cfg.appSlug}/installations/new`;
+}
+
+/** Resolve claim identity with app credentials so no client-provided account fields are trusted. */
+export async function getInstallationAccount(
+  installationId: number,
+): Promise<InstallationAccountIdentity> {
+  const { data } = await createAppOctokit().rest.apps.getInstallation({
+    installation_id: installationId,
+  });
+  const account = data.account;
+  if (
+    !account ||
+    !("login" in account) ||
+    typeof account.id !== "number" ||
+    typeof account.login !== "string"
+  ) {
+    throw new Error("GitHub installation account identity is unavailable");
+  }
+  return {
+    githubAccountId: account.id,
+    accountLogin: account.login,
+    accountType: account.type === "Organization" ? ACCOUNT_TYPE.ORGANIZATION : ACCOUNT_TYPE.USER,
+  };
 }
 
 /**

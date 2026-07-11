@@ -68,6 +68,7 @@ describe("AuthFacade", () => {
 
     await expect(facade.completeLogin("oauth-code")).resolves.toEqual({
       status: "approved",
+      userId: "active-user",
       ...session,
     });
 
@@ -121,6 +122,7 @@ describe("AuthFacade", () => {
 
     await expect(facade.completeLogin("oauth-code")).resolves.toEqual({
       status: "approved",
+      userId: "fresh-user",
       ...session,
     });
 

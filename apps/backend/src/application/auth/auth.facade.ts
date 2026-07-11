@@ -7,7 +7,7 @@ import { bootstrapSystemAdmin } from "../../domain/authorization/system-admin-bo
 import { GitHubOAuthAdapter } from "../../infrastructure/github/github-oauth.adapter.js";
 
 export type LoginCompletion =
-  | { status: "approved"; token: string; expiresAt: Date }
+  | { status: "approved"; userId: string; token: string; expiresAt: Date }
   | { status: "pending" };
 
 const DEV_ADMIN_USER = {
@@ -40,7 +40,7 @@ export class AuthFacade {
       return { status: "pending" };
     }
     const session = await this.sessions.createForUser(refreshed.id);
-    return { status: "approved", ...session };
+    return { status: "approved", userId: refreshed.id, ...session };
   }
 
   async completeDevLogin(): Promise<{ token: string; expiresAt: Date }> {

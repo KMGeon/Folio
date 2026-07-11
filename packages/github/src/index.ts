@@ -112,4 +112,9 @@ export {
 export { RateLimitError, type RateLimitRetryOptions, withRateLimitRetry } from "./rate-limit.js";
 
 // ─── Install ─────────────────────────────────────────────────────────────────
-export { getInstallationUrl, listInstallationRepos } from "./install.js";
+export {
+  getInstallationAccount,
+  type InstallationAccountIdentity,
+  getInstallationUrl,
+  listInstallationRepos,
+} from "./install.js";

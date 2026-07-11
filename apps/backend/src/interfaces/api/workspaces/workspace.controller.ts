@@ -1,14 +1,39 @@
-import { Controller, Get, Inject, Post, UseGuards } from "@nestjs/common";
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Inject,
+  Post,
+  Req,
+  Res,
+  UseGuards,
+} from "@nestjs/common";
+import type { Response } from "express";
+import { z } from "zod";
 import { WorkspaceClaimFacade } from "../../../application/authorization/workspace-claim.facade.js";
+import { config } from "../../../config.js";
+import { verifyInstallationClaimToken } from "../../../domain/auth/installation-claim-token.js";
+import { GitHubOAuthAdapter } from "../../../infrastructure/github/github-oauth.adapter.js";
 import { CoreException } from "../../../support/error/core-exception.js";
 import { ErrorType } from "../../../support/error/error-type.js";
 import { CurrentUser } from "../common/current-user.decorator.js";
-import { SessionAuthGuard, type AuthedUser } from "../common/session-auth.guard.js";
+import {
+  type AuthedRequest,
+  SessionAuthGuard,
+  type AuthedUser,
+} from "../common/session-auth.guard.js";
+
+const INSTALLATION_CLAIM_COOKIE = "folio_installation_claim";
+const ClaimBodySchema = z.object({ installationId: z.number().int().positive() }).strict();
 
 @Controller("api/v1/workspaces")
 @UseGuards(SessionAuthGuard)
 export class WorkspaceController {
-  constructor(@Inject(WorkspaceClaimFacade) private readonly claimFacade: WorkspaceClaimFacade) {}
+  constructor(
+    @Inject(WorkspaceClaimFacade) private readonly claimFacade: WorkspaceClaimFacade,
+    @Inject(GitHubOAuthAdapter) private readonly github: GitHubOAuthAdapter,
+  ) {}
 
   @Get("current")
   current(@CurrentUser() user: AuthedUser) {
@@ -16,9 +41,28 @@ export class WorkspaceController {
   }
 
   @Post("claim")
-  claim(@CurrentUser() _user: AuthedUser): never {
-    // Sessions do not carry a trusted installer account id yet; accepting body/login identity
-    // would let callers claim arbitrary organizations, so the route remains explicitly closed.
-    throw new CoreException(ErrorType.WorkspaceNotFound);
+  async claim(
+    @CurrentUser() user: AuthedUser,
+    @Body() body: unknown,
+    @Req() req: Pick<AuthedRequest, "cookies">,
+    @Res({ passthrough: true }) res: Pick<Response, "clearCookie">,
+  ) {
+    const parsed = ClaimBodySchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException("installationId must be a positive integer");
+    }
+    const token = req.cookies?.[INSTALLATION_CLAIM_COOKIE];
+    const proof =
+      typeof token === "string"
+        ? verifyInstallationClaimToken(token, config.GITHUB_APP_WEBHOOK_SECRET ?? "")
+        : null;
+    if (!proof || proof.userId !== user.id || proof.installationId !== parsed.data.installationId) {
+      throw new CoreException(ErrorType.WorkspaceNotFound);
+    }
+
+    const account = await this.github.getInstallationAccount(parsed.data.installationId);
+    const member = await this.claimFacade.claimAsOwner({ userId: user.id, ...account });
+    res.clearCookie(INSTALLATION_CLAIM_COOKIE, { path: "/" });
+    return member;
   }
 }

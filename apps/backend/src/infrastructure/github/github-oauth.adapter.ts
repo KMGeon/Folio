@@ -4,7 +4,9 @@ import {
   createInstallationOctokit,
   exchangeOAuthCode,
   getAuthenticatedUser,
+  getInstallationAccount as resolveInstallationAccount,
   type GitHubRepoAccessLevel,
+  type InstallationAccountIdentity,
   getUserRepoPermissionLevel,
   type OAuthUser,
 } from "@folio/github";
@@ -34,6 +36,10 @@ export class GitHubOAuthAdapter {
     });
     // Token is used once for identity, then discarded (design Model B).
     return getAuthenticatedUser({ accessToken });
+  }
+
+  getInstallationAccount(installationId: number): Promise<InstallationAccountIdentity> {
+    return resolveInstallationAccount(installationId);
   }
 
   async userCanAccessRepo(owner: string, repo: string, username: string): Promise<boolean> {
