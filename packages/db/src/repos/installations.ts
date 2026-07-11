@@ -69,6 +69,19 @@ export const installationsRepo = {
     return row ?? null;
   },
 
+  async setSuspendedAt(
+    id: string,
+    suspendedAt: Date | null,
+    db: Db = getDb(),
+  ): Promise<InstallationRow | null> {
+    const [row] = await db
+      .update(installations)
+      .set({ suspendedAt, updatedAt: new Date() })
+      .where(eq(installations.id, id))
+      .returning();
+    return row ?? null;
+  },
+
   async listByWorkspaceAccountId(
     githubAccountId: number,
     db: Db = getDb(),

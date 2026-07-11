@@ -136,6 +136,81 @@ d("repositories (e2e)", () => {
     expect(synced.folioEnabled).toBe(true);
   });
 
+  it("reconciles an installation and disconnects repositories absent from GitHub", async () => {
+    await repositoriesRepo.setFolioEnabled(base.repoId, true, db);
+
+    const [connected] = await repositoriesRepo.reconcileInstallationAccess(
+      base.installationId,
+      null,
+      [
+        {
+          githubRepoId: 777001,
+          owner: "acme",
+          name: "new-repo",
+          fullName: "acme/new-repo",
+          private: false,
+          defaultBranch: "main",
+        },
+      ],
+      db,
+    );
+    const disconnected = await repositoriesRepo.getById(base.repoId, db);
+
+    expect(connected).toMatchObject({
+      fullName: "acme/new-repo",
+      githubAccessActive: true,
+      folioEnabled: false,
+    });
+    expect(disconnected).toMatchObject({
+      githubAccessActive: false,
+      folioEnabled: false,
+    });
+  });
+
+  it("reconnects a repository without restoring its Folio preference", async () => {
+    const original = await repositoriesRepo.getById(base.repoId, db);
+    await repositoriesRepo.setFolioEnabled(base.repoId, true, db);
+    await repositoriesRepo.disconnectInstallation(base.installationId, db);
+
+    await repositoriesRepo.reconcileInstallationAccess(
+      base.installationId,
+      null,
+      [
+        {
+          githubRepoId: original!.githubRepoId,
+          owner: original!.owner,
+          name: original!.name,
+          fullName: original!.fullName,
+          private: original!.private,
+          defaultBranch: original!.defaultBranch,
+        },
+      ],
+      db,
+    );
+
+    await expect(repositoriesRepo.getById(base.repoId, db)).resolves.toMatchObject({
+      githubAccessActive: true,
+      folioEnabled: false,
+    });
+  });
+
+  it("fails closed when processing eligibility is queried", async () => {
+    await repositoriesRepo.setFolioEnabled(base.repoId, true, db);
+    const row = await repositoriesRepo.getById(base.repoId, db);
+    await repositoriesRepo.disconnectInstallation(base.installationId, db);
+
+    await expect(repositoriesRepo.isFolioEnabledByFullName(row!.fullName, db)).resolves.toBe(false);
+  });
+
+  it("preserves pull request history when an installation is disconnected", async () => {
+    await repositoriesRepo.disconnectInstallation(base.installationId, db);
+
+    await expect(pullRequestsRepo.getById(base.prId, db)).resolves.toMatchObject({
+      id: base.prId,
+      repoId: base.repoId,
+    });
+  });
+
   it("updates repository activation and lists enabled repositories", async () => {
     const disabled = await repositoriesRepo.create(
       {
