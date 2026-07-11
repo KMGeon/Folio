@@ -1,0 +1,62 @@
+import { type AdminAuditRow, adminAuditRepo, adminUsersRepo } from "@folio/db";
+import { AUDIT_ACTION } from "@folio/types";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { AdminOverviewFacade } from "./admin-overview.facade.js";
+
+vi.mock("@folio/db", () => ({
+  adminAuditRepo: { list: vi.fn() },
+  adminUsersRepo: { countPending: vi.fn() },
+}));
+
+function auditRow(): AdminAuditRow {
+  return {
+    audit: {
+      id: "123e4567-e89b-42d3-a456-426614174000",
+      actorUserId: "223e4567-e89b-42d3-a456-426614174000",
+      action: AUDIT_ACTION.USER_APPROVE,
+      targetType: "user",
+      targetId: "323e4567-e89b-42d3-a456-426614174000",
+      workspaceId: null,
+      before: { globalStatus: "pending" },
+      after: { globalStatus: "active" },
+      createdAt: new Date("2026-07-11T03:04:05.000Z"),
+      updatedAt: new Date("2026-07-11T04:00:00.000Z"),
+    },
+    actorLogin: "admin",
+    actorAvatarUrl: "https://avatars.example/admin",
+    targetLabel: "octocat",
+    workspaceLogin: null,
+  };
+}
+
+describe("AdminOverviewFacade", () => {
+  const facade = new AdminOverviewFacade();
+
+  beforeEach(() => vi.resetAllMocks());
+
+  it("returns no attention item when there are no pending users", async () => {
+    vi.mocked(adminUsersRepo.countPending).mockResolvedValue(0);
+    vi.mocked(adminAuditRepo.list).mockResolvedValue({ items: [], hasMore: false });
+
+    await expect(facade.get()).resolves.toEqual({
+      metrics: { pendingUsers: 0 },
+      attention: [],
+      recentAudit: [],
+    });
+    expect(adminAuditRepo.list).toHaveBeenCalledWith({ limit: 5 });
+  });
+
+  it("returns one pending-users attention item and caps recent audit at five", async () => {
+    vi.mocked(adminUsersRepo.countPending).mockResolvedValue(3);
+    vi.mocked(adminAuditRepo.list).mockResolvedValue({
+      items: Array.from({ length: 6 }, () => auditRow()),
+      hasMore: true,
+    });
+
+    const result = await facade.get();
+
+    expect(result.attention).toEqual([{ kind: "pending_users", count: 3 }]);
+    expect(result.recentAudit).toHaveLength(5);
+    expect(result.recentAudit[0]?.createdAt).toBe("2026-07-11T03:04:05.000Z");
+  });
+});

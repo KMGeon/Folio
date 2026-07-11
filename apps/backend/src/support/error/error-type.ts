@@ -35,6 +35,11 @@ export const ErrorType = {
     statusCode: 403,
     message: "You are not allowed to perform this action.",
   },
+  InvalidAdminCursor: {
+    code: "invalid_admin_cursor",
+    statusCode: 400,
+    message: "The admin page cursor is invalid.",
+  },
   WorkspaceNotFound: {
     code: "workspace_not_found",
     statusCode: 404,
@@ -44,6 +49,11 @@ export const ErrorType = {
     code: "user_not_found",
     statusCode: 404,
     message: "User not found.",
+  },
+  GlobalUserConflict: {
+    code: "global_user_conflict",
+    statusCode: 409,
+    message: "Global user authority changed. Refresh and try again.",
   },
   WorkspaceMembershipConflict: {
     code: "workspace_membership_conflict",

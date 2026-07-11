@@ -9,10 +9,15 @@ import { EntitlementGuard } from "../../interfaces/api/authorization/entitlement
 import { GlobalStatusGuard } from "../../interfaces/api/authorization/global-status.guard.js";
 import { SystemAdminGuard } from "../../interfaces/api/authorization/system-admin.guard.js";
 import { WorkspaceRoleGuard } from "../../interfaces/api/authorization/workspace-role.guard.js";
-import { GlobalUsersController } from "../../interfaces/api/admin/global-users.controller.js";
+import { AdminAuditController } from "../../interfaces/api/admin/admin-audit.controller.js";
+import { AdminOverviewController } from "../../interfaces/api/admin/admin-overview.controller.js";
+import { AdminUsersController } from "../../interfaces/api/admin/admin-users.controller.js";
 import { WorkspaceMembersController } from "../../interfaces/api/workspaces/workspace-members.controller.js";
 import { WorkspaceController } from "../../interfaces/api/workspaces/workspace.controller.js";
 import { AuthModule } from "../auth/auth.module.js";
+import { AdminAuditFacade } from "./admin-audit.facade.js";
+import { AdminOverviewFacade } from "./admin-overview.facade.js";
+import { AdminUsersFacade } from "./admin-users.facade.js";
 import { GlobalUsersFacade } from "./global-users.facade.js";
 import { WorkspaceMembersFacade } from "./workspace-members.facade.js";
 import { WorkspaceClaimFacade } from "./workspace-claim.facade.js";
@@ -25,6 +30,9 @@ import { WorkspaceClaimFacade } from "./workspace-claim.facade.js";
     WorkspaceResolver,
     WorkspaceMembershipService,
     GlobalUsersFacade,
+    AdminUsersFacade,
+    AdminAuditFacade,
+    AdminOverviewFacade,
     WorkspaceMembersFacade,
     WorkspaceClaimFacade,
     { provide: EntitlementService, useClass: AlwaysEntitledService },
@@ -33,11 +41,20 @@ import { WorkspaceClaimFacade } from "./workspace-claim.facade.js";
     SystemAdminGuard,
     EntitlementGuard,
   ],
-  controllers: [WorkspaceMembersController, WorkspaceController, GlobalUsersController],
+  controllers: [
+    WorkspaceMembersController,
+    WorkspaceController,
+    AdminUsersController,
+    AdminAuditController,
+    AdminOverviewController,
+  ],
   exports: [
     WorkspaceResolver,
     WorkspaceMembershipService,
     GlobalUsersFacade,
+    AdminUsersFacade,
+    AdminAuditFacade,
+    AdminOverviewFacade,
     WorkspaceMembersFacade,
     WorkspaceClaimFacade,
     EntitlementService,
