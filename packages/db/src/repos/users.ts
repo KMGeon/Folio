@@ -17,6 +17,11 @@ export const usersRepo = {
     return row ?? null;
   },
 
+  async getByIdForUpdate(id: string, db: Db = getDb()): Promise<UserRow | null> {
+    const [row] = await db.select().from(users).where(eq(users.id, id)).limit(1).for("update");
+    return row ?? null;
+  },
+
   async getByGithubId(githubUserId: number, db: Db = getDb()): Promise<UserRow | null> {
     const [row] = await db
       .select()

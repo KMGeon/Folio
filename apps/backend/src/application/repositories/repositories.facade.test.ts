@@ -25,8 +25,8 @@ vi.mock("@folio/db", () => ({
     listByWorkspaceId: vi.fn(),
     setFolioEnabled: vi.fn(),
   },
-  usersRepo: { getById: vi.fn() },
-  workspaceMembersRepo: { getMembership: vi.fn() },
+  usersRepo: { getById: vi.fn(), getByIdForUpdate: vi.fn() },
+  workspaceMembersRepo: { getMembership: vi.fn(), getMembershipsForUpdate: vi.fn() },
 }));
 
 const now = new Date("2026-07-11T00:00:00.000Z");
@@ -115,7 +115,9 @@ describe("RepositoriesFacade", () => {
     resolver.firstWorkspaceForUser.mockResolvedValue(workspace);
     repoAccess.assertLevelAtLeast.mockResolvedValue(true);
     vi.mocked(usersRepo.getById).mockResolvedValue(user);
+    vi.mocked(usersRepo.getByIdForUpdate).mockResolvedValue(user);
     vi.mocked(workspaceMembersRepo.getMembership).mockResolvedValue(membership);
+    vi.mocked(workspaceMembersRepo.getMembershipsForUpdate).mockResolvedValue([membership]);
     vi.mocked(repositoriesRepo.getById).mockResolvedValue(repository);
     vi.mocked(repositoriesRepo.getByIdForUpdate).mockResolvedValue(repository);
     vi.mocked(repositoriesRepo.listByWorkspaceId).mockResolvedValue([repository]);
@@ -224,17 +226,27 @@ describe("RepositoriesFacade", () => {
     expect(repositoriesRepo.setFolioEnabled).not.toHaveBeenCalled();
   });
 
-  it("completes live GitHub authorization before opening the activation transaction", async () => {
+  it("locks membership, user, and repository in order after live GitHub authorization", async () => {
     const order: string[] = [];
     repoAccess.assertLevelAtLeast.mockImplementation(async () => {
       order.push("github authorization");
       expect(transaction.transaction).not.toHaveBeenCalled();
+      expect(workspaceMembersRepo.getMembershipsForUpdate).not.toHaveBeenCalled();
+      expect(usersRepo.getByIdForUpdate).not.toHaveBeenCalled();
       expect(repositoriesRepo.getByIdForUpdate).not.toHaveBeenCalled();
       return true;
     });
     transaction.transaction.mockImplementation(async (operation) => {
       order.push("transaction");
       return operation("tx");
+    });
+    vi.mocked(workspaceMembersRepo.getMembershipsForUpdate).mockImplementation(async () => {
+      order.push("membership lock");
+      return [membership];
+    });
+    vi.mocked(usersRepo.getByIdForUpdate).mockImplementation(async () => {
+      order.push("user lock");
+      return user;
     });
     vi.mocked(repositoriesRepo.getByIdForUpdate).mockImplementation(async () => {
       order.push("repository lock");
@@ -247,7 +259,13 @@ describe("RepositoriesFacade", () => {
       enabled: true,
     });
 
-    expect(order).toEqual(["github authorization", "transaction", "repository lock"]);
+    expect(order).toEqual([
+      "github authorization",
+      "transaction",
+      "membership lock",
+      "user lock",
+      "repository lock",
+    ]);
   });
 
   it("revalidates repository workspace after GitHub authorization", async () => {
@@ -295,9 +313,10 @@ describe("RepositoriesFacade", () => {
   });
 
   it("revalidates the actor's active global status after GitHub authorization", async () => {
-    vi.mocked(usersRepo.getById).mockImplementation(async (_userId, db) =>
-      db ? { ...user, globalStatus: GLOBAL_STATUS.SUSPENDED } : user,
-    );
+    vi.mocked(usersRepo.getByIdForUpdate).mockResolvedValue({
+      ...user,
+      globalStatus: GLOBAL_STATUS.SUSPENDED,
+    });
 
     await expectCoreException(
       facade.setEnabled({
@@ -309,16 +328,15 @@ describe("RepositoriesFacade", () => {
     );
 
     expect(repoAccess.assertLevelAtLeast).toHaveBeenCalledOnce();
-    expect(usersRepo.getById).toHaveBeenLastCalledWith(user.id, "tx");
+    expect(usersRepo.getByIdForUpdate).toHaveBeenCalledWith(user.id, "tx");
     expect(repositoriesRepo.setFolioEnabled).not.toHaveBeenCalled();
     expect(auditLogsRepo.record).not.toHaveBeenCalled();
   });
 
   it("revalidates the actor's active workspace admin status after GitHub authorization", async () => {
-    vi.mocked(workspaceMembersRepo.getMembership).mockImplementation(
-      async (_workspaceId, _userId, db) =>
-        db ? { ...membership, status: MEMBERSHIP_STATUS.SUSPENDED } : membership,
-    );
+    vi.mocked(workspaceMembersRepo.getMembershipsForUpdate).mockResolvedValue([
+      { ...membership, status: MEMBERSHIP_STATUS.SUSPENDED },
+    ]);
 
     await expectCoreException(
       facade.setEnabled({
@@ -330,9 +348,9 @@ describe("RepositoriesFacade", () => {
     );
 
     expect(repoAccess.assertLevelAtLeast).toHaveBeenCalledOnce();
-    expect(workspaceMembersRepo.getMembership).toHaveBeenLastCalledWith(
+    expect(workspaceMembersRepo.getMembershipsForUpdate).toHaveBeenCalledWith(
       workspace.id,
-      user.id,
+      [user.id],
       "tx",
     );
     expect(repositoriesRepo.setFolioEnabled).not.toHaveBeenCalled();

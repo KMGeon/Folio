@@ -126,6 +126,18 @@ describe("usersRepo.approve", () => {
 });
 
 describe("usersRepo conditional global authorization transitions", () => {
+  it("locks one user row for an authority-sensitive transaction", async () => {
+    const forUpdate = vi.fn().mockResolvedValue([]);
+    const limit = vi.fn().mockReturnValue({ for: forUpdate });
+    const where = vi.fn().mockReturnValue({ limit });
+    const from = vi.fn().mockReturnValue({ where });
+    const select = vi.fn().mockReturnValue({ from });
+
+    await expect(usersRepo.getByIdForUpdate("u1", { select } as never)).resolves.toBeNull();
+
+    expect(forUpdate).toHaveBeenCalledWith("update");
+  });
+
   it("updates global status only from the expected current status", async () => {
     const returning = vi.fn().mockResolvedValue([]);
     const where = vi.fn().mockReturnValue({ returning });

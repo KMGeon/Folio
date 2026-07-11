@@ -91,21 +91,17 @@ export class RepositoriesFacade {
     }
 
     return getDb().transaction(async (transaction) => {
-      const lockedRepo = await repositoriesRepo.getByIdForUpdate(input.repositoryId, transaction);
-      // Cross-workspace or changed authorization targets remain indistinguishable from missing rows.
-      if (
-        !lockedRepo ||
-        lockedRepo.workspaceId !== workspace.id ||
-        lockedRepo.owner !== repo.owner ||
-        lockedRepo.name !== repo.name
-      ) {
-        throw new CoreException(REPOSITORY_NOT_FOUND);
-      }
-
-      const [lockedActor, lockedMembership] = await Promise.all([
-        usersRepo.getById(input.user.id, transaction),
-        workspaceMembersRepo.getMembership(workspace.id, input.user.id, transaction),
-      ]);
+      // Combined authority transactions lock membership → user → repository; mutation paths
+      // that touch fewer row types use the same subsequence and cannot invert this order.
+      const lockedMemberships = await workspaceMembersRepo.getMembershipsForUpdate(
+        workspace.id,
+        [input.user.id],
+        transaction,
+      );
+      const lockedMembership = lockedMemberships.find(
+        (candidate) => candidate.userId === input.user.id,
+      );
+      const lockedActor = await usersRepo.getByIdForUpdate(input.user.id, transaction);
       if (
         !lockedActor ||
         !lockedMembership ||
@@ -119,6 +115,17 @@ export class RepositoriesFacade {
         ).allow
       ) {
         throw new CoreException(ErrorType.Forbidden);
+      }
+
+      const lockedRepo = await repositoriesRepo.getByIdForUpdate(input.repositoryId, transaction);
+      // Cross-workspace or changed authorization targets remain indistinguishable from missing rows.
+      if (
+        !lockedRepo ||
+        lockedRepo.workspaceId !== workspace.id ||
+        lockedRepo.owner !== repo.owner ||
+        lockedRepo.name !== repo.name
+      ) {
+        throw new CoreException(REPOSITORY_NOT_FOUND);
       }
 
       if (lockedRepo.folioEnabled === input.enabled) {
