@@ -172,10 +172,14 @@ export const repositoriesRepo = {
     const [row] = await db
       .update(repositories)
       .set({ folioEnabled: enabled, updatedAt: new Date() })
-      .where(eq(repositories.id, id))
+      .where(
+        enabled
+          ? and(eq(repositories.id, id), eq(repositories.githubAccessActive, true))
+          : eq(repositories.id, id),
+      )
       .returning();
     if (!row) {
-      throw new Error("repositoriesRepo.setFolioEnabled: repository not found");
+      throw new Error("repositoriesRepo.setFolioEnabled: repository not found or ineligible");
     }
     return row;
   },

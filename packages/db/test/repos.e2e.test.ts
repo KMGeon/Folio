@@ -194,6 +194,61 @@ d("repositories (e2e)", () => {
     });
   });
 
+  it("preserves an existing workspace link when reconciliation has no workspace", async () => {
+    const original = await repositoriesRepo.getById(base.repoId, db);
+    const workspace = await workspacesRepo.create(
+      {
+        githubAccountId: 777002,
+        accountLogin: "acme",
+        accountType: ACCOUNT_TYPE.ORGANIZATION,
+      },
+      db,
+    );
+    await repositoriesRepo.upsertByGithubId(
+      {
+        installationId: original!.installationId,
+        workspaceId: workspace.id,
+        githubRepoId: original!.githubRepoId,
+        owner: original!.owner,
+        name: original!.name,
+        fullName: original!.fullName,
+        private: original!.private,
+        defaultBranch: original!.defaultBranch,
+      },
+      db,
+    );
+
+    const [reconciled] = await repositoriesRepo.reconcileInstallationAccess(
+      base.installationId,
+      null,
+      [
+        {
+          githubRepoId: original!.githubRepoId,
+          owner: original!.owner,
+          name: original!.name,
+          fullName: original!.fullName,
+          private: original!.private,
+          defaultBranch: original!.defaultBranch,
+        },
+      ],
+      db,
+    );
+
+    expect(reconciled?.workspaceId).toBe(workspace.id);
+  });
+
+  it("rejects enabling a repository after its installation is disconnected", async () => {
+    await repositoriesRepo.disconnectInstallation(base.installationId, db);
+
+    await expect(repositoriesRepo.setFolioEnabled(base.repoId, true, db)).rejects.toThrow(
+      "repository not found or ineligible",
+    );
+    await expect(repositoriesRepo.getById(base.repoId, db)).resolves.toMatchObject({
+      githubAccessActive: false,
+      folioEnabled: false,
+    });
+  });
+
   it("fails closed when processing eligibility is queried", async () => {
     await repositoriesRepo.setFolioEnabled(base.repoId, true, db);
     const row = await repositoriesRepo.getById(base.repoId, db);
