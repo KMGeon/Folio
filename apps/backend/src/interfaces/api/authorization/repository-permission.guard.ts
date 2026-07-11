@@ -54,10 +54,12 @@ export class RepositoryPermissionGuard implements CanActivate {
       }
     }
 
-    const allowed = await this.access.assertLevelAtLeast(
-      { owner, repo, username: request.user.login },
-      required,
-    );
+    const permissionInput = { owner, repo, username: request.user.login };
+    // Read paths may use the bounded positive cache; mutation authority must reflect revocation now.
+    const allowed =
+      required === "read"
+        ? await this.access.assertLevelAtLeast(permissionInput, required)
+        : await this.access.assertLiveLevelAtLeast(permissionInput, required);
     if (!allowed) {
       throw new CoreException(ErrorType.RepoAccessDenied);
     }

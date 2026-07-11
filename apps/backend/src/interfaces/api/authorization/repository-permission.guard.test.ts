@@ -1,9 +1,11 @@
 import "reflect-metadata";
 import { type WorkspaceRow, repositoriesRepo } from "@folio/db";
+import type { GitHubRepoAccessLevel } from "@folio/github";
 import { ACCOUNT_TYPE } from "@folio/types";
 import type { ExecutionContext } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { RepoAccessService } from "../../../domain/auth/repo-access.service.js";
 import { CoreException } from "../../../support/error/core-exception.js";
 import { RepositoryPermissionGuard } from "./repository-permission.guard.js";
 
@@ -30,7 +32,7 @@ const workspace: WorkspaceRow = {
 };
 
 describe("RepositoryPermissionGuard", () => {
-  const access = { assertLevelAtLeast: vi.fn() };
+  const access = { assertLevelAtLeast: vi.fn(), assertLiveLevelAtLeast: vi.fn() };
   const resolver = { resolveById: vi.fn() };
   let reflector: Reflector;
   let guard: RepositoryPermissionGuard;
@@ -40,6 +42,7 @@ describe("RepositoryPermissionGuard", () => {
     reflector = new Reflector();
     vi.spyOn(reflector, "getAllAndOverride").mockReturnValue("write");
     access.assertLevelAtLeast.mockResolvedValue(true);
+    access.assertLiveLevelAtLeast.mockResolvedValue(true);
     resolver.resolveById.mockResolvedValue(workspace);
     vi.mocked(repositoriesRepo.getByFullName).mockResolvedValue({
       id: "repository-1",
@@ -65,21 +68,51 @@ describe("RepositoryPermissionGuard", () => {
 
     expect(repositoriesRepo.getByFullName).toHaveBeenCalledWith("acme/folio");
     expect(resolver.resolveById).toHaveBeenCalledWith(workspace.id);
-    expect(access.assertLevelAtLeast).toHaveBeenCalledWith(
+    expect(access.assertLiveLevelAtLeast).toHaveBeenCalledWith(
       { owner: "acme", repo: "folio", username: "octocat" },
       "write",
     );
+    expect(access.assertLevelAtLeast).not.toHaveBeenCalled();
     expect(request.workspace).toBe(workspace);
   });
 
   it("denies a body-scoped action below the required GitHub level before attaching scope", async () => {
-    access.assertLevelAtLeast.mockResolvedValue(false);
+    access.assertLiveLevelAtLeast.mockResolvedValue(false);
     const { context, request } = contextFor({ body: { owner: "acme", repo: "folio" } });
 
     await expect(guard.canActivate(context)).rejects.toBeInstanceOf(CoreException);
 
     expect(request.workspace).toBeUndefined();
   });
+
+  it.each([
+    { cached: "write", downgraded: "read", required: "write" },
+    { cached: "admin", downgraded: "write", required: "admin" },
+  ] satisfies {
+    cached: GitHubRepoAccessLevel;
+    downgraded: GitHubRepoAccessLevel;
+    required: GitHubRepoAccessLevel;
+  }[])(
+    "denies $required after a cached $cached grant is downgraded to $downgraded",
+    async ({ cached, downgraded, required }) => {
+      const getUserRepoPermissionLevel = vi
+        .fn()
+        .mockResolvedValueOnce(cached)
+        .mockResolvedValueOnce(downgraded);
+      const liveAccess = new RepoAccessService({
+        getUserRepoPermissionLevel,
+        getResolvedRepositoryPermissionLevels: vi.fn(),
+      } as never);
+      await expect(liveAccess.assertLevelAtLeast(REF, cached)).resolves.toBe(true);
+      vi.mocked(reflector.getAllAndOverride).mockReturnValue(required);
+      guard = new RepositoryPermissionGuard(reflector, liveAccess, resolver as never);
+      const { context } = contextFor({ params: { owner: "acme", repo: "folio" } });
+
+      await expect(guard.canActivate(context)).rejects.toBeInstanceOf(CoreException);
+
+      expect(getUserRepoPermissionLevel).toHaveBeenCalledTimes(2);
+    },
+  );
 
   it("checks route repositories at their declared read level", async () => {
     vi.mocked(reflector.getAllAndOverride).mockReturnValue("read");
@@ -91,9 +124,12 @@ describe("RepositoryPermissionGuard", () => {
       { owner: "acme", repo: "folio", username: "octocat" },
       "read",
     );
+    expect(access.assertLiveLevelAtLeast).not.toHaveBeenCalled();
     expect(repositoriesRepo.getByFullName).not.toHaveBeenCalled();
   });
 });
+
+const REF = { owner: "acme", repo: "folio", username: "octocat" };
 
 function contextFor(overrides: {
   params?: Record<string, unknown>;

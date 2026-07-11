@@ -13,22 +13,16 @@ import {
 import { installationsRepo, repositoriesRepo } from "@folio/db";
 import { Injectable } from "@nestjs/common";
 import { config } from "../../config.js";
+import {
+  type GitHubRepositoryPermissionPort,
+  type ResolvedInstallationPermissionInput,
+  type ResolvedRepositoryPermissionInput,
+} from "../../domain/auth/github-repository-permission.port.js";
 
 export const RESOLVED_REPOSITORY_PERMISSION_CONCURRENCY = 4;
 
-export type ResolvedRepositoryPermissionInput = {
-  installationId: string;
-  owner: string;
-  repo: string;
-};
-
-export type ResolvedInstallationPermissionInput = {
-  id: string;
-  githubInstallationId: number;
-};
-
 @Injectable()
-export class GitHubOAuthAdapter {
+export class GitHubOAuthAdapter implements GitHubRepositoryPermissionPort {
   private callbackUrl(): string {
     return `${config.PUBLIC_API_BASE_URL}/api/v1/auth/github/callback`;
   }

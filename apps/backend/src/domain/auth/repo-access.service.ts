@@ -1,6 +1,6 @@
 import type { GitHubRepoAccessLevel } from "@folio/github";
 import { Inject, Injectable } from "@nestjs/common";
-import { GitHubOAuthAdapter } from "../../infrastructure/github/github-oauth.adapter.js";
+import { GitHubRepositoryPermissionPort } from "./github-repository-permission.port.js";
 import { RepositoryPermissionGrantCache } from "./repository-permission-grant-cache.js";
 
 const RANK: Record<GitHubRepoAccessLevel, number> = { none: 0, read: 1, write: 2, admin: 3 };
@@ -13,7 +13,10 @@ const RANK: Record<GitHubRepoAccessLevel, number> = { none: 0, read: 1, write: 2
 export class RepoAccessService {
   private readonly levelCache = new RepositoryPermissionGrantCache();
 
-  constructor(@Inject(GitHubOAuthAdapter) private readonly github: GitHubOAuthAdapter) {}
+  constructor(
+    @Inject(GitHubRepositoryPermissionPort)
+    private readonly github: GitHubRepositoryPermissionPort,
+  ) {}
 
   async getAccessLevel(input: {
     owner: string;
@@ -41,6 +44,18 @@ export class RepoAccessService {
     required: GitHubRepoAccessLevel,
   ): Promise<boolean> {
     return RANK[await this.getAccessLevel(input)] >= RANK[required];
+  }
+
+  async assertLiveLevelAtLeast(
+    input: { owner: string; repo: string; username: string },
+    required: GitHubRepoAccessLevel,
+  ): Promise<boolean> {
+    const level = await this.github.getUserRepoPermissionLevel(
+      input.owner,
+      input.repo,
+      input.username,
+    );
+    return RANK[level] >= RANK[required];
   }
 
   async filterReadableResolvedRepositories<
