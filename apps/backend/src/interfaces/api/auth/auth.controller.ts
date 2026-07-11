@@ -8,6 +8,7 @@ import {
   Query,
   Req,
   Res,
+  ServiceUnavailableException,
   UseGuards,
 } from "@nestjs/common";
 import type { Response } from "express";
@@ -76,6 +77,14 @@ export class AuthController {
 
   @Get("github/install")
   install(@Res() res: Response): void {
+    // A new installation attempt must not inherit proof minted for an earlier installation.
+    res.clearCookie(INSTALLATION_CLAIM_COOKIE, { path: "/" });
+    const appSlug = config.GITHUB_APP_SLUG?.trim();
+    if (!appSlug) {
+      res.clearCookie(INSTALLATION_STATE_COOKIE, { path: "/" });
+      throw new ServiceUnavailableException("GitHub App installation is not configured");
+    }
+
     const state = randomBytes(16).toString("hex");
     res.cookie(INSTALLATION_STATE_COOKIE, state, {
       httpOnly: true,
@@ -84,9 +93,7 @@ export class AuthController {
       maxAge: STATE_TTL_MS,
       path: "/",
     });
-    const installationUrl = new URL(
-      `https://github.com/apps/${config.GITHUB_APP_SLUG ?? ""}/installations/new`,
-    );
+    const installationUrl = new URL(`https://github.com/apps/${appSlug}/installations/new`);
     installationUrl.searchParams.set("state", state);
     res.redirect(installationUrl.toString());
   }

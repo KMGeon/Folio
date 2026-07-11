@@ -83,9 +83,14 @@ function configureProfile(profile: "dev" | "prd") {
   }
 }
 
-async function createServer(profile: "dev" | "prd" = "prd") {
+async function createServer(profile: "dev" | "prd" = "prd", appSlug: string | null = "folio-dev") {
   vi.resetModules();
   configureProfile(profile);
+  if (appSlug === null) {
+    delete process.env.GITHUB_APP_SLUG;
+  } else {
+    process.env.GITHUB_APP_SLUG = appSlug;
+  }
   const cookieParser = (await import("cookie-parser")).default;
   const { AppModule } = await import("../../../app.module.js");
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
@@ -140,6 +145,44 @@ describe("auth routes", () => {
       "HttpOnly",
     );
     expect(first.state).not.toBe(second.state);
+    await app.close();
+  });
+
+  it("installation initiation clears a pre-existing installation claim", async () => {
+    const app = await createServer();
+    const res = await request(app.getHttpServer())
+      .get("/api/v1/auth/github/install")
+      .set("Cookie", "folio_installation_claim=stale-claim");
+
+    expect(res.status).toBe(302);
+    const cookies = res.headers["set-cookie"] as unknown as string[];
+    expect(cookies.find((cookie) => cookie.startsWith("folio_installation_claim="))).toContain(
+      "Expires=Thu, 01 Jan 1970",
+    );
+    expect(cookies.find((cookie) => cookie.startsWith("folio_installation_state="))).toContain(
+      "HttpOnly",
+    );
+    await app.close();
+  });
+
+  it.each([
+    ["absent", null],
+    ["blank", "   "],
+  ])("fails closed when the GitHub App slug is %s", async (_label, appSlug) => {
+    const app = await createServer("dev", appSlug);
+    const res = await request(app.getHttpServer())
+      .get("/api/v1/auth/github/install")
+      .set("Cookie", "folio_installation_state=stale-state; folio_installation_claim=stale-claim");
+
+    expect(res.status).toBe(503);
+    expect(res.headers.location).toBeUndefined();
+    const cookies = res.headers["set-cookie"] as unknown as string[];
+    expect(cookies.find((cookie) => cookie.startsWith("folio_installation_claim="))).toContain(
+      "Expires=Thu, 01 Jan 1970",
+    );
+    expect(cookies.find((cookie) => cookie.startsWith("folio_installation_state="))).toContain(
+      "Expires=Thu, 01 Jan 1970",
+    );
     await app.close();
   });
 
