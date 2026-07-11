@@ -61,49 +61,83 @@ export class RepositoriesFacade {
       throw new CoreException(ErrorType.WorkspaceNotFound);
     }
 
+    const [repo, actor, membership] = await Promise.all([
+      repositoriesRepo.getById(input.repositoryId),
+      usersRepo.getById(input.user.id),
+      workspaceMembersRepo.getMembership(workspace.id, input.user.id),
+    ]);
+    if (!repo || repo.workspaceId !== workspace.id) {
+      throw new CoreException(REPOSITORY_NOT_FOUND);
+    }
+    if (
+      !actor ||
+      !membership ||
+      !canAccessWorkspace(
+        { globalStatus: actor.globalStatus, isSystemAdmin: actor.isSystemAdmin },
+        { role: membership.role, status: membership.status },
+        WORKSPACE_ROLE.ADMIN,
+      ).allow
+    ) {
+      throw new CoreException(ErrorType.Forbidden);
+    }
+
+    // Live GitHub checks can be cold; complete them before holding any database row lock.
+    const githubAdmin = await this.repoAccess.assertLevelAtLeast(
+      { owner: repo.owner, repo: repo.name, username: input.user.login },
+      "admin",
+    );
+    if (!githubAdmin) {
+      throw new CoreException(ErrorType.RepoAccessDenied);
+    }
+
     return getDb().transaction(async (transaction) => {
-      const repo = await repositoriesRepo.getByIdForUpdate(input.repositoryId, transaction);
-      // Cross-workspace IDs are indistinguishable from missing rows to callers.
-      if (!repo || repo.workspaceId !== workspace.id) {
+      const lockedRepo = await repositoriesRepo.getByIdForUpdate(input.repositoryId, transaction);
+      // Cross-workspace or changed authorization targets remain indistinguishable from missing rows.
+      if (
+        !lockedRepo ||
+        lockedRepo.workspaceId !== workspace.id ||
+        lockedRepo.owner !== repo.owner ||
+        lockedRepo.name !== repo.name
+      ) {
         throw new CoreException(REPOSITORY_NOT_FOUND);
       }
 
-      const [actor, membership] = await Promise.all([
+      const [lockedActor, lockedMembership] = await Promise.all([
         usersRepo.getById(input.user.id, transaction),
         workspaceMembersRepo.getMembership(workspace.id, input.user.id, transaction),
       ]);
       if (
-        !actor ||
-        !membership ||
+        !lockedActor ||
+        !lockedMembership ||
         !canAccessWorkspace(
-          { globalStatus: actor.globalStatus, isSystemAdmin: actor.isSystemAdmin },
-          { role: membership.role, status: membership.status },
+          {
+            globalStatus: lockedActor.globalStatus,
+            isSystemAdmin: lockedActor.isSystemAdmin,
+          },
+          { role: lockedMembership.role, status: lockedMembership.status },
           WORKSPACE_ROLE.ADMIN,
         ).allow
       ) {
         throw new CoreException(ErrorType.Forbidden);
       }
 
-      const githubAdmin = await this.repoAccess.assertLevelAtLeast(
-        { owner: repo.owner, repo: repo.name, username: input.user.login },
-        "admin",
-      );
-      if (!githubAdmin) {
-        throw new CoreException(ErrorType.RepoAccessDenied);
-      }
-      if (repo.folioEnabled === input.enabled) {
-        return toRepository(repo);
+      if (lockedRepo.folioEnabled === input.enabled) {
+        return toRepository(lockedRepo);
       }
 
-      const updated = await repositoriesRepo.setFolioEnabled(repo.id, input.enabled, transaction);
+      const updated = await repositoriesRepo.setFolioEnabled(
+        lockedRepo.id,
+        input.enabled,
+        transaction,
+      );
       await auditLogsRepo.record(
         {
           actorUserId: input.user.id,
           action: AUDIT_ACTION.REPO_ACTIVATION_CHANGE,
           targetType: "repository",
-          targetId: repo.id,
+          targetId: lockedRepo.id,
           workspaceId: workspace.id,
-          before: { folioEnabled: repo.folioEnabled },
+          before: { folioEnabled: lockedRepo.folioEnabled },
           after: { folioEnabled: input.enabled },
         },
         transaction,

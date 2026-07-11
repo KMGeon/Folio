@@ -19,6 +19,7 @@ vi.mock("@folio/db", () => ({
   getDb: vi.fn(() => transaction),
   installationsRepo: { listByAccountLogin: vi.fn(async () => []) },
   repositoriesRepo: {
+    getById: vi.fn(),
     getByIdForUpdate: vi.fn(),
     listByInstallationIds: vi.fn(async () => []),
     listByWorkspaceId: vi.fn(),
@@ -115,6 +116,7 @@ describe("RepositoriesFacade", () => {
     repoAccess.assertLevelAtLeast.mockResolvedValue(true);
     vi.mocked(usersRepo.getById).mockResolvedValue(user);
     vi.mocked(workspaceMembersRepo.getMembership).mockResolvedValue(membership);
+    vi.mocked(repositoriesRepo.getById).mockResolvedValue(repository);
     vi.mocked(repositoriesRepo.getByIdForUpdate).mockResolvedValue(repository);
     vi.mocked(repositoriesRepo.listByWorkspaceId).mockResolvedValue([repository]);
     vi.mocked(repositoriesRepo.setFolioEnabled).mockResolvedValue({
@@ -218,7 +220,123 @@ describe("RepositoriesFacade", () => {
       { owner: repository.owner, repo: repository.name, username: user.login },
       "admin",
     );
+    expect(transaction.transaction).not.toHaveBeenCalled();
     expect(repositoriesRepo.setFolioEnabled).not.toHaveBeenCalled();
+  });
+
+  it("completes live GitHub authorization before opening the activation transaction", async () => {
+    const order: string[] = [];
+    repoAccess.assertLevelAtLeast.mockImplementation(async () => {
+      order.push("github authorization");
+      expect(transaction.transaction).not.toHaveBeenCalled();
+      expect(repositoriesRepo.getByIdForUpdate).not.toHaveBeenCalled();
+      return true;
+    });
+    transaction.transaction.mockImplementation(async (operation) => {
+      order.push("transaction");
+      return operation("tx");
+    });
+    vi.mocked(repositoriesRepo.getByIdForUpdate).mockImplementation(async () => {
+      order.push("repository lock");
+      return repository;
+    });
+
+    await facade.setEnabled({
+      user: { id: user.id, login: user.login },
+      repositoryId: repository.id,
+      enabled: true,
+    });
+
+    expect(order).toEqual(["github authorization", "transaction", "repository lock"]);
+  });
+
+  it("revalidates repository workspace after GitHub authorization", async () => {
+    vi.mocked(repositoriesRepo.getByIdForUpdate).mockResolvedValue({
+      ...repository,
+      workspaceId: "workspace-2",
+    });
+
+    await expectCoreException(
+      facade.setEnabled({
+        user: { id: user.id, login: user.login },
+        repositoryId: repository.id,
+        enabled: true,
+      }),
+      404,
+    );
+
+    expect(repoAccess.assertLevelAtLeast).toHaveBeenCalledOnce();
+    expect(repositoriesRepo.setFolioEnabled).not.toHaveBeenCalled();
+    expect(auditLogsRepo.record).not.toHaveBeenCalled();
+  });
+
+  it("rejects a repository identity change after GitHub authorization", async () => {
+    vi.mocked(repositoriesRepo.getByIdForUpdate).mockResolvedValue({
+      ...repository,
+      owner: "new-owner",
+      fullName: "new-owner/folio",
+    });
+
+    await expectCoreException(
+      facade.setEnabled({
+        user: { id: user.id, login: user.login },
+        repositoryId: repository.id,
+        enabled: true,
+      }),
+      404,
+    );
+
+    expect(repoAccess.assertLevelAtLeast).toHaveBeenCalledWith(
+      { owner: repository.owner, repo: repository.name, username: user.login },
+      "admin",
+    );
+    expect(repositoriesRepo.setFolioEnabled).not.toHaveBeenCalled();
+    expect(auditLogsRepo.record).not.toHaveBeenCalled();
+  });
+
+  it("revalidates the actor's active global status after GitHub authorization", async () => {
+    vi.mocked(usersRepo.getById).mockImplementation(async (_userId, db) =>
+      db ? { ...user, globalStatus: GLOBAL_STATUS.SUSPENDED } : user,
+    );
+
+    await expectCoreException(
+      facade.setEnabled({
+        user: { id: user.id, login: user.login },
+        repositoryId: repository.id,
+        enabled: true,
+      }),
+      403,
+    );
+
+    expect(repoAccess.assertLevelAtLeast).toHaveBeenCalledOnce();
+    expect(usersRepo.getById).toHaveBeenLastCalledWith(user.id, "tx");
+    expect(repositoriesRepo.setFolioEnabled).not.toHaveBeenCalled();
+    expect(auditLogsRepo.record).not.toHaveBeenCalled();
+  });
+
+  it("revalidates the actor's active workspace admin status after GitHub authorization", async () => {
+    vi.mocked(workspaceMembersRepo.getMembership).mockImplementation(
+      async (_workspaceId, _userId, db) =>
+        db ? { ...membership, status: MEMBERSHIP_STATUS.SUSPENDED } : membership,
+    );
+
+    await expectCoreException(
+      facade.setEnabled({
+        user: { id: user.id, login: user.login },
+        repositoryId: repository.id,
+        enabled: true,
+      }),
+      403,
+    );
+
+    expect(repoAccess.assertLevelAtLeast).toHaveBeenCalledOnce();
+    expect(workspaceMembersRepo.getMembership).toHaveBeenLastCalledWith(
+      workspace.id,
+      user.id,
+      "tx",
+    );
+    expect(repositoriesRepo.setFolioEnabled).not.toHaveBeenCalled();
+    expect(auditLogsRepo.record).not.toHaveBeenCalled();
   });
 
   it("rejects GitHub maintain permission for repository activation", async () => {
