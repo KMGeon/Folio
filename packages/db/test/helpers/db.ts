@@ -23,6 +23,7 @@ export async function getTestDb(): Promise<Db> {
  */
 export async function resetDb(db: Db): Promise<void> {
   const tables = [
+    "audit_logs",
     "foliant_messages",
     "foliant_threads",
     "subscriptions",
@@ -37,6 +38,8 @@ export async function resetDb(db: Db): Promise<void> {
     "sessions",
     "users",
     "repositories",
+    "workspace_members",
+    "workspaces",
     "installations",
   ];
   const { sql } = await import("drizzle-orm");

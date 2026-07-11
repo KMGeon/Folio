@@ -1,8 +1,20 @@
-import { CHAPTER_STATUS, DIFF_SIDE, type HunkReference, type KeyChange } from "@folio/types";
+import {
+  ACCOUNT_TYPE,
+  CHAPTER_STATUS,
+  DIFF_SIDE,
+  type HunkReference,
+  type KeyChange,
+} from "@folio/types";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import type { Db } from "../src/client.js";
 import { closeDb } from "../src/client.js";
-import { chaptersRepo, pullRequestsRepo, revisionsRepo } from "../src/repos/index.js";
+import {
+  chaptersRepo,
+  installationsRepo,
+  pullRequestsRepo,
+  revisionsRepo,
+  workspacesRepo,
+} from "../src/repos/index.js";
 import { repositoriesRepo } from "../src/repos/index.js";
 import { HAS_DB, getTestDb, nonNull, resetDb } from "./helpers/db.js";
 import { type BaseFixture, seedBase } from "./helpers/fixtures.js";
@@ -130,6 +142,55 @@ d("repositories (e2e)", () => {
     expect(enabledRepoIds).not.toContain(disabled.id);
   });
 
+  it("lists repositories only from the requested workspace", async () => {
+    const firstWorkspace = await workspacesRepo.create(
+      {
+        githubAccountId: 7001,
+        accountLogin: "same-login",
+        accountType: ACCOUNT_TYPE.ORGANIZATION,
+      },
+      db,
+    );
+    const secondWorkspace = await workspacesRepo.create(
+      {
+        githubAccountId: 7002,
+        accountLogin: "same-login",
+        accountType: ACCOUNT_TYPE.ORGANIZATION,
+      },
+      db,
+    );
+    const firstInstallation = await installationsRepo.create(
+      {
+        githubInstallationId: 8001,
+        githubAccountId: firstWorkspace.githubAccountId,
+        accountLogin: "same-login",
+        accountType: ACCOUNT_TYPE.ORGANIZATION,
+      },
+      db,
+    );
+    const secondInstallation = await installationsRepo.create(
+      {
+        githubInstallationId: 8002,
+        githubAccountId: secondWorkspace.githubAccountId,
+        accountLogin: "same-login",
+        accountType: ACCOUNT_TYPE.ORGANIZATION,
+      },
+      db,
+    );
+    const firstRepository = await repositoriesRepo.create(
+      repositoryFixture(firstInstallation.id, firstWorkspace.id, 9001, "first"),
+      db,
+    );
+    await repositoriesRepo.create(
+      repositoryFixture(secondInstallation.id, secondWorkspace.id, 9002, "second"),
+      db,
+    );
+
+    const rows = await repositoriesRepo.listByWorkspaceId(firstWorkspace.id, db);
+
+    expect(rows.map((row) => row.id)).toEqual([firstRepository.id]);
+  });
+
   it("upserts a pull request by (repo, number)", async () => {
     const pr = nonNull(await pullRequestsRepo.getById(base.prId, db));
     const updated = await pullRequestsRepo.upsertByRepoAndNumber(
@@ -182,5 +243,23 @@ function mkChapter(base: BaseFixture, externalId: string, order: string) {
     reviewHints: [],
     risks: [],
     status: CHAPTER_STATUS.PUBLISHED,
+  };
+}
+
+function repositoryFixture(
+  installationId: string,
+  workspaceId: string,
+  githubRepoId: number,
+  name: string,
+) {
+  return {
+    installationId,
+    workspaceId,
+    githubRepoId,
+    owner: "same-login",
+    name,
+    fullName: `same-login/${name}`,
+    private: false,
+    defaultBranch: "main",
   };
 }

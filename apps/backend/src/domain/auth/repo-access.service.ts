@@ -1,8 +1,9 @@
+import type { GitHubRepoAccessLevel } from "@folio/github";
 import { Inject, Injectable } from "@nestjs/common";
-import { config } from "../../config.js";
-import { GitHubOAuthAdapter } from "../../infrastructure/github/github-oauth.adapter.js";
+import { GitHubRepositoryPermissionPort } from "./github-repository-permission.port.js";
+import { RepositoryPermissionGrantCache } from "./repository-permission-grant-cache.js";
 
-const CACHE_TTL_MS = 60_000;
+const RANK: Record<GitHubRepoAccessLevel, number> = { none: 0, read: 1, write: 2, admin: 3 };
 
 /**
  * Live per-viewer repo authorization with a short positive-result cache.
@@ -10,28 +11,111 @@ const CACHE_TTL_MS = 60_000;
  */
 @Injectable()
 export class RepoAccessService {
-  private readonly allowCache = new Map<string, number>();
+  private readonly levelCache = new RepositoryPermissionGrantCache();
 
-  constructor(@Inject(GitHubOAuthAdapter) private readonly github: GitHubOAuthAdapter) {}
+  constructor(
+    @Inject(GitHubRepositoryPermissionPort)
+    private readonly github: GitHubRepositoryPermissionPort,
+  ) {}
 
+  async getAccessLevel(input: {
+    owner: string;
+    repo: string;
+    username: string;
+  }): Promise<GitHubRepoAccessLevel> {
+    const key = `${input.username}:${input.owner}/${input.repo}`;
+    const cached = this.levelCache.get(key);
+    if (cached) {
+      return cached;
+    }
+    const level = await this.github.getUserRepoPermissionLevel(
+      input.owner,
+      input.repo,
+      input.username,
+    );
+    if (level !== "none") {
+      this.levelCache.retain(key, level);
+    }
+    return level;
+  }
+
+  async assertLevelAtLeast(
+    input: { owner: string; repo: string; username: string },
+    required: GitHubRepoAccessLevel,
+  ): Promise<boolean> {
+    return RANK[await this.getAccessLevel(input)] >= RANK[required];
+  }
+
+  async assertLiveLevelAtLeast(
+    input: { owner: string; repo: string; username: string },
+    required: GitHubRepoAccessLevel,
+  ): Promise<boolean> {
+    const level = await this.github.getUserRepoPermissionLevel(
+      input.owner,
+      input.repo,
+      input.username,
+    );
+    return RANK[level] >= RANK[required];
+  }
+
+  async filterReadableResolvedRepositories<
+    T extends { installationId: string; owner: string; name: string },
+  >(input: {
+    installations: readonly { id: string; githubInstallationId: number }[];
+    repositories: readonly T[];
+    username: string;
+  }): Promise<T[]> {
+    const readable = Array.from({ length: input.repositories.length }, () => false);
+    const uncached: { index: number; repository: T }[] = [];
+    input.repositories.forEach((repository, index) => {
+      const cached = this.levelCache.get(
+        this.cacheKey(input.username, repository.owner, repository.name),
+      );
+      if (cached) {
+        readable[index] = RANK[cached] >= RANK.read;
+      } else {
+        uncached.push({ index, repository });
+      }
+    });
+
+    try {
+      const levels = await this.github.getResolvedRepositoryPermissionLevels({
+        installations: input.installations,
+        repositories: uncached.map(({ repository }) => ({
+          installationId: repository.installationId,
+          owner: repository.owner,
+          repo: repository.name,
+        })),
+        username: input.username,
+      });
+      const positiveGrants: { key: string; level: Exclude<GitHubRepoAccessLevel, "none"> }[] = [];
+      uncached.forEach(({ index, repository }, batchIndex) => {
+        const level = levels[batchIndex] ?? "none";
+        readable[index] = RANK[level] >= RANK.read;
+        if (level !== "none") {
+          positiveGrants.push({
+            key: this.cacheKey(input.username, repository.owner, repository.name),
+            level,
+          });
+        }
+      });
+      this.levelCache.retainMany(positiveGrants);
+    } catch {
+      // A failed batch is a denial for every uncached repository; cached grants remain valid.
+    }
+    return input.repositories.filter((_, index) => readable[index]);
+  }
+
+  // Kept for the existing read-scoped RepoAccessGuard.
   async assertAccessAllowed(input: {
     owner: string;
     repo: string;
     username: string;
   }): Promise<boolean> {
-    if (config.APP_PROFILE === "dev") {
-      // Dev mode uses local fixture identity, so live GitHub repo checks would block local review UX.
-      return true;
-    }
-    const key = `${input.username}:${input.owner}/${input.repo}`;
-    const cachedUntil = this.allowCache.get(key);
-    if (cachedUntil && cachedUntil > Date.now()) {
-      return true;
-    }
-    const allowed = await this.github.userCanAccessRepo(input.owner, input.repo, input.username);
-    if (allowed) {
-      this.allowCache.set(key, Date.now() + CACHE_TTL_MS);
-    }
-    return allowed;
+    return this.assertLevelAtLeast(input, "read");
+  }
+
+  private cacheKey(username: string, owner: string, repo: string): string {
+    return `${username}:${owner}/${repo}`;
   }
 }

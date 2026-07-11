@@ -1,12 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import {
-  chaptersRepo,
-  installationsRepo,
-  pullRequestsRepo,
-  repositoriesRepo,
-  reviewStateRepo,
-  revisionsRepo,
-} from "@folio/db";
+import { chaptersRepo, pullRequestsRepo, reviewStateRepo, revisionsRepo } from "@folio/db";
 
 export type ActivityDay = { date: string; count: number };
 import { createInstallationOctokit } from "@folio/github";
@@ -35,6 +28,11 @@ import type {
   DashboardPullPageQuery,
   GitHubPullSummary,
 } from "./dashboard-pull-page-types.js";
+import {
+  type DashboardWorkspaceScope,
+  type DashboardResolvedRepositoryBatchAuthorizer,
+  loadDashboardWorkspaceScope,
+} from "./dashboard-workspace-scope.js";
 
 export type {
   DashboardBucket,
@@ -88,6 +86,12 @@ export interface DashboardPayload {
 
 export interface DashboardDeps {
   octokitFactory?: (githubInstallationId: number) => Promise<Octokit>;
+  repoAccess?: { filterReadableResolvedRepositories: DashboardResolvedRepositoryBatchAuthorizer };
+  workspaceScopeLoader?: (
+    userId: string,
+    userLogin: string,
+    filterReadableRepositories: DashboardResolvedRepositoryBatchAuthorizer,
+  ) => Promise<DashboardWorkspaceScope | null>;
 }
 
 type PullStatus = Record<"chapterCount" | "viewedChapters" | "changedFiles", number> & {
@@ -108,14 +112,16 @@ export class DashboardFacade {
   /** Live open PRs across the user's installed repos, merged with DB review state. */
   async getForUser(user: { id: string; login: string }): Promise<DashboardPayload> {
     const makeOctokit = this.deps.octokitFactory ?? createInstallationOctokit;
-    const installations = await installationsRepo.listByAccountLogin(user.login);
+    const scope = await this.loadWorkspaceScope(user);
 
     const repos: DashboardRepo[] = [];
     const pulls: DashboardPull[] = [];
     const completedCandidates: CompletedCandidate[] = [];
 
-    for (const installation of installations) {
-      const repoRows = await repositoriesRepo.listByInstallation(installation.id);
+    for (const installation of scope?.installations ?? []) {
+      const repoRows =
+        scope?.repositories.filter((repository) => repository.installationId === installation.id) ??
+        [];
       if (repoRows.length === 0) {
         continue;
       }
@@ -212,26 +218,49 @@ export class DashboardFacade {
   }
 
   async getSummaryForUser(user: { id: string; login: string }) {
-    return getDashboardSummaryForUser(user);
+    return getDashboardSummaryForUser(user, await this.loadWorkspaceScope(user));
   }
 
   async getPullPageForUser(user: { id: string; login: string }, input: DashboardPullPageQuery) {
-    return getDashboardPullPageForUser(user, input, {
-      octokitFactory: this.deps.octokitFactory,
-      listPulls: this.listPulls.bind(this),
-      resolveStatus: this.resolveStatus.bind(this),
-    });
+    return getDashboardPullPageForUser(
+      user,
+      input,
+      {
+        octokitFactory: this.deps.octokitFactory,
+        listPulls: this.listPulls.bind(this),
+        resolveStatus: this.resolveStatus.bind(this),
+      },
+      await this.loadWorkspaceScope(user),
+    );
   }
 
   async getOpenPullPagesForUser(
     user: { id: string; login: string },
     input: DashboardOpenPullPageQuery,
   ) {
-    return getDashboardOpenPullPagesForUser(user, input, {
-      octokitFactory: this.deps.octokitFactory,
-      listPulls: this.listPulls.bind(this),
-      resolveStatus: this.resolveStatus.bind(this),
-    });
+    return getDashboardOpenPullPagesForUser(
+      user,
+      input,
+      {
+        octokitFactory: this.deps.octokitFactory,
+        listPulls: this.listPulls.bind(this),
+        resolveStatus: this.resolveStatus.bind(this),
+      },
+      await this.loadWorkspaceScope(user),
+    );
+  }
+
+  private loadWorkspaceScope(user: {
+    id: string;
+    login: string;
+  }): Promise<DashboardWorkspaceScope | null> {
+    const filterReadableRepositories: DashboardResolvedRepositoryBatchAuthorizer = (input) =>
+      this.deps.repoAccess?.filterReadableResolvedRepositories(input) ?? Promise.resolve([]);
+    return (this.deps.workspaceScopeLoader ?? loadDashboardWorkspaceScope)(
+      user.id,
+      user.login,
+      filterReadableRepositories,
+    );
   }
 
   private repoPayload(

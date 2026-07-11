@@ -30,10 +30,30 @@ export const ErrorType = {
     statusCode: 403,
     message: "You do not have access to this repository.",
   },
-  AdminOnly: {
-    code: "admin_only",
+  Forbidden: {
+    code: "forbidden",
     statusCode: 403,
-    message: "Only the Folio administrator can perform this action.",
+    message: "You are not allowed to perform this action.",
+  },
+  WorkspaceNotFound: {
+    code: "workspace_not_found",
+    statusCode: 404,
+    message: "Workspace not found.",
+  },
+  UserNotFound: {
+    code: "user_not_found",
+    statusCode: 404,
+    message: "User not found.",
+  },
+  WorkspaceMembershipConflict: {
+    code: "workspace_membership_conflict",
+    statusCode: 409,
+    message: "Workspace membership changed. Refresh and try again.",
+  },
+  NotEntitled: {
+    code: "not_entitled",
+    statusCode: 403,
+    message: "Your plan does not include this feature.",
   },
   InternalError: {
     code: "internal_error",

@@ -7,6 +7,7 @@ import { SettingsCard, SettingsPageHeader } from "@/components/settings/settings
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api-client";
 import { type RepositoryListPayload, fetchRepositories } from "@/lib/repositories-api";
+import { getWorkspaceContext, repositoryActivationReason } from "@/lib/workspace-permission";
 
 export default async function RepositoriesPage({
   searchParams,
@@ -21,6 +22,7 @@ export default async function RepositoriesPage({
   const repoParam = firstSearchParam(params.repo);
   const stateParam = firstSearchParam(params.state);
   let payload: RepositoryListPayload;
+  const workspaceContext = await getWorkspaceContext(cookieHeader);
   try {
     payload = await fetchRepositories({ cookie: cookieHeader });
   } catch (error) {
@@ -29,6 +31,10 @@ export default async function RepositoriesPage({
     }
     throw error;
   }
+  // Repository authority comes from the backend workspace context, never browser GitHub state.
+  const disabledReason = workspaceContext
+    ? repositoryActivationReason(workspaceContext)
+    : "워크스페이스 권한 정보를 불러올 수 없습니다.";
   const query = repoParam?.trim().toLowerCase() ?? "";
   const state = stateParam === "enabled" || stateParam === "disabled" ? stateParam : "all";
   const visible = payload.repositories.filter((repository) => {
@@ -92,6 +98,7 @@ export default async function RepositoriesPage({
                     repositoryId={repository.id}
                     repositoryName={repository.fullName}
                     enabled={repository.folioEnabled}
+                    disabledReason={disabledReason}
                   />
                 </li>
               ))}

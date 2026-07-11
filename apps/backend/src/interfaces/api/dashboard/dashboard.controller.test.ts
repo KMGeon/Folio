@@ -1,4 +1,5 @@
 import { type ExecutionContext } from "@nestjs/common";
+import { ENTITLEMENT_FEATURE } from "@folio/types";
 import { APP_FILTER, APP_INTERCEPTOR } from "@nestjs/core";
 import { Test } from "@nestjs/testing";
 import request from "supertest";
@@ -8,6 +9,8 @@ import { LOGGER_PORT } from "../../../internal/logger/logger.port.js";
 import { CoreExceptionFilter } from "../../../support/error/core-exception.filter.js";
 import { ApiResponseInterceptor } from "../common/api-response.interceptor.js";
 import { SessionAuthGuard } from "../common/session-auth.guard.js";
+import { EntitlementGuard } from "../authorization/entitlement.guard.js";
+import { REQUIRE_ENTITLEMENT } from "../authorization/require-entitlement.decorator.js";
 import { DashboardController } from "./dashboard.controller.js";
 
 const dashboardUser = { id: "u1", login: "KMGeon", avatarUrl: "https://a/u1" };
@@ -19,6 +22,12 @@ const dashboardAllowGuard = {
 };
 
 describe("DashboardController", () => {
+  it("requires review-read entitlement for every dashboard route", () => {
+    expect(Reflect.getMetadata(REQUIRE_ENTITLEMENT, DashboardController)).toBe(
+      ENTITLEMENT_FEATURE.REVIEW_READ,
+    );
+  });
+
   it("returns all open pull pages from the static route", async () => {
     const data = {
       ready: { items: [], nextCursor: null, count: 0 },
@@ -39,6 +48,8 @@ describe("DashboardController", () => {
       ],
     })
       .overrideGuard(SessionAuthGuard)
+      .useValue(dashboardAllowGuard)
+      .overrideGuard(EntitlementGuard)
       .useValue(dashboardAllowGuard)
       .compile();
     const app = moduleRef.createNestApplication();
@@ -78,6 +89,8 @@ describe("DashboardController", () => {
     })
       .overrideGuard(SessionAuthGuard)
       .useValue(dashboardAllowGuard)
+      .overrideGuard(EntitlementGuard)
+      .useValue(dashboardAllowGuard)
       .compile();
     const app = moduleRef.createNestApplication();
     await app.init();
@@ -107,6 +120,8 @@ describe("DashboardController", () => {
       ],
     })
       .overrideGuard(SessionAuthGuard)
+      .useValue(dashboardAllowGuard)
+      .overrideGuard(EntitlementGuard)
       .useValue(dashboardAllowGuard)
       .compile();
     const app = moduleRef.createNestApplication();

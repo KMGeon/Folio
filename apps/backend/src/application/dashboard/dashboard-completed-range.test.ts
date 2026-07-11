@@ -55,6 +55,7 @@ describe("dashboard completed range", () => {
         listPulls: details,
         resolveStatus: vi.fn(),
       },
+      workspaceScope(await listByInstallation()),
     );
 
     expect(page.items.map((pull) => pull.number)).toEqual([70]);
@@ -88,6 +89,7 @@ describe("dashboard completed range", () => {
         listPulls,
         resolveStatus: vi.fn(),
       },
+      workspaceScope(await listByInstallation()),
     );
 
     await vi.waitFor(() => expect(listPulls.mock.calls.length).toBeGreaterThanOrEqual(1));
@@ -99,6 +101,14 @@ describe("dashboard completed range", () => {
     expect(callsBeforeFirstRepoFinishes).toBe(2);
   });
 });
+
+function workspaceScope(repositories: Awaited<ReturnType<typeof listByInstallation>>) {
+  return {
+    workspace: { id: "workspace-1", githubAccountId: 42 },
+    installations: [{ id: "i1", githubInstallationId: 111 }],
+    repositories: repositories.map((repository) => ({ installationId: "i1", ...repository })),
+  } as never;
+}
 
 function enabledRepo(id: string, name: string) {
   return {

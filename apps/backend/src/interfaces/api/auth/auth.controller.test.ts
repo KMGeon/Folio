@@ -1,15 +1,27 @@
 import { Test } from "@nestjs/testing";
 import request from "supertest";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { verifyInstallationClaimToken } from "../../../domain/auth/installation-claim-token.js";
 
 const originalEnv = { ...process.env };
 
 const upsertByGithubId = vi.fn();
+let latestUpsertedUser: unknown;
+const getByGithubId = vi.fn(async (_githubUserId: number) => latestUpsertedUser);
+const setGlobalStatus = vi.fn();
 const getById = vi.fn();
-const listPending = vi.fn();
-const approve = vi.fn();
 const getByFullName = vi.fn();
 const sessionStore = new Map<string, { userId: string; expiresAt: Date }>();
+const githubMocks = vi.hoisted(() => ({
+  exchangeOAuthCode: vi.fn(async () => ({ accessToken: "gho_secret" })),
+  getAuthenticatedUser: vi.fn(async () => ({
+    id: 7,
+    login: "octocat",
+    avatarUrl: "https://avatars/octocat",
+    email: null,
+  })),
+  verifyUserInstallationAccess: vi.fn(async () => undefined),
+}));
 
 vi.mock("@folio/db", () => ({
   USER_STATUS: {
@@ -17,10 +29,13 @@ vi.mock("@folio/db", () => ({
     APPROVED: "approved",
   },
   usersRepo: {
-    upsertByGithubId: (...args: unknown[]) => upsertByGithubId(...args),
-    getById: (...args: unknown[]) => getById(...args),
-    listPending: (...args: unknown[]) => listPending(...args),
-    approve: (...args: unknown[]) => approve(...args),
+    upsertByGithubId: async (input: unknown) => {
+      latestUpsertedUser = await upsertByGithubId(input);
+      return latestUpsertedUser;
+    },
+    getByGithubId: (githubUserId: number) => getByGithubId(githubUserId),
+    setGlobalStatus: (id: string, globalStatus: string) => setGlobalStatus(id, globalStatus),
+    getById: (id: string) => getById(id),
   },
   sessionsRepo: {
     create: vi.fn(async (input: { tokenHash: string; userId: string; expiresAt: Date }) => {
@@ -44,18 +59,13 @@ vi.mock("@folio/github", async () => {
   const actual = (await vi.importActual("@folio/github")) as Record<string, unknown>;
   return {
     ...actual,
-    exchangeOAuthCode: vi.fn(async () => ({ accessToken: "gho_x" })),
-    getAuthenticatedUser: vi.fn(async () => ({
-      id: 7,
-      login: "octocat",
-      avatarUrl: "https://avatars/octocat",
-      email: null,
-    })),
+    ...githubMocks,
   };
 });
 
 function configureProfile(profile: "dev" | "prd") {
   process.env = { ...originalEnv };
+  delete process.env.SYSTEM_ADMIN_BOOTSTRAP_GITHUB_ID;
   process.env.APP_PROFILE = profile;
   process.env.NODE_ENV = profile === "prd" ? "production" : "development";
   process.env.WEB_ORIGIN = "http://localhost:5173";
@@ -73,11 +83,14 @@ function configureProfile(profile: "dev" | "prd") {
   }
 }
 
-async function createServer(profile: "dev" | "prd" = "prd") {
+async function createServer(profile: "dev" | "prd" = "prd", appSlug: string | null = "folio-dev") {
   vi.resetModules();
   configureProfile(profile);
   const cookieParser = (await import("cookie-parser")).default;
   const { AppModule } = await import("../../../app.module.js");
+  const { config } = await import("../../../config.js");
+  // Boot with valid prd configuration, then isolate route-level misconfiguration cases.
+  config.GITHUB_APP_SLUG = appSlug ?? undefined;
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
   const app = moduleRef.createNestApplication({ rawBody: true });
   app.use(cookieParser());
@@ -85,9 +98,22 @@ async function createServer(profile: "dev" | "prd" = "prd") {
   return app;
 }
 
+async function initiateInstallation(app: Awaited<ReturnType<typeof createServer>>) {
+  const initiation = await request(app.getHttpServer()).get("/api/v1/auth/github/install");
+  const cookies = initiation.headers["set-cookie"] as unknown as string[];
+  const stateCookie = cookies.find((cookie) => cookie.startsWith("folio_installation_state="));
+  const location = new URL(initiation.headers.location as string);
+  return {
+    initiation,
+    state: location.searchParams.get("state"),
+    cookie: stateCookie?.split(";", 1)[0] ?? "",
+  };
+}
+
 describe("auth routes", () => {
   afterEach(() => {
     sessionStore.clear();
+    latestUpsertedUser = undefined;
     vi.clearAllMocks();
     process.env = { ...originalEnv };
   });
@@ -103,12 +129,68 @@ describe("auth routes", () => {
     await app.close();
   });
 
+  it("installation initiation sets a fresh HttpOnly state cookie and redirects to GitHub", async () => {
+    const app = await createServer();
+    const first = await initiateInstallation(app);
+    const second = await initiateInstallation(app);
+
+    expect(first.initiation.status).toBe(302);
+    expect(first.initiation.headers.location).toBe(
+      `https://github.com/apps/folio-dev/installations/new?state=${first.state}`,
+    );
+    expect(first.cookie).toContain("folio_installation_state=");
+    expect((first.initiation.headers["set-cookie"] as unknown as string[]).join()).toContain(
+      "HttpOnly",
+    );
+    expect(first.state).not.toBe(second.state);
+    await app.close();
+  });
+
+  it("installation initiation clears a pre-existing installation claim", async () => {
+    const app = await createServer();
+    const res = await request(app.getHttpServer())
+      .get("/api/v1/auth/github/install")
+      .set("Cookie", "folio_installation_claim=stale-claim");
+
+    expect(res.status).toBe(302);
+    const cookies = res.headers["set-cookie"] as unknown as string[];
+    expect(cookies.find((cookie) => cookie.startsWith("folio_installation_claim="))).toContain(
+      "Expires=Thu, 01 Jan 1970",
+    );
+    expect(cookies.find((cookie) => cookie.startsWith("folio_installation_state="))).toContain(
+      "HttpOnly",
+    );
+    await app.close();
+  });
+
+  it.each([
+    ["absent", null],
+    ["blank", "   "],
+  ])("fails closed when the GitHub App slug is %s", async (_label, appSlug) => {
+    const app = await createServer("dev", appSlug);
+    const res = await request(app.getHttpServer())
+      .get("/api/v1/auth/github/install")
+      .set("Cookie", "folio_installation_state=stale-state; folio_installation_claim=stale-claim");
+
+    expect(res.status).toBe(503);
+    expect(res.headers.location).toBeUndefined();
+    const cookies = res.headers["set-cookie"] as unknown as string[];
+    expect(cookies.find((cookie) => cookie.startsWith("folio_installation_claim="))).toContain(
+      "Expires=Thu, 01 Jan 1970",
+    );
+    expect(cookies.find((cookie) => cookie.startsWith("folio_installation_state="))).toContain(
+      "Expires=Thu, 01 Jan 1970",
+    );
+    await app.close();
+  });
+
   it("dev login signs in as KMGeon without redirecting through GitHub", async () => {
     upsertByGithubId.mockResolvedValue({
       id: "admin",
       login: "KMGeon",
       avatarUrl: "https://github.com/KMGeon.png",
       status: "approved",
+      globalStatus: "active",
     });
     const app = await createServer("dev");
     const res = await request(app.getHttpServer()).get(
@@ -122,7 +204,7 @@ describe("auth routes", () => {
       login: "KMGeon",
       avatarUrl: "https://github.com/KMGeon.png?size=96",
       email: null,
-      status: "approved",
+      globalStatus: "active",
     });
     await app.close();
   });
@@ -143,6 +225,7 @@ describe("auth routes", () => {
       login: "octocat",
       avatarUrl: "https://avatars/octocat",
       status: "approved",
+      globalStatus: "active",
     });
     const app = await createServer();
     const res = await request(app.getHttpServer())
@@ -154,22 +237,190 @@ describe("auth routes", () => {
     await app.close();
   });
 
-  it("completes login for a GitHub App installation callback without oauth state", async () => {
+  it("completes login for a state-bound GitHub App installation callback", async () => {
     upsertByGithubId.mockResolvedValue({
       id: "u1",
       login: "octocat",
       avatarUrl: "https://avatars/octocat",
       status: "approved",
+      globalStatus: "active",
     });
     const app = await createServer();
-    const res = await request(app.getHttpServer()).get(
-      "/api/v1/auth/github/callback?code=good&installation_id=123&setup_action=install",
-    );
+    const { cookie, state } = await initiateInstallation(app);
+    const res = await request(app.getHttpServer())
+      .get(
+        `/api/v1/auth/github/callback?code=good&installation_id=123&setup_action=install&state=${state}`,
+      )
+      .set("Cookie", cookie);
     expect(res.status).toBe(302);
-    expect(res.headers.location).toBe("http://localhost:5173/");
-    expect((res.headers["set-cookie"] as unknown as string[]).join()).toContain("folio_session");
+    expect(res.headers.location).toBe(
+      "http://localhost:5173/onboarding/install?installation_id=123",
+    );
+    const cookies = res.headers["set-cookie"] as unknown as string[];
+    expect(cookies.join()).toContain("folio_session");
+    expect(cookies.find((item) => item.startsWith("folio_installation_state="))).toContain(
+      "Expires=Thu, 01 Jan 1970",
+    );
+    const claimCookie = cookies
+      .filter((cookie) => cookie.startsWith("folio_installation_claim="))
+      .at(-1);
+    expect(claimCookie).toContain("HttpOnly");
+    expect(claimCookie).toContain("Max-Age=600");
+    const token = claimCookie?.split(";", 1)[0]?.split("=", 2)[1];
+    const proof = verifyInstallationClaimToken(token ?? "", "webhook-secret");
+    expect(proof).toMatchObject({ userId: "u1", installationId: 123 });
+    expect(proof?.expiresAt).toBeGreaterThan(Date.now() + 9 * 60 * 1000);
+    expect(githubMocks.verifyUserInstallationAccess).toHaveBeenCalledWith({
+      accessToken: "gho_secret",
+      installationId: 123,
+    });
+    expect(res.text).not.toContain("gho_secret");
     await app.close();
   });
+
+  it.each([
+    ["manual callback without setup action", "&state=valid", "valid"],
+    ["callback with missing installation state", "&setup_action=install", "valid"],
+    ["callback with missing installation state cookie", "&setup_action=install&state=valid", ""],
+    ["callback with mismatched installation state", "&setup_action=install&state=wrong", "valid"],
+    ["update callback", "&setup_action=update&state=valid", "valid"],
+  ])("rejects %s before OAuth exchange", async (_label, suffix, cookieMode) => {
+    const app = await createServer();
+    const initiated = await initiateInstallation(app);
+    const callbackSuffix = suffix.replaceAll("valid", initiated.state ?? "");
+    const callbackCookie = cookieMode === "valid" ? initiated.cookie : "";
+
+    const res = await request(app.getHttpServer())
+      .get(`/api/v1/auth/github/callback?code=good&installation_id=123${callbackSuffix}`)
+      .set("Cookie", callbackCookie);
+
+    expect(res.status).toBe(400);
+    expect(githubMocks.exchangeOAuthCode).not.toHaveBeenCalled();
+    const cookies = (res.headers["set-cookie"] as unknown as string[] | undefined) ?? [];
+    expect(cookies.find((item) => item.startsWith("folio_installation_state="))).toContain(
+      "Expires=Thu, 01 Jan 1970",
+    );
+    expect(cookies.find((item) => item.startsWith("folio_installation_claim="))).toContain(
+      "Expires=Thu, 01 Jan 1970",
+    );
+    await app.close();
+  });
+
+  it("rejects a replay after the installation state cookie has been cleared", async () => {
+    upsertByGithubId.mockResolvedValue({
+      id: "u1",
+      login: "octocat",
+      avatarUrl: "https://avatars/octocat",
+      status: "approved",
+      globalStatus: "active",
+    });
+    const app = await createServer();
+    const { cookie, state } = await initiateInstallation(app);
+    const callback = `/api/v1/auth/github/callback?code=good&installation_id=123&setup_action=install&state=${state}`;
+
+    const first = await request(app.getHttpServer()).get(callback).set("Cookie", cookie);
+    const second = await request(app.getHttpServer()).get(callback);
+
+    expect(first.status).toBe(302);
+    expect(second.status).toBe(400);
+    expect(githubMocks.exchangeOAuthCode).toHaveBeenCalledTimes(1);
+    await app.close();
+  });
+
+  it.each([
+    [
+      "an arbitrary installation id",
+      new Error("GitHub user installation access check failed: HTTP 404"),
+    ],
+    ["a GitHub API failure", new Error("GitHub user installation access check failed: HTTP 503")],
+  ])("does not mint a claim for %s", async (_label, failure) => {
+    upsertByGithubId.mockResolvedValue({
+      id: "u1",
+      login: "octocat",
+      avatarUrl: "https://avatars/octocat",
+      status: "approved",
+      globalStatus: "active",
+    });
+    githubMocks.verifyUserInstallationAccess.mockRejectedValueOnce(failure);
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const app = await createServer();
+    const { cookie, state } = await initiateInstallation(app);
+
+    const res = await request(app.getHttpServer())
+      .get(
+        `/api/v1/auth/github/callback?code=good&installation_id=999&setup_action=install&state=${state}`,
+      )
+      .set("Cookie", cookie);
+
+    expect(res.status).not.toBe(302);
+    expect(res.headers.location).toBeUndefined();
+    const cookies = (res.headers["set-cookie"] as unknown as string[] | undefined) ?? [];
+    expect(cookies.find((cookie) => cookie.startsWith("folio_installation_claim="))).toContain(
+      "Expires=Thu, 01 Jan 1970",
+    );
+    expect(cookies.find((item) => item.startsWith("folio_installation_state="))).toContain(
+      "Expires=Thu, 01 Jan 1970",
+    );
+    expect(cookies.join()).not.toContain("gho_secret");
+    expect(JSON.stringify(errorLog.mock.calls)).not.toContain("gho_secret");
+    expect(sessionStore.size).toBe(0);
+    await app.close();
+    errorLog.mockRestore();
+  });
+
+  it("does not mint an installation proof for a pending user", async () => {
+    upsertByGithubId.mockResolvedValue({
+      id: "u1",
+      login: "new-reviewer",
+      avatarUrl: "https://avatars/new-reviewer",
+      status: "pending",
+      globalStatus: "pending",
+    });
+    const app = await createServer();
+    const { cookie, state } = await initiateInstallation(app);
+
+    const res = await request(app.getHttpServer())
+      .get(
+        `/api/v1/auth/github/callback?code=good&installation_id=123&setup_action=install&state=${state}`,
+      )
+      .set("Cookie", cookie);
+
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toBe("http://localhost:5173/login?status=pending");
+    const cookies = res.headers["set-cookie"] as unknown as string[];
+    expect(cookies.find((cookie) => cookie.startsWith("folio_installation_claim="))).toContain(
+      "Expires=Thu, 01 Jan 1970",
+    );
+    expect(githubMocks.verifyUserInstallationAccess).toHaveBeenCalledWith({
+      accessToken: "gho_secret",
+      installationId: 123,
+    });
+    await app.close();
+  });
+
+  it.each(["0", "-1", "1.5", "not-a-number"])(
+    "rejects invalid installation callback id %s",
+    async (installationId) => {
+      upsertByGithubId.mockResolvedValue({
+        id: "u1",
+        login: "octocat",
+        avatarUrl: "https://avatars/octocat",
+        status: "approved",
+        globalStatus: "active",
+      });
+      const app = await createServer();
+      const { cookie, state } = await initiateInstallation(app);
+
+      const res = await request(app.getHttpServer())
+        .get(
+          `/api/v1/auth/github/callback?code=good&installation_id=${installationId}&setup_action=install&state=${state}`,
+        )
+        .set("Cookie", cookie);
+
+      expect(res.status).toBe(400);
+      await app.close();
+    },
+  );
 
   it("records a new pending user but does not create a session until approved", async () => {
     upsertByGithubId.mockResolvedValue({
@@ -177,6 +428,7 @@ describe("auth routes", () => {
       login: "new-reviewer",
       avatarUrl: "https://avatars/new-reviewer",
       status: "pending",
+      globalStatus: "pending",
     });
     const app = await createServer();
     const res = await request(app.getHttpServer())
@@ -206,12 +458,14 @@ describe("auth routes", () => {
       login: "octocat",
       avatarUrl: "https://a",
       status: "approved",
+      globalStatus: "active",
     });
     upsertByGithubId.mockResolvedValue({
       id: "u1",
       login: "octocat",
       avatarUrl: "https://a",
       status: "approved",
+      globalStatus: "active",
     });
     const app = await createServer();
     // Drive a real login to mint a valid session cookie.
@@ -235,12 +489,14 @@ describe("auth routes", () => {
       login: "octocat",
       avatarUrl: "https://a",
       status: "pending",
+      globalStatus: "pending",
     });
     upsertByGithubId.mockResolvedValue({
       id: "u1",
       login: "octocat",
       avatarUrl: "https://a",
       status: "approved",
+      globalStatus: "active",
     });
     const app = await createServer();
     const login = await request(app.getHttpServer())
@@ -259,118 +515,15 @@ describe("auth routes", () => {
     await app.close();
   });
 
-  it("lets KMGeon list pending users", async () => {
-    getById.mockResolvedValue({
-      id: "admin",
-      login: "KMGeon",
-      avatarUrl: "https://a",
-      status: "approved",
-    });
-    upsertByGithubId.mockResolvedValue({
-      id: "admin",
-      login: "KMGeon",
-      avatarUrl: "https://a",
-      status: "approved",
-    });
-    listPending.mockResolvedValue([
-      {
-        id: "u2",
-        login: "new-reviewer",
-        avatarUrl: "https://avatars/new-reviewer",
-        email: null,
-        createdAt: new Date("2026-06-21T00:00:00.000Z"),
-      },
-    ]);
-
+  it.each([
+    ["get", "/api/v1/auth/admin/users/pending"],
+    ["post", "/api/v1/auth/admin/users/u2/approve"],
+  ] as const)("removes the legacy %s %s endpoint", async (method, path) => {
     const app = await createServer();
-    const login = await request(app.getHttpServer())
-      .get("/api/v1/auth/github/callback?code=good&state=s1")
-      .set("Cookie", "folio_oauth_state=s1|/");
-    const sessionCookie = (login.headers["set-cookie"] as unknown as string[]).find((c) =>
-      c.startsWith("folio_session="),
-    );
 
-    const res = await request(app.getHttpServer())
-      .get("/api/v1/auth/admin/users/pending")
-      .set("Cookie", sessionCookie ?? "");
+    const res = await request(app.getHttpServer())[method](path);
 
-    expect(res.status).toBe(200);
-    expect(res.body).toMatchObject({
-      success: true,
-      data: { users: [{ id: "u2", login: "new-reviewer" }] },
-    });
-    await app.close();
-  });
-
-  it("rejects pending-user administration from non-admin users", async () => {
-    getById.mockResolvedValue({
-      id: "u1",
-      login: "octocat",
-      avatarUrl: "https://a",
-      status: "approved",
-    });
-    upsertByGithubId.mockResolvedValue({
-      id: "u1",
-      login: "octocat",
-      avatarUrl: "https://a",
-      status: "approved",
-    });
-
-    const app = await createServer();
-    const login = await request(app.getHttpServer())
-      .get("/api/v1/auth/github/callback?code=good&state=s1")
-      .set("Cookie", "folio_oauth_state=s1|/");
-    const sessionCookie = (login.headers["set-cookie"] as unknown as string[]).find((c) =>
-      c.startsWith("folio_session="),
-    );
-
-    const res = await request(app.getHttpServer())
-      .get("/api/v1/auth/admin/users/pending")
-      .set("Cookie", sessionCookie ?? "");
-
-    expect(res.status).toBe(403);
-    expect(res.body.error.code).toBe("admin_only");
-    await app.close();
-  });
-
-  it("lets KMGeon approve a pending user", async () => {
-    getById.mockResolvedValue({
-      id: "admin",
-      login: "KMGeon",
-      avatarUrl: "https://a",
-      status: "approved",
-    });
-    upsertByGithubId.mockResolvedValue({
-      id: "admin",
-      login: "KMGeon",
-      avatarUrl: "https://a",
-      status: "approved",
-    });
-    approve.mockResolvedValue({
-      id: "u2",
-      login: "new-reviewer",
-      avatarUrl: "https://avatars/new-reviewer",
-      status: "approved",
-    });
-
-    const app = await createServer();
-    const login = await request(app.getHttpServer())
-      .get("/api/v1/auth/github/callback?code=good&state=s1")
-      .set("Cookie", "folio_oauth_state=s1|/");
-    const sessionCookie = (login.headers["set-cookie"] as unknown as string[]).find((c) =>
-      c.startsWith("folio_session="),
-    );
-
-    const res = await request(app.getHttpServer())
-      .post("/api/v1/auth/admin/users/u2/approve")
-      .set("Cookie", sessionCookie ?? "");
-
-    expect(res.status).toBe(201);
-    expect(approve).toHaveBeenCalledWith("u2");
-    expect(res.body).toMatchObject({
-      success: true,
-      data: { user: { id: "u2", login: "new-reviewer", status: "approved" } },
-    });
+    expect(res.status).toBe(404);
     await app.close();
   });
 
@@ -404,12 +557,14 @@ describe("auth routes", () => {
       login: "octocat",
       avatarUrl: "https://a",
       status: "approved",
+      globalStatus: "active",
     });
     upsertByGithubId.mockResolvedValue({
       id: "u1",
       login: "octocat",
       avatarUrl: "https://a",
       status: "approved",
+      globalStatus: "active",
     });
     // repo unknown → userCanAccessRepo returns false → RepoAccessGuard denies
     getByFullName.mockResolvedValue(null);

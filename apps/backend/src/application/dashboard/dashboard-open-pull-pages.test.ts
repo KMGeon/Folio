@@ -79,7 +79,10 @@ describe("DashboardFacade combined open pull pages", () => {
       1: { additions: 3, deletions: 2, changed_files: 1 },
       2: { additions: 20, deletions: 5, changed_files: 2 },
     });
-    const facade = new DashboardFacade({ octokitFactory: async () => octokit as never });
+    const facade = new DashboardFacade({
+      octokitFactory: async () => octokit as never,
+      workspaceScopeLoader: async () => workspaceScope(await listByInstallation()),
+    });
 
     const pages = await facade.getOpenPullPagesForUser(
       { id: "u1", login: "KMGeon" },
@@ -98,7 +101,10 @@ describe("DashboardFacade combined open pull pages", () => {
       [openPull(1, "Newest ready"), openPull(2, "Older ready", "2026-07-08T00:00:00Z")],
       { 1: { additions: 1, deletions: 1, changed_files: 1 } },
     );
-    const facade = new DashboardFacade({ octokitFactory: async () => octokit as never });
+    const facade = new DashboardFacade({
+      octokitFactory: async () => octokit as never,
+      workspaceScopeLoader: async () => workspaceScope(await listByInstallation()),
+    });
     const query = { limit: 1, ordering: "updated", direction: "desc", showDrafts: true } as const;
 
     const combined = await facade.getOpenPullPagesForUser({ id: "u1", login: "KMGeon" }, query);
@@ -112,3 +118,11 @@ describe("DashboardFacade combined open pull pages", () => {
     expect(legacy.nextCursor).toBeNull();
   });
 });
+
+function workspaceScope(repositories: Awaited<ReturnType<typeof listByInstallation>>) {
+  return {
+    workspace: { id: "workspace-1", githubAccountId: 42 },
+    installations: [{ id: "i1", githubInstallationId: 111 }],
+    repositories: repositories.map((repository) => ({ installationId: "i1", ...repository })),
+  } as never;
+}

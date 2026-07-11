@@ -53,4 +53,33 @@ describe("settings routes", () => {
       '<a href="https://github.com/apps/stage-folio">GitHub App 설치</a>',
     );
   });
+
+  it("loads the user and workspace context with the forwarded session cookie", () => {
+    const workspacesPage = readFileSync(resolve(settingsRoot, "workspaces/page.tsx"), "utf8");
+
+    expect(workspacesPage).toContain("const user = await getMe(cookieHeader)");
+    expect(workspacesPage).toContain(
+      "const workspaceContext = await getWorkspaceContext(cookieHeader)",
+    );
+  });
+
+  it("fetches and renders member administration only for workspace managers", () => {
+    const workspacesPage = readFileSync(resolve(settingsRoot, "workspaces/page.tsx"), "utf8");
+
+    expect(workspacesPage).toContain("canManageMembers(workspaceContext)");
+    expect(workspacesPage).toContain(
+      "listWorkspaceMembers(workspaceContext.workspace.id, cookieHeader)",
+    );
+    expect(workspacesPage).toContain("<WorkspaceMembersAdmin");
+    expect(workspacesPage).toContain('title="Workspace members"');
+  });
+
+  it("fetches and renders global users only for active system administrators", () => {
+    const workspacesPage = readFileSync(resolve(settingsRoot, "workspaces/page.tsx"), "utf8");
+
+    expect(workspacesPage).toContain("canSeeSystemUsers(workspaceContext)");
+    expect(workspacesPage).toContain("listGlobalUsers(cookieHeader)");
+    expect(workspacesPage).toContain("<SystemUsersAdmin");
+    expect(workspacesPage).toContain('title="System users"');
+  });
 });

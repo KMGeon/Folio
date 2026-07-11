@@ -1,4 +1,5 @@
 import { BadRequestException, Controller, Get, Inject, Query, UseGuards } from "@nestjs/common";
+import { ENTITLEMENT_FEATURE } from "@folio/types";
 import {
   type DashboardBucket,
   type DashboardClosedRange,
@@ -8,6 +9,8 @@ import {
 } from "../../../application/dashboard/dashboard.facade.js";
 import { CurrentUser } from "../common/current-user.decorator.js";
 import { type AuthedUser, SessionAuthGuard } from "../common/session-auth.guard.js";
+import { EntitlementGuard } from "../authorization/entitlement.guard.js";
+import { RequireEntitlement } from "../authorization/require-entitlement.decorator.js";
 
 const buckets = ["ready", "yours", "other", "completed"] as const;
 const orderings = ["updated", "lines"] as const;
@@ -61,7 +64,8 @@ function parseBoolean(value: string | undefined): boolean | undefined {
 }
 
 @Controller("api/v1/dashboard")
-@UseGuards(SessionAuthGuard)
+@UseGuards(SessionAuthGuard, EntitlementGuard)
+@RequireEntitlement(ENTITLEMENT_FEATURE.REVIEW_READ)
 export class DashboardController {
   constructor(
     // Explicit @Inject token because vitest doesn't emit decorator metadata.

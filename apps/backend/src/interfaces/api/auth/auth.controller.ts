@@ -1,10 +1,21 @@
 import { randomBytes } from "node:crypto";
-import { Controller, Get, Inject, Param, Post, Query, Req, Res, UseGuards } from "@nestjs/common";
-import { usersRepo } from "@folio/db";
+import {
+  BadRequestException,
+  Controller,
+  Get,
+  Inject,
+  Post,
+  Query,
+  Req,
+  Res,
+  ServiceUnavailableException,
+  UseGuards,
+} from "@nestjs/common";
 import type { Response } from "express";
 import { AuthFacade } from "../../../application/auth/auth.facade.js";
 import { config, cookieIsSecure } from "../../../config.js";
 import { SessionService } from "../../../domain/auth/session.service.js";
+import { createInstallationClaimToken } from "../../../domain/auth/installation-claim-token.js";
 import { GitHubOAuthAdapter } from "../../../infrastructure/github/github-oauth.adapter.js";
 import { CoreException } from "../../../support/error/core-exception.js";
 import { ErrorType } from "../../../support/error/error-type.js";
@@ -16,9 +27,11 @@ import {
 } from "../common/session-auth.guard.js";
 
 const STATE_COOKIE = "folio_oauth_state";
+const INSTALLATION_STATE_COOKIE = "folio_installation_state";
 const SESSION_COOKIE = "folio_session";
+const INSTALLATION_CLAIM_COOKIE = "folio_installation_claim";
 const STATE_TTL_MS = 10 * 60 * 1000;
-const ADMIN_LOGIN = "KMGeon";
+const INSTALLATION_CLAIM_TTL_MS = 10 * 60 * 1000;
 
 /** Only allow same-site relative redirect targets (no open redirect). */
 function safeRedirectPath(raw: string | undefined): string {
@@ -62,6 +75,29 @@ export class AuthController {
     res.redirect(this.github.authorizeUrl(state));
   }
 
+  @Get("github/install")
+  install(@Res() res: Response): void {
+    // A new installation attempt must not inherit proof minted for an earlier installation.
+    res.clearCookie(INSTALLATION_CLAIM_COOKIE, { path: "/" });
+    const appSlug = config.GITHUB_APP_SLUG?.trim();
+    if (!appSlug) {
+      res.clearCookie(INSTALLATION_STATE_COOKIE, { path: "/" });
+      throw new ServiceUnavailableException("GitHub App installation is not configured");
+    }
+
+    const state = randomBytes(16).toString("hex");
+    res.cookie(INSTALLATION_STATE_COOKIE, state, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: cookieIsSecure(),
+      maxAge: STATE_TTL_MS,
+      path: "/",
+    });
+    const installationUrl = new URL(`https://github.com/apps/${appSlug}/installations/new`);
+    installationUrl.searchParams.set("state", state);
+    res.redirect(installationUrl.toString());
+  }
+
   @Get("github/callback")
   async callback(
     @Query("code") code: string | undefined,
@@ -71,9 +107,39 @@ export class AuthController {
     @Req() req: AuthedRequest,
     @Res() res: Response,
   ): Promise<void> {
-    if (code && installationId && setupAction) {
-      // GitHub App installation completion does not echo our OAuth state cookie.
-      await this.completeLoginAndRedirect(code, "/", res);
+    if (installationId !== undefined || setupAction !== undefined) {
+      // Installation setup parameters are attacker-controlled, so consume the nonce before OAuth.
+      res.clearCookie(INSTALLATION_STATE_COOKIE, { path: "/" });
+      res.clearCookie(INSTALLATION_CLAIM_COOKIE, { path: "/" });
+      const installationStateCookie = req.cookies?.[INSTALLATION_STATE_COOKIE];
+      if (
+        !code ||
+        setupAction !== "install" ||
+        !state ||
+        typeof installationStateCookie !== "string" ||
+        state !== installationStateCookie
+      ) {
+        throw new BadRequestException("invalid GitHub App installation callback");
+      }
+      const parsedInstallationId = Number(installationId);
+      if (
+        typeof installationId !== "string" ||
+        !/^[1-9]\d*$/.test(installationId) ||
+        !Number.isSafeInteger(parsedInstallationId)
+      ) {
+        throw new BadRequestException("installation_id must be a positive integer");
+      }
+      try {
+        await this.completeLoginAndRedirect(
+          code,
+          `/onboarding/install?installation_id=${parsedInstallationId}`,
+          res,
+          parsedInstallationId,
+        );
+      } catch (error) {
+        res.clearCookie(INSTALLATION_CLAIM_COOKIE, { path: "/" });
+        throw error;
+      }
       return;
     }
 
@@ -89,15 +155,36 @@ export class AuthController {
     code: string,
     redirectPath: string,
     res: Response,
+    installationId?: number,
   ): Promise<void> {
-    const completion = await this.auth.completeLogin(code);
+    const completion = await this.auth.completeLogin(code, installationId);
     res.clearCookie(STATE_COOKIE, { path: "/" });
     if (completion.status === "pending") {
       res.clearCookie(SESSION_COOKIE, { path: "/" });
+      res.clearCookie(INSTALLATION_CLAIM_COOKIE, { path: "/" });
       res.redirect(`${config.WEB_ORIGIN}/login?status=pending`);
       return;
     }
     this.setSessionCookie(completion, res);
+    if (installationId !== undefined) {
+      const claimToken = createInstallationClaimToken(
+        {
+          userId: completion.userId,
+          installationId,
+          expiresAt: Date.now() + INSTALLATION_CLAIM_TTL_MS,
+        },
+        config.GITHUB_APP_WEBHOOK_SECRET ?? "",
+      );
+      res.cookie(INSTALLATION_CLAIM_COOKIE, claimToken, {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: cookieIsSecure(),
+        maxAge: INSTALLATION_CLAIM_TTL_MS,
+        path: "/",
+      });
+    } else {
+      res.clearCookie(INSTALLATION_CLAIM_COOKIE, { path: "/" });
+    }
     res.redirect(`${config.WEB_ORIGIN}${safeRedirectPath(redirectPath)}`);
   }
 
@@ -117,62 +204,11 @@ export class AuthController {
     return { user };
   }
 
-  @Get("admin/users/pending")
-  @UseGuards(SessionAuthGuard)
-  async pendingUsers(@CurrentUser() user: AuthedUser): Promise<{
-    users: {
-      id: string;
-      login: string;
-      avatarUrl: string;
-      email: string | null;
-      createdAt: Date;
-    }[];
-  }> {
-    assertAdmin(user);
-    const users = await usersRepo.listPending();
-    return {
-      users: users.map((row) => ({
-        id: row.id,
-        login: row.login,
-        avatarUrl: row.avatarUrl,
-        email: row.email,
-        createdAt: row.createdAt,
-      })),
-    };
-  }
-
-  @Post("admin/users/:id/approve")
-  @UseGuards(SessionAuthGuard)
-  async approveUser(
-    @CurrentUser() user: AuthedUser,
-    @Param("id") id: string,
-  ): Promise<{ user: { id: string; login: string; avatarUrl: string; status: string } }> {
-    assertAdmin(user);
-    const approved = await usersRepo.approve(id);
-    if (!approved) {
-      throw new CoreException(ErrorType.Unauthorized);
-    }
-    return {
-      user: {
-        id: approved.id,
-        login: approved.login,
-        avatarUrl: approved.avatarUrl,
-        status: approved.status,
-      },
-    };
-  }
-
   @Post("logout")
   async logout(@Req() req: AuthedRequest, @Res() res: Response): Promise<void> {
     await this.sessions.destroy(req.cookies?.[SESSION_COOKIE]);
     res.clearCookie(SESSION_COOKIE, { path: "/" });
     // Hand-mirrored envelope: @Res() bypasses the global ApiResponseInterceptor.
     res.status(200).json({ success: true, data: { ok: true } });
-  }
-}
-
-function assertAdmin(user: AuthedUser): void {
-  if (user.login !== ADMIN_LOGIN) {
-    throw new CoreException(ErrorType.AdminOnly);
   }
 }

@@ -46,6 +46,24 @@ describe("CoreExceptionFilter", () => {
     );
   });
 
+  it("renders workspace membership conflicts with the semantic 409 envelope", () => {
+    const { filter } = createFilter();
+    const { host, status, json } = createHost("/api/v1/workspaces/ws-1/members/u-1/suspend");
+
+    filter.catch(new CoreException(ErrorType.WorkspaceMembershipConflict), host);
+
+    expect(status).toHaveBeenCalledWith(409);
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: false,
+        error: {
+          code: "workspace_membership_conflict",
+          message: "Workspace membership changed. Refresh and try again.",
+        },
+      }),
+    );
+  });
+
   it("does not expose raw unhandled exception messages to clients", () => {
     const { filter, logger } = createFilter();
     const { host, status, json } = createHost();

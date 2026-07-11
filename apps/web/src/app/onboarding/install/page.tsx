@@ -2,8 +2,9 @@ import { ArrowUpRight, Github, PlugZap } from "lucide-react";
 import { cookies } from "next/headers";
 
 import { AppLayout } from "@/components/app-layout";
+import { ClaimWorkspaceButton } from "@/components/claim-workspace-button";
 import { Button } from "@/components/ui/button";
-import { getMe } from "@/lib/auth";
+import { getMe, installationUrl } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,14 @@ const flowSteps = [
   "Open in Folio comment 작성",
 ];
 
-export default async function InstallPage() {
+export default async function InstallPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ installation_id?: string | string[] }>;
+}) {
+  const { installation_id: rawInstallationId } = await searchParams;
+  const installationId = parseInstallationId(rawInstallationId);
+  const installHref = installationUrl();
   const cookieHeader = (await cookies())
     .getAll()
     .map((c) => `${c.name}=${c.value}`)
@@ -85,11 +93,17 @@ export default async function InstallPage() {
                 </ul>
               </div>
 
-              <Button className="mt-8">
-                <Github className="size-4" />
-                GitHub에서 설치
-                <ArrowUpRight className="size-4" />
-              </Button>
+              {installationId ? (
+                <ClaimWorkspaceButton installationId={installationId} />
+              ) : (
+                <Button className="mt-8" asChild>
+                  <a href={installHref}>
+                    <Github className="size-4" />
+                    GitHub에서 설치
+                    <ArrowUpRight className="size-4" />
+                  </a>
+                </Button>
+              )}
             </section>
 
             <aside className="min-w-0">
@@ -113,4 +127,12 @@ export default async function InstallPage() {
       </div>
     </AppLayout>
   );
+}
+
+function parseInstallationId(value: string | string[] | undefined): number | null {
+  if (typeof value !== "string" || !/^[1-9]\d*$/.test(value)) {
+    return null;
+  }
+  const installationId = Number(value);
+  return Number.isSafeInteger(installationId) ? installationId : null;
 }

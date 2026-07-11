@@ -11,13 +11,20 @@ import {
   Post,
   UseGuards,
 } from "@nestjs/common";
+import { ENTITLEMENT_FEATURE, WORKSPACE_ROLE } from "@folio/types";
 import { ReviewCommentFacade } from "../../../application/review/review-comment.facade.js";
 import { ReviewPullFacade } from "../../../application/review/review-pull.facade.js";
 import { ReviewReadFacade } from "../../../application/review/review-read.facade.js";
 import { ReviewStateFacade } from "../../../application/review/review-state.facade.js";
 import { CurrentUser } from "../common/current-user.decorator.js";
-import { RepoAccessGuard } from "../common/repo-access.guard.js";
 import { type AuthedUser, SessionAuthGuard } from "../common/session-auth.guard.js";
+import { EntitlementGuard } from "../authorization/entitlement.guard.js";
+import { RepositoryPermissionGuard } from "../authorization/repository-permission.guard.js";
+import { RequireEntitlement } from "../authorization/require-entitlement.decorator.js";
+import { RequireLiveRepositoryPermission } from "../authorization/require-live-repository-permission.decorator.js";
+import { RequireRepositoryPermission } from "../authorization/require-repository-permission.decorator.js";
+import { RequireWorkspaceRole } from "../authorization/require-workspace-role.decorator.js";
+import { WorkspaceRoleGuard } from "../authorization/workspace-role.guard.js";
 
 interface CreateReviewBody {
   owner: string;
@@ -54,15 +61,21 @@ export class PullsController {
   ) {}
 
   /** Manually trigger decomposition for a PR (read diff → decompose → persist → comment). */
-  // Session-only: owner/repo arrive in the body, so the route-param RepoAccessGuard
-  // can't gate this; body-scoped repo authorization is a follow-up.
   @Post()
+  @UseGuards(RepositoryPermissionGuard, WorkspaceRoleGuard, EntitlementGuard)
+  @RequireLiveRepositoryPermission()
+  @RequireRepositoryPermission("write")
+  @RequireWorkspaceRole(WORKSPACE_ROLE.REVIEWER)
+  @RequireEntitlement(ENTITLEMENT_FEATURE.PR_ANALYSIS)
   async createReview(@Body() body: CreateReviewBody) {
     return this.reviewPull.run({ owner: body.owner, repo: body.repo, number: body.number });
   }
 
   @Get(":owner/:repo/:number/review")
-  @UseGuards(RepoAccessGuard)
+  @UseGuards(RepositoryPermissionGuard, WorkspaceRoleGuard, EntitlementGuard)
+  @RequireRepositoryPermission("read")
+  @RequireWorkspaceRole(WORKSPACE_ROLE.REVIEWER)
+  @RequireEntitlement(ENTITLEMENT_FEATURE.REVIEW_READ)
   async getReview(
     @Param("owner") owner: string,
     @Param("repo") repo: string,
@@ -79,7 +92,11 @@ export class PullsController {
 
   /** Toggle a chapter's viewed mark for the current user; returns updated progress. */
   @Patch(":owner/:repo/:number/chapters/:index/viewed")
-  @UseGuards(RepoAccessGuard)
+  @UseGuards(RepositoryPermissionGuard, WorkspaceRoleGuard, EntitlementGuard)
+  @RequireLiveRepositoryPermission()
+  @RequireRepositoryPermission("read")
+  @RequireWorkspaceRole(WORKSPACE_ROLE.REVIEWER)
+  @RequireEntitlement(ENTITLEMENT_FEATURE.REVIEW_STATE_MUTATION)
   async setChapterViewed(
     @Param("owner") owner: string,
     @Param("repo") repo: string,
@@ -104,7 +121,11 @@ export class PullsController {
 
   /** Toggle a file's viewed mark for the current user; returns file progress. */
   @Patch(":owner/:repo/:number/files/viewed")
-  @UseGuards(RepoAccessGuard)
+  @UseGuards(RepositoryPermissionGuard, WorkspaceRoleGuard, EntitlementGuard)
+  @RequireLiveRepositoryPermission()
+  @RequireRepositoryPermission("read")
+  @RequireWorkspaceRole(WORKSPACE_ROLE.REVIEWER)
+  @RequireEntitlement(ENTITLEMENT_FEATURE.REVIEW_STATE_MUTATION)
   async setFileViewed(
     @Param("owner") owner: string,
     @Param("repo") repo: string,
@@ -132,7 +153,11 @@ export class PullsController {
 
   /** Toggle one generated review question for the current user. */
   @Patch(":owner/:repo/:number/chapters/:index/key-changes/:keyChangeId/viewed")
-  @UseGuards(RepoAccessGuard)
+  @UseGuards(RepositoryPermissionGuard, WorkspaceRoleGuard, EntitlementGuard)
+  @RequireLiveRepositoryPermission()
+  @RequireRepositoryPermission("read")
+  @RequireWorkspaceRole(WORKSPACE_ROLE.REVIEWER)
+  @RequireEntitlement(ENTITLEMENT_FEATURE.REVIEW_STATE_MUTATION)
   async setKeyChangeViewed(
     @Param("owner") owner: string,
     @Param("repo") repo: string,
@@ -161,7 +186,11 @@ export class PullsController {
 
   /** Create a GitHub inline review comment for a diff line. */
   @Post(":owner/:repo/:number/comments")
-  @UseGuards(RepoAccessGuard)
+  @UseGuards(RepositoryPermissionGuard, WorkspaceRoleGuard, EntitlementGuard)
+  @RequireLiveRepositoryPermission()
+  @RequireRepositoryPermission("write")
+  @RequireWorkspaceRole(WORKSPACE_ROLE.REVIEWER)
+  @RequireEntitlement(ENTITLEMENT_FEATURE.COMMENT)
   async createInlineComment(
     @Param("owner") owner: string,
     @Param("repo") repo: string,

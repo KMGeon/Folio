@@ -63,6 +63,11 @@ const baseSchema = z.object({
   GITHUB_APP_SLUG: z.string().optional(),
   GITHUB_APP_CLIENT_ID: z.string().optional(),
   GITHUB_APP_CLIENT_SECRET: z.string().optional(),
+  // Blank keeps the example config inert; a value seeds only the first system administrator.
+  SYSTEM_ADMIN_BOOTSTRAP_GITHUB_ID: z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    z.coerce.number().int().positive().optional(),
+  ),
   // Public base URL of this backend; used to build the OAuth callback redirect.
   PUBLIC_API_BASE_URL: z.string().default("http://localhost:8080"),
   // Base URL used to build "Open in Stage" deep links in the PR comment.

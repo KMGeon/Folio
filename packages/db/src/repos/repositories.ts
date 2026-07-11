@@ -16,6 +16,16 @@ export const repositoriesRepo = {
     return row ?? null;
   },
 
+  async getByIdForUpdate(id: string, db: Db = getDb()): Promise<RepositoryRow | null> {
+    const [row] = await db
+      .select()
+      .from(repositories)
+      .where(eq(repositories.id, id))
+      .limit(1)
+      .for("update");
+    return row ?? null;
+  },
+
   async getByGithubId(githubRepoId: number, db: Db = getDb()): Promise<RepositoryRow | null> {
     const [row] = await db
       .select()
@@ -36,6 +46,10 @@ export const repositoriesRepo = {
 
   async listByInstallation(installationId: string, db: Db = getDb()): Promise<RepositoryRow[]> {
     return db.select().from(repositories).where(eq(repositories.installationId, installationId));
+  },
+
+  async listByWorkspaceId(workspaceId: string, db: Db = getDb()): Promise<RepositoryRow[]> {
+    return db.select().from(repositories).where(eq(repositories.workspaceId, workspaceId));
   },
 
   async listEnabledByInstallation(

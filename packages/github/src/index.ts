@@ -28,6 +28,7 @@ export {
   exchangeOAuthCode,
   getAuthenticatedUser,
   type OAuthUser,
+  verifyUserInstallationAccess,
 } from "./auth/user-oauth.js";
 
 // ─── Client ──────────────────────────────────────────────────────────────────
@@ -78,7 +79,11 @@ export {
 } from "./pull-request.js";
 
 // ─── Repo permission ─────────────────────────────────────────────────────────────
-export { checkUserRepoPermission } from "./repo-permission.js";
+export {
+  checkUserRepoPermission,
+  type GitHubRepoAccessLevel,
+  getUserRepoPermissionLevel,
+} from "./repo-permission.js";
 
 // ─── Comments ────────────────────────────────────────────────────────────────
 export {
@@ -108,4 +113,9 @@ export {
 export { RateLimitError, type RateLimitRetryOptions, withRateLimitRetry } from "./rate-limit.js";
 
 // ─── Install ─────────────────────────────────────────────────────────────────
-export { getInstallationUrl, listInstallationRepos } from "./install.js";
+export {
+  getInstallationAccount,
+  type InstallationAccountIdentity,
+  getInstallationUrl,
+  listInstallationRepos,
+} from "./install.js";

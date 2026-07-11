@@ -46,6 +46,7 @@ describe("persistReview", () => {
     vi.mocked(db.repositoriesRepo.getByFullName).mockResolvedValueOnce({
       id: "installed-repo",
       installationId: "real-installation",
+      workspaceId: null,
       githubRepoId: 123,
       owner: "acme",
       name: "widget",

@@ -1,4 +1,5 @@
-import { USER_STATUS, usersRepo } from "@folio/db";
+import { usersRepo } from "@folio/db";
+import { GLOBAL_STATUS } from "@folio/types";
 import { type CanActivate, type ExecutionContext, Inject, Injectable } from "@nestjs/common";
 import type { Request } from "express";
 import { SessionService } from "../../../domain/auth/session.service.js";
@@ -27,7 +28,7 @@ export class SessionAuthGuard implements CanActivate {
       throw new CoreException(ErrorType.Unauthorized);
     }
     const user = await usersRepo.getById(resolved.userId);
-    if (!user || user.status !== USER_STATUS.APPROVED) {
+    if (!user || user.globalStatus !== GLOBAL_STATUS.ACTIVE) {
       throw new CoreException(ErrorType.Unauthorized);
     }
     request.user = { id: user.id, login: user.login, avatarUrl: user.avatarUrl };

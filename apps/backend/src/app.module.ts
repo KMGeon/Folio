@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { APP_FILTER, APP_INTERCEPTOR } from "@nestjs/core";
 import { AuthModule } from "./application/auth/auth.module.js";
+import { AuthorizationModule } from "./application/authorization/authorization.module.js";
 import { DashboardModule } from "./application/dashboard/dashboard.module.js";
 import { GitHubWebhookFacade } from "./application/github/github-webhook.facade.js";
 import { InstallationSyncFacade } from "./application/github/installation-sync.facade.js";
@@ -17,7 +18,14 @@ import { CoreExceptionFilter } from "./support/error/core-exception.filter.js";
 
 @Module({
   // PullsController lives in ReviewModule; AuthModule owns the OAuth/session stack.
-  imports: [InternalModule, ReviewModule, AuthModule, DashboardModule, RepositoriesModule],
+  imports: [
+    InternalModule,
+    ReviewModule,
+    AuthModule,
+    AuthorizationModule,
+    DashboardModule,
+    RepositoriesModule,
+  ],
   controllers: [HealthController, GitHubWebhookController],
   providers: [
     GitHubWebhookFacade,

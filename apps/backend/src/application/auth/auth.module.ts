@@ -1,4 +1,6 @@
 import { Module } from "@nestjs/common";
+import { GitHubInstallationIdentityPort } from "../../domain/auth/github-installation-identity.port.js";
+import { GitHubRepositoryPermissionPort } from "../../domain/auth/github-repository-permission.port.js";
 import { RepoAccessService } from "../../domain/auth/repo-access.service.js";
 import { SessionService } from "../../domain/auth/session.service.js";
 import { GitHubOAuthAdapter } from "../../infrastructure/github/github-oauth.adapter.js";
@@ -19,6 +21,8 @@ import { AuthFacade } from "./auth.facade.js";
     SessionService,
     RepoAccessService,
     GitHubOAuthAdapter,
+    { provide: GitHubInstallationIdentityPort, useExisting: GitHubOAuthAdapter },
+    { provide: GitHubRepositoryPermissionPort, useExisting: GitHubOAuthAdapter },
     SessionAuthGuard,
     RepoAccessGuard,
   ],
@@ -27,6 +31,8 @@ import { AuthFacade } from "./auth.facade.js";
     RepoAccessGuard,
     SessionService,
     RepoAccessService,
+    GitHubInstallationIdentityPort,
+    GitHubRepositoryPermissionPort,
     GitHubOAuthAdapter,
   ],
 })
