@@ -1,6 +1,13 @@
 export { workspacesRepo } from "./workspaces.js";
 export { workspaceMembersRepo } from "./workspace-members.js";
 export { auditLogsRepo } from "./audit-logs.js";
+export {
+  adminAuditRepo,
+  type AdminAuditCursor,
+  type AdminAuditListInput,
+  type AdminAuditPageRow,
+  type AdminAuditRow,
+} from "./admin-audit.js";
 export { installationsRepo } from "./installations.js";
 export { repositoriesRepo } from "./repositories.js";
 export { usersRepo } from "./users.js";
