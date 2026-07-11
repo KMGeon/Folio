@@ -1,12 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import {
-  chaptersRepo,
-  installationsRepo,
-  pullRequestsRepo,
-  repositoriesRepo,
-  reviewStateRepo,
-  revisionsRepo,
-} from "@folio/db";
+import { chaptersRepo, pullRequestsRepo, reviewStateRepo, revisionsRepo } from "@folio/db";
 
 export type ActivityDay = { date: string; count: number };
 import { createInstallationOctokit } from "@folio/github";
@@ -35,6 +28,10 @@ import type {
   DashboardPullPageQuery,
   GitHubPullSummary,
 } from "./dashboard-pull-page-types.js";
+import {
+  type DashboardWorkspaceScope,
+  loadDashboardWorkspaceScope,
+} from "./dashboard-workspace-scope.js";
 
 export type {
   DashboardBucket,
@@ -88,6 +85,7 @@ export interface DashboardPayload {
 
 export interface DashboardDeps {
   octokitFactory?: (githubInstallationId: number) => Promise<Octokit>;
+  workspaceScopeLoader?: (userId: string) => Promise<DashboardWorkspaceScope | null>;
 }
 
 type PullStatus = Record<"chapterCount" | "viewedChapters" | "changedFiles", number> & {
@@ -108,14 +106,16 @@ export class DashboardFacade {
   /** Live open PRs across the user's installed repos, merged with DB review state. */
   async getForUser(user: { id: string; login: string }): Promise<DashboardPayload> {
     const makeOctokit = this.deps.octokitFactory ?? createInstallationOctokit;
-    const installations = await installationsRepo.listByAccountLogin(user.login);
+    const scope = await this.loadWorkspaceScope(user.id);
 
     const repos: DashboardRepo[] = [];
     const pulls: DashboardPull[] = [];
     const completedCandidates: CompletedCandidate[] = [];
 
-    for (const installation of installations) {
-      const repoRows = await repositoriesRepo.listByInstallation(installation.id);
+    for (const installation of scope?.installations ?? []) {
+      const repoRows =
+        scope?.repositories.filter((repository) => repository.installationId === installation.id) ??
+        [];
       if (repoRows.length === 0) {
         continue;
       }
@@ -212,26 +212,40 @@ export class DashboardFacade {
   }
 
   async getSummaryForUser(user: { id: string; login: string }) {
-    return getDashboardSummaryForUser(user);
+    return getDashboardSummaryForUser(user, await this.loadWorkspaceScope(user.id));
   }
 
   async getPullPageForUser(user: { id: string; login: string }, input: DashboardPullPageQuery) {
-    return getDashboardPullPageForUser(user, input, {
-      octokitFactory: this.deps.octokitFactory,
-      listPulls: this.listPulls.bind(this),
-      resolveStatus: this.resolveStatus.bind(this),
-    });
+    return getDashboardPullPageForUser(
+      user,
+      input,
+      {
+        octokitFactory: this.deps.octokitFactory,
+        listPulls: this.listPulls.bind(this),
+        resolveStatus: this.resolveStatus.bind(this),
+      },
+      await this.loadWorkspaceScope(user.id),
+    );
   }
 
   async getOpenPullPagesForUser(
     user: { id: string; login: string },
     input: DashboardOpenPullPageQuery,
   ) {
-    return getDashboardOpenPullPagesForUser(user, input, {
-      octokitFactory: this.deps.octokitFactory,
-      listPulls: this.listPulls.bind(this),
-      resolveStatus: this.resolveStatus.bind(this),
-    });
+    return getDashboardOpenPullPagesForUser(
+      user,
+      input,
+      {
+        octokitFactory: this.deps.octokitFactory,
+        listPulls: this.listPulls.bind(this),
+        resolveStatus: this.resolveStatus.bind(this),
+      },
+      await this.loadWorkspaceScope(user.id),
+    );
+  }
+
+  private loadWorkspaceScope(userId: string): Promise<DashboardWorkspaceScope | null> {
+    return (this.deps.workspaceScopeLoader ?? loadDashboardWorkspaceScope)(userId);
   }
 
   private repoPayload(

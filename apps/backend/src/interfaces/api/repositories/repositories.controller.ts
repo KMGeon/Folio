@@ -8,8 +8,11 @@ import {
   Patch,
   UseGuards,
 } from "@nestjs/common";
+import { ENTITLEMENT_FEATURE } from "@folio/types";
 import { z } from "zod";
 import { RepositoriesFacade } from "../../../application/repositories/repositories.facade.js";
+import { EntitlementGuard } from "../authorization/entitlement.guard.js";
+import { RequireEntitlement } from "../authorization/require-entitlement.decorator.js";
 import { CurrentUser } from "../common/current-user.decorator.js";
 import { type AuthedUser, SessionAuthGuard } from "../common/session-auth.guard.js";
 
@@ -26,10 +29,12 @@ export class RepositoriesController {
 
   @Get()
   async list(@CurrentUser() user: AuthedUser) {
-    return this.repositoriesFacade.listForUser({ login: user.login });
+    return this.repositoriesFacade.listForUser({ userId: user.id, login: user.login });
   }
 
   @Patch(":id/enabled")
+  @UseGuards(EntitlementGuard)
+  @RequireEntitlement(ENTITLEMENT_FEATURE.REPO_ACTIVATION)
   async setEnabled(
     @CurrentUser() user: AuthedUser,
     @Param("id") id: string,
@@ -40,7 +45,7 @@ export class RepositoriesController {
       throw new BadRequestException("Repository enabled must be a boolean");
     }
     return this.repositoriesFacade.setEnabled({
-      user: { login: user.login },
+      user: { id: user.id, login: user.login },
       repositoryId: id,
       enabled: parsed.data.enabled,
     });

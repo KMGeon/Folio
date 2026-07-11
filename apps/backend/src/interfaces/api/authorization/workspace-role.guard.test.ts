@@ -4,9 +4,10 @@ import {
   USER_STATUS,
   type WorkspaceMemberRow,
   type WorkspaceRow,
+  repositoriesRepo,
   usersRepo,
 } from "@folio/db";
-import type { usersRepo as DbUsersRepo } from "@folio/db";
+import type { repositoriesRepo as DbRepositoriesRepo, usersRepo as DbUsersRepo } from "@folio/db";
 import { ACCOUNT_TYPE, GLOBAL_STATUS, MEMBERSHIP_STATUS, WORKSPACE_ROLE } from "@folio/types";
 import type { ExecutionContext } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
@@ -20,12 +21,19 @@ import {
 } from "./require-workspace-role.decorator.js";
 import { WorkspaceRoleGuard } from "./workspace-role.guard.js";
 
-type FolioDbModule = { usersRepo: typeof DbUsersRepo } & Record<string, unknown>;
+type FolioDbModule = {
+  repositoriesRepo: typeof DbRepositoriesRepo;
+  usersRepo: typeof DbUsersRepo;
+} & Record<string, unknown>;
 
 vi.mock("@folio/db", async (importOriginal) => {
   const actual = (await importOriginal()) as FolioDbModule;
   return {
     ...actual,
+    repositoriesRepo: {
+      ...actual.repositoriesRepo,
+      getByFullName: vi.fn(),
+    },
     usersRepo: {
       ...actual.usersRepo,
       getById: vi.fn(),
@@ -86,6 +94,7 @@ function memberRow(overrides: Partial<WorkspaceMemberRow> = {}): WorkspaceMember
 
 interface TestRequest {
   params?: Record<string, unknown>;
+  body?: Record<string, unknown>;
   user?: AuthedUser;
   workspace?: WorkspaceRow;
   workspaceMembership?: WorkspaceMemberRow;
@@ -94,8 +103,9 @@ interface TestRequest {
 function contextFor(
   params: Record<string, unknown> = { workspaceId: "workspace-1" },
   user: AuthedUser | null = actor,
+  requestOverrides: Partial<TestRequest> = {},
 ) {
-  const request: TestRequest = { params, user: user ?? undefined };
+  const request: TestRequest = { params, user: user ?? undefined, ...requestOverrides };
   const handler = () => undefined;
   class TestController {}
   const context = {
@@ -183,6 +193,7 @@ describe("WorkspaceRoleGuard", () => {
     membership = memberRow();
     resolver.resolveById.mockResolvedValue(workspace);
     vi.mocked(usersRepo.getById).mockResolvedValue(userRow());
+    vi.mocked(repositoriesRepo.getByFullName).mockResolvedValue(null);
     memberships.getMembership.mockResolvedValue(membership);
     reflector = new Reflector();
     vi.spyOn(reflector, "getAllAndOverride").mockReturnValue(WORKSPACE_ROLE.ADMIN);
@@ -203,6 +214,49 @@ describe("WorkspaceRoleGuard", () => {
     expect(memberships.getMembership).toHaveBeenCalledWith("workspace-1", "user-1");
     expect(request.workspace).toBe(workspace);
     expect(request.workspaceMembership).toBe(membership);
+  });
+
+  it("resolves a route repository to its server-owned workspace", async () => {
+    vi.mocked(repositoriesRepo.getByFullName).mockResolvedValue({
+      id: "repository-1",
+      installationId: "installation-1",
+      workspaceId: workspace.id,
+      githubRepoId: 99,
+      owner: "acme",
+      name: "folio",
+      fullName: "acme/folio",
+      private: true,
+      defaultBranch: "main",
+      folioEnabled: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const { context, request } = contextFor({ owner: "acme", repo: "folio" });
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+
+    expect(repositoriesRepo.getByFullName).toHaveBeenCalledWith("acme/folio");
+    expect(resolver.resolveById).toHaveBeenCalledWith(workspace.id);
+    expect(request.workspace).toBe(workspace);
+  });
+
+  it("accepts a workspace attached by an earlier server-side authorization guard", async () => {
+    const { context, request } = contextFor({}, actor, { workspace });
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+
+    expect(resolver.resolveById).not.toHaveBeenCalled();
+    expect(memberships.getMembership).toHaveBeenCalledWith(workspace.id, actor.id);
+    expect(request.workspace).toBe(workspace);
+  });
+
+  it("never trusts a workspace id from the request body", async () => {
+    const { context } = contextFor({}, actor, { body: { workspaceId: workspace.id } });
+
+    await expectCoreError(() => guard.canActivate(context), ErrorType.Forbidden);
+
+    expect(resolver.resolveById).not.toHaveBeenCalled();
+    expect(repositoriesRepo.getByFullName).not.toHaveBeenCalled();
   });
 
   it("does not let a system admin bypass the required workspace role", async () => {

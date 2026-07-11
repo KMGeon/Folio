@@ -49,7 +49,17 @@ describe("dashboard GitHub cache", () => {
 
   it("reuses completed pull list and detail results for repeated dashboard pages", async () => {
     const octokit = octokitWithCompletedPull();
-    const facade = new DashboardFacade({ octokitFactory: async () => octokit as never });
+    const facade = new DashboardFacade({
+      octokitFactory: async () => octokit as never,
+      workspaceScopeLoader: async () => ({
+        workspace: { id: "workspace-1", githubAccountId: 42 } as never,
+        installations: [{ id: "i1", githubInstallationId: 111 } as never],
+        repositories: (await listByInstallation()).map((repository) => ({
+          installationId: "i1",
+          ...repository,
+        })) as never,
+      }),
+    });
     const query = {
       bucket: "completed" as const,
       limit: 20,

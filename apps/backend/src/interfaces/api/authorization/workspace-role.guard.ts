@@ -1,4 +1,4 @@
-import { type WorkspaceMemberRow, type WorkspaceRow, usersRepo } from "@folio/db";
+import { type WorkspaceMemberRow, type WorkspaceRow, repositoriesRepo, usersRepo } from "@folio/db";
 import type { WorkspaceRole } from "@folio/types";
 import { type CanActivate, type ExecutionContext, Inject, Injectable } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
@@ -35,20 +35,20 @@ export class WorkspaceRoleGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest<WorkspaceScopedRequest>();
-    const workspaceId =
-      typeof request.params?.workspaceId === "string" ? request.params.workspaceId : undefined;
     const actor = request.user;
-    if (!workspaceId || !actor) {
+    if (!actor) {
       throw new CoreException(ErrorType.Forbidden);
     }
 
-    const workspace = await this.resolver.resolveById(workspaceId);
+    const workspace = await this.resolveWorkspace(request);
     if (!workspace) {
-      throw new CoreException(ErrorType.WorkspaceNotFound);
+      throw new CoreException(
+        this.hasServerResolvableScope(request) ? ErrorType.WorkspaceNotFound : ErrorType.Forbidden,
+      );
     }
 
     const actorRow = await usersRepo.getById(actor.id);
-    const membership = await this.memberships.getMembership(workspaceId, actor.id);
+    const membership = await this.memberships.getMembership(workspace.id, actor.id);
     if (!actorRow || !membership) {
       throw new CoreException(ErrorType.Forbidden);
     }
@@ -71,5 +71,30 @@ export class WorkspaceRoleGuard implements CanActivate {
     request.workspace = workspace;
     request.workspaceMembership = membership;
     return true;
+  }
+
+  private async resolveWorkspace(request: WorkspaceScopedRequest): Promise<WorkspaceRow | null> {
+    const workspaceId =
+      typeof request.params?.workspaceId === "string" ? request.params.workspaceId : undefined;
+    if (workspaceId) {
+      return this.resolver.resolveById(workspaceId);
+    }
+
+    const owner = typeof request.params?.owner === "string" ? request.params.owner : undefined;
+    const repo = typeof request.params?.repo === "string" ? request.params.repo : undefined;
+    if (owner && repo) {
+      const repository = await repositoriesRepo.getByFullName(`${owner}/${repo}`);
+      return repository?.workspaceId ? this.resolver.resolveById(repository.workspaceId) : null;
+    }
+
+    // Only earlier server guards can attach this row; raw body scope is intentionally ignored.
+    return request.workspace ?? null;
+  }
+
+  private hasServerResolvableScope(request: WorkspaceScopedRequest): boolean {
+    return (
+      typeof request.params?.workspaceId === "string" ||
+      (typeof request.params?.owner === "string" && typeof request.params?.repo === "string")
+    );
   }
 }

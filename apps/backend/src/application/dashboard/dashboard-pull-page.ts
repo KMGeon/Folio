@@ -1,4 +1,3 @@
-import { installationsRepo, repositoriesRepo } from "@folio/db";
 import { createInstallationOctokit } from "@folio/github";
 import type { Octokit } from "octokit";
 import {
@@ -25,6 +24,7 @@ import {
   type PullPageDeps,
   type RepoRow,
 } from "./dashboard-repo-pull-candidates.js";
+import type { DashboardWorkspaceScope } from "./dashboard-workspace-scope.js";
 
 const DEFAULT_PULL_PAGE_LIMIT = 20;
 const MAX_PULL_PAGE_LIMIT = 50;
@@ -41,11 +41,12 @@ export async function getDashboardPullPageForUser(
   user: { id: string; login: string },
   input: DashboardPullPageQuery,
   deps: PullPageDeps,
+  scope: DashboardWorkspaceScope | null,
 ): Promise<DashboardPullPage> {
   const query = normalizeQuery(input);
   const cursor = decodeCursor(query.cursor);
   const { openCandidates, completedCandidates, nextCompletedCursor } =
-    await collectCandidatesForUser(user, query, cursor, deps);
+    await collectCandidatesForUser(user, query, cursor, deps, scope);
 
   if (query.bucket === "completed") {
     return query.ordering === "lines"
@@ -64,9 +65,16 @@ export async function getDashboardOpenPullPagesForUser(
   user: { id: string; login: string },
   input: DashboardOpenPullPageQuery,
   deps: PullPageDeps,
+  scope: DashboardWorkspaceScope | null,
 ): Promise<DashboardOpenPullPages> {
   const query = normalizeQuery({ ...input, bucket: "ready" });
-  const { openCandidates } = await collectCandidatesForUser(user, query, { offset: 0 }, deps);
+  const { openCandidates } = await collectCandidatesForUser(
+    user,
+    query,
+    { offset: 0 },
+    deps,
+    scope,
+  );
 
   if (query.ordering === "lines") {
     return pagesByLines(openCandidates, await openPulls(openCandidates), user.login, query);
@@ -79,6 +87,7 @@ async function collectCandidatesForUser(
   query: NormalizedQuery,
   cursor: DashboardCursor,
   deps: PullPageDeps,
+  scope: DashboardWorkspaceScope | null,
 ): Promise<CollectedCandidates> {
   const makeOctokit = deps.octokitFactory ?? createInstallationOctokit;
   const collected: CollectedCandidates = {
@@ -90,9 +99,9 @@ async function collectCandidatesForUser(
     },
   };
 
-  for (const installation of await installationsRepo.listByAccountLogin(user.login)) {
-    const repoRows = (await repositoriesRepo.listByInstallation(installation.id)).filter(
-      (repo) => repo.folioEnabled,
+  for (const installation of scope?.installations ?? []) {
+    const repoRows = (scope?.repositories ?? []).filter(
+      (repo) => repo.installationId === installation.id && repo.folioEnabled,
     ) as RepoRow[];
     if (repoRows.length === 0) {
       continue;

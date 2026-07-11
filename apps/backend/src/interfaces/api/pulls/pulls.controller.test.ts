@@ -1,3 +1,5 @@
+import { ENTITLEMENT_FEATURE, WORKSPACE_ROLE } from "@folio/types";
+import { GUARDS_METADATA } from "@nestjs/common/constants.js";
 import { Test } from "@nestjs/testing";
 import { describe, expect, it, vi } from "vitest";
 import { ReviewCommentFacade } from "../../../application/review/review-comment.facade.js";
@@ -6,6 +8,12 @@ import { ReviewReadFacade } from "../../../application/review/review-read.facade
 import { ReviewStateFacade } from "../../../application/review/review-state.facade.js";
 import { RepoAccessGuard } from "../common/repo-access.guard.js";
 import { type AuthedUser, SessionAuthGuard } from "../common/session-auth.guard.js";
+import { EntitlementGuard } from "../authorization/entitlement.guard.js";
+import { RepositoryPermissionGuard } from "../authorization/repository-permission.guard.js";
+import { REQUIRE_REPOSITORY_PERMISSION } from "../authorization/require-repository-permission.decorator.js";
+import { REQUIRE_ENTITLEMENT } from "../authorization/require-entitlement.decorator.js";
+import { REQUIRE_WORKSPACE_ROLE } from "../authorization/require-workspace-role.decorator.js";
+import { WorkspaceRoleGuard } from "../authorization/workspace-role.guard.js";
 import { PullsController } from "./pulls.controller.js";
 
 // This unit test calls controller methods directly; bypass the auth guards
@@ -44,11 +52,37 @@ async function buildController(overrides: {
     .useValue(allowGuard)
     .overrideGuard(RepoAccessGuard)
     .useValue(allowGuard)
+    .overrideGuard(RepositoryPermissionGuard)
+    .useValue(allowGuard)
+    .overrideGuard(WorkspaceRoleGuard)
+    .useValue(allowGuard)
+    .overrideGuard(EntitlementGuard)
+    .useValue(allowGuard)
     .compile();
   return moduleRef.get(PullsController);
 }
 
 describe("PullsController", () => {
+  it.each([
+    ["createReview", "write", ENTITLEMENT_FEATURE.PR_ANALYSIS],
+    ["getReview", "read", ENTITLEMENT_FEATURE.REVIEW_READ],
+    ["setChapterViewed", "read", ENTITLEMENT_FEATURE.REVIEW_STATE_MUTATION],
+    ["setFileViewed", "read", ENTITLEMENT_FEATURE.REVIEW_STATE_MUTATION],
+    ["setKeyChangeViewed", "read", ENTITLEMENT_FEATURE.REVIEW_STATE_MUTATION],
+    ["createInlineComment", "write", ENTITLEMENT_FEATURE.COMMENT],
+  ])("enforces all three authorization axes for %s", (methodName, level, entitlement) => {
+    const handler = Object.getOwnPropertyDescriptor(PullsController.prototype, methodName)?.value;
+
+    expect(Reflect.getMetadata(REQUIRE_REPOSITORY_PERMISSION, handler)).toBe(level);
+    expect(Reflect.getMetadata(REQUIRE_WORKSPACE_ROLE, handler)).toBe(WORKSPACE_ROLE.REVIEWER);
+    expect(Reflect.getMetadata(REQUIRE_ENTITLEMENT, handler)).toBe(entitlement);
+    expect(Reflect.getMetadata(GUARDS_METADATA, handler)).toEqual([
+      RepositoryPermissionGuard,
+      WorkspaceRoleGuard,
+      EntitlementGuard,
+    ]);
+  });
+
   it("POST triggers a review run", async () => {
     const run = vi.fn(async () => ({
       prId: "pr1",

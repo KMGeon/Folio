@@ -1,6 +1,8 @@
 import { BadRequestException } from "@nestjs/common";
+import { ENTITLEMENT_FEATURE } from "@folio/types";
 import { describe, expect, it, vi } from "vitest";
 import type { RepositoriesFacade } from "../../../application/repositories/repositories.facade.js";
+import { REQUIRE_ENTITLEMENT } from "../authorization/require-entitlement.decorator.js";
 import { RepositoriesController } from "./repositories.controller.js";
 
 describe("RepositoriesController", () => {
@@ -15,7 +17,7 @@ describe("RepositoriesController", () => {
     ).resolves.toEqual({
       repositories: [],
     });
-    expect(facade.listForUser).toHaveBeenCalledWith({ login: "KMGeon" });
+    expect(facade.listForUser).toHaveBeenCalledWith({ userId: "user-1", login: "KMGeon" });
   });
 
   it("toggles repository activation", async () => {
@@ -32,10 +34,23 @@ describe("RepositoriesController", () => {
       ),
     ).resolves.toEqual({ id: "repo-1", folioEnabled: true });
     expect(facade.setEnabled).toHaveBeenCalledWith({
-      user: { login: "KMGeon" },
+      user: { id: "user-1", login: "KMGeon" },
       repositoryId: "repo-1",
       enabled: true,
     });
+  });
+
+  it("requires the repository activation entitlement on mutations only", () => {
+    const toggle = Object.getOwnPropertyDescriptor(
+      RepositoriesController.prototype,
+      "setEnabled",
+    )?.value;
+    const list = Object.getOwnPropertyDescriptor(RepositoriesController.prototype, "list")?.value;
+
+    expect(Reflect.getMetadata(REQUIRE_ENTITLEMENT, toggle)).toBe(
+      ENTITLEMENT_FEATURE.REPO_ACTIVATION,
+    );
+    expect(Reflect.getMetadata(REQUIRE_ENTITLEMENT, list)).toBeUndefined();
   });
 
   it("rejects invalid toggle bodies with a bad request", async () => {
