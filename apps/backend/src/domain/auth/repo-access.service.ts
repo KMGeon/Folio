@@ -48,6 +48,55 @@ export class RepoAccessService {
     return RANK[await this.getAccessLevel(input)] >= RANK[required];
   }
 
+  async filterReadableResolvedRepositories<
+    T extends { installationId: string; owner: string; name: string },
+  >(input: {
+    installations: readonly { id: string; githubInstallationId: number }[];
+    repositories: readonly T[];
+    username: string;
+  }): Promise<T[]> {
+    if (config.APP_PROFILE === "dev") {
+      return [...input.repositories];
+    }
+    const readable = Array.from({ length: input.repositories.length }, () => false);
+    const uncached: { index: number; repository: T }[] = [];
+    input.repositories.forEach((repository, index) => {
+      const cached = this.levelCache.get(
+        this.cacheKey(input.username, repository.owner, repository.name),
+      );
+      if (cached && cached.until > Date.now()) {
+        readable[index] = RANK[cached.level] >= RANK.read;
+      } else {
+        uncached.push({ index, repository });
+      }
+    });
+
+    try {
+      const levels = await this.github.getResolvedRepositoryPermissionLevels({
+        installations: input.installations,
+        repositories: uncached.map(({ repository }) => ({
+          installationId: repository.installationId,
+          owner: repository.owner,
+          repo: repository.name,
+        })),
+        username: input.username,
+      });
+      uncached.forEach(({ index, repository }, batchIndex) => {
+        const level = levels[batchIndex] ?? "none";
+        readable[index] = RANK[level] >= RANK.read;
+        if (level !== "none") {
+          this.levelCache.set(this.cacheKey(input.username, repository.owner, repository.name), {
+            level,
+            until: Date.now() + CACHE_TTL_MS,
+          });
+        }
+      });
+    } catch {
+      // A failed batch is a denial for every uncached repository; cached grants remain valid.
+    }
+    return input.repositories.filter((_, index) => readable[index]);
+  }
+
   // Kept for the existing read-scoped RepoAccessGuard.
   async assertAccessAllowed(input: {
     owner: string;
@@ -55,5 +104,9 @@ export class RepoAccessService {
     username: string;
   }): Promise<boolean> {
     return this.assertLevelAtLeast(input, "read");
+  }
+
+  private cacheKey(username: string, owner: string, repo: string): string {
+    return `${username}:${owner}/${repo}`;
   }
 }

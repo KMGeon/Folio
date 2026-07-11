@@ -17,16 +17,16 @@ export interface DashboardWorkspaceScope {
   repositories: RepositoryRow[];
 }
 
-export type DashboardRepositoryReadAuthorizer = (input: {
-  owner: string;
-  repo: string;
+export type DashboardResolvedRepositoryBatchAuthorizer = (input: {
+  installations: readonly InstallationRow[];
+  repositories: readonly RepositoryRow[];
   username: string;
-}) => Promise<boolean>;
+}) => Promise<RepositoryRow[]>;
 
 export async function loadDashboardWorkspaceScope(
   userId: string,
   userLogin: string,
-  canReadRepository: DashboardRepositoryReadAuthorizer,
+  filterReadableRepositories: DashboardResolvedRepositoryBatchAuthorizer,
 ): Promise<DashboardWorkspaceScope | null> {
   const [membership] = await workspaceMembersRepo.listByUser(userId);
   if (!membership) {
@@ -44,18 +44,10 @@ export async function loadDashboardWorkspaceScope(
     installationsRepo.listByWorkspaceAccountId(workspace.githubAccountId),
     repositoriesRepo.listByWorkspaceId(workspace.id),
   ]);
-  const authorizedRepositories = (
-    await Promise.all(
-      repositories.map(async (repository) =>
-        (await canReadRepository({
-          owner: repository.owner,
-          repo: repository.name,
-          username: userLogin,
-        }))
-          ? repository
-          : null,
-      ),
-    )
-  ).filter((repository): repository is RepositoryRow => repository !== null);
+  const authorizedRepositories = await filterReadableRepositories({
+    installations,
+    repositories,
+    username: userLogin,
+  });
   return { workspace, installations, repositories: authorizedRepositories };
 }

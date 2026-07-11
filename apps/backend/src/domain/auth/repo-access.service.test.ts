@@ -22,13 +22,18 @@ function configureProfile(profile: "dev" | "prd") {
   }
 }
 
-async function createService(profile: "dev" | "prd", getLevel: ReturnType<typeof vi.fn>) {
+async function createService(
+  profile: "dev" | "prd",
+  getLevel: ReturnType<typeof vi.fn>,
+  getBatchLevels = vi.fn(),
+) {
   vi.resetModules();
   configureProfile(profile);
   const { RepoAccessService } = await import("./repo-access.service.js");
-  const adapter = { getUserRepoPermissionLevel: getLevel } as unknown as ConstructorParameters<
-    typeof RepoAccessService
-  >[0];
+  const adapter = {
+    getUserRepoPermissionLevel: getLevel,
+    getResolvedRepositoryPermissionLevels: getBatchLevels,
+  } as unknown as ConstructorParameters<typeof RepoAccessService>[0];
   return new RepoAccessService(adapter);
 }
 
@@ -66,6 +71,52 @@ describe("RepoAccessService", () => {
 
     await expect(svc.assertAccessAllowed(REF)).resolves.toBe(true);
     expect(getLevel).not.toHaveBeenCalled();
+  });
+});
+
+describe("RepoAccessService.filterReadableResolvedRepositories", () => {
+  afterEach(() => {
+    process.env = { ...originalEnv };
+    vi.clearAllMocks();
+  });
+
+  const installations = [{ id: "installation-1", githubInstallationId: 101 }];
+  const repositories = [
+    { id: "repository-1", installationId: "installation-1", owner: "acme", name: "cached" },
+    { id: "repository-2", installationId: "installation-1", owner: "acme", name: "denied" },
+  ];
+
+  it("reuses positive cache entries while rechecking prior denials", async () => {
+    const getBatchLevels = vi
+      .fn()
+      .mockResolvedValueOnce(["read", "none"])
+      .mockResolvedValueOnce(["read"]);
+    const svc = await createService("prd", vi.fn(), getBatchLevels);
+
+    await expect(
+      svc.filterReadableResolvedRepositories({ installations, repositories, username: "octocat" }),
+    ).resolves.toEqual([repositories[0]]);
+    await expect(
+      svc.filterReadableResolvedRepositories({ installations, repositories, username: "octocat" }),
+    ).resolves.toEqual(repositories);
+
+    expect(getBatchLevels).toHaveBeenNthCalledWith(2, {
+      installations,
+      repositories: [{ installationId: "installation-1", owner: "acme", repo: "denied" }],
+      username: "octocat",
+    });
+  });
+
+  it("fails closed without exposing repository rows when the batch adapter rejects", async () => {
+    const svc = await createService(
+      "prd",
+      vi.fn(),
+      vi.fn().mockRejectedValue(new Error("GitHub unavailable")),
+    );
+
+    await expect(
+      svc.filterReadableResolvedRepositories({ installations, repositories, username: "octocat" }),
+    ).resolves.toEqual([]);
   });
 });
 

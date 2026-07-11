@@ -4,7 +4,6 @@ import { chaptersRepo, pullRequestsRepo, reviewStateRepo, revisionsRepo } from "
 export type ActivityDay = { date: string; count: number };
 import { createInstallationOctokit } from "@folio/github";
 import type { Octokit } from "octokit";
-import type { RepoAccessService } from "../../domain/auth/repo-access.service.js";
 import { fetchPublicContributions } from "../../infrastructure/github/github-contributions.js";
 import { pullLineCounts, relativeTime } from "./dashboard-pull-details.js";
 import {
@@ -31,7 +30,7 @@ import type {
 } from "./dashboard-pull-page-types.js";
 import {
   type DashboardWorkspaceScope,
-  type DashboardRepositoryReadAuthorizer,
+  type DashboardResolvedRepositoryBatchAuthorizer,
   loadDashboardWorkspaceScope,
 } from "./dashboard-workspace-scope.js";
 
@@ -87,11 +86,11 @@ export interface DashboardPayload {
 
 export interface DashboardDeps {
   octokitFactory?: (githubInstallationId: number) => Promise<Octokit>;
-  repoAccess?: Pick<RepoAccessService, "assertLevelAtLeast">;
+  repoAccess?: { filterReadableResolvedRepositories: DashboardResolvedRepositoryBatchAuthorizer };
   workspaceScopeLoader?: (
     userId: string,
     userLogin: string,
-    canReadRepository: DashboardRepositoryReadAuthorizer,
+    filterReadableRepositories: DashboardResolvedRepositoryBatchAuthorizer,
   ) => Promise<DashboardWorkspaceScope | null>;
 }
 
@@ -255,12 +254,12 @@ export class DashboardFacade {
     id: string;
     login: string;
   }): Promise<DashboardWorkspaceScope | null> {
-    const canReadRepository: DashboardRepositoryReadAuthorizer = (input) =>
-      this.deps.repoAccess?.assertLevelAtLeast(input, "read") ?? Promise.resolve(false);
+    const filterReadableRepositories: DashboardResolvedRepositoryBatchAuthorizer = (input) =>
+      this.deps.repoAccess?.filterReadableResolvedRepositories(input) ?? Promise.resolve([]);
     return (this.deps.workspaceScopeLoader ?? loadDashboardWorkspaceScope)(
       user.id,
       user.login,
-      canReadRepository,
+      filterReadableRepositories,
     );
   }
 

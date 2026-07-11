@@ -7,6 +7,7 @@ import {
 import { MEMBERSHIP_STATUS, WORKSPACE_ROLE } from "@folio/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CoreException } from "../../support/error/core-exception.js";
+import type { DashboardResolvedRepositoryBatchAuthorizer } from "./dashboard-workspace-scope.js";
 
 type FolioDbModule = Record<string, unknown> & {
   installationsRepo: typeof installationsRepo;
@@ -37,11 +38,13 @@ const { DashboardFacade } = await import("./dashboard.facade.js");
 const { loadDashboardWorkspaceScope } = await import("./dashboard-workspace-scope.js");
 
 describe("dashboard workspace scope", () => {
-  const canReadRepository = vi.fn();
+  const filterReadableResolvedRepositories = vi.fn<DashboardResolvedRepositoryBatchAuthorizer>(
+    async (input) => [...input.repositories],
+  );
 
   beforeEach(() => {
     vi.clearAllMocks();
-    canReadRepository.mockResolvedValue(true);
+    filterReadableResolvedRepositories.mockImplementation(async (input) => [...input.repositories]);
     vi.mocked(workspaceMembersRepo.listByUser).mockResolvedValue([
       {
         workspaceId: "workspace-1",
@@ -72,11 +75,11 @@ describe("dashboard workspace scope", () => {
     vi.mocked(workspaceMembersRepo.listByUser).mockResolvedValue([]);
 
     await expect(
-      loadDashboardWorkspaceScope("user-1", "octocat", canReadRepository),
+      loadDashboardWorkspaceScope("user-1", "octocat", filterReadableResolvedRepositories),
     ).resolves.toBeNull();
 
     expect(workspacesRepo.getById).not.toHaveBeenCalled();
-    expect(canReadRepository).not.toHaveBeenCalled();
+    expect(filterReadableResolvedRepositories).not.toHaveBeenCalled();
   });
 
   it("denies a suspended workspace membership", async () => {
@@ -89,7 +92,7 @@ describe("dashboard workspace scope", () => {
     ]);
 
     await expect(
-      loadDashboardWorkspaceScope("user-1", "octocat", canReadRepository),
+      loadDashboardWorkspaceScope("user-1", "octocat", filterReadableResolvedRepositories),
     ).rejects.toMatchObject({ errorType: { statusCode: 403 } });
   });
 
@@ -103,29 +106,37 @@ describe("dashboard workspace scope", () => {
     ]);
 
     await expect(
-      loadDashboardWorkspaceScope("user-1", "octocat", canReadRepository),
+      loadDashboardWorkspaceScope("user-1", "octocat", filterReadableResolvedRepositories),
     ).rejects.toBeInstanceOf(CoreException);
   });
 
   it("allows an active reviewer and checks every repository with live GitHub read access", async () => {
-    const scope = await loadDashboardWorkspaceScope("user-1", "octocat", canReadRepository);
+    const scope = await loadDashboardWorkspaceScope(
+      "user-1",
+      "octocat",
+      filterReadableResolvedRepositories,
+    );
 
     expect(workspaceMembersRepo.listByUser).toHaveBeenCalledWith("user-1");
     expect(installationsRepo.listByWorkspaceAccountId).toHaveBeenCalledWith(42);
     expect(repositoriesRepo.listByWorkspaceId).toHaveBeenCalledWith("workspace-1");
     expect(installationsRepo.listByAccountLogin).not.toHaveBeenCalled();
-    expect(canReadRepository).toHaveBeenCalledWith({
-      owner: "acme",
-      repo: "folio",
+    expect(filterReadableResolvedRepositories).toHaveBeenCalledWith({
+      installations: [{ id: "installation-1", githubInstallationId: 111 }],
+      repositories: [expect.objectContaining({ id: "repository-1", name: "folio" })],
       username: "octocat",
     });
     expect(scope?.installations.map((installation) => installation.id)).toEqual(["installation-1"]);
   });
 
   it("filters repository metadata when live GitHub read permission is denied", async () => {
-    canReadRepository.mockResolvedValue(false);
+    filterReadableResolvedRepositories.mockResolvedValue([]);
 
-    const scope = await loadDashboardWorkspaceScope("user-1", "octocat", canReadRepository);
+    const scope = await loadDashboardWorkspaceScope(
+      "user-1",
+      "octocat",
+      filterReadableResolvedRepositories,
+    );
 
     expect(scope?.repositories).toEqual([]);
   });
@@ -148,7 +159,7 @@ describe("dashboard workspace scope", () => {
   it.each(["dashboard", "summary", "pulls", "open pulls"])(
     "does not mint an installation token or expose unreadable repository data on %s",
     async (readPath) => {
-      canReadRepository.mockResolvedValue(false);
+      filterReadableResolvedRepositories.mockResolvedValue([]);
       vi.mocked(repositoriesRepo.listByWorkspaceId).mockResolvedValue([
         {
           id: "repository-1",
@@ -160,10 +171,9 @@ describe("dashboard workspace scope", () => {
         } as never,
       ]);
       const octokitFactory = vi.fn();
-      const assertLevelAtLeast = vi.fn(async (input) => canReadRepository(input));
       const facade = new DashboardFacade({
         octokitFactory,
-        repoAccess: { assertLevelAtLeast },
+        repoAccess: { filterReadableResolvedRepositories },
       });
 
       const user = { id: "user-1", login: "octocat" };
@@ -176,10 +186,11 @@ describe("dashboard workspace scope", () => {
               ? await facade.getPullPageForUser(user, { bucket: "ready" })
               : await facade.getOpenPullPagesForUser(user, {});
 
-      expect(assertLevelAtLeast).toHaveBeenCalledWith(
-        { owner: "acme", repo: "folio", username: "octocat" },
-        "read",
-      );
+      expect(filterReadableResolvedRepositories).toHaveBeenCalledWith({
+        installations: [{ id: "installation-1", githubInstallationId: 111 }],
+        repositories: [expect.objectContaining({ id: "repository-1", name: "folio" })],
+        username: "octocat",
+      });
       expect(octokitFactory).not.toHaveBeenCalled();
       expect(JSON.stringify(payload)).not.toContain("repository-1");
     },

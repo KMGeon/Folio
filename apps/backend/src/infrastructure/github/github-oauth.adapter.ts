@@ -14,6 +14,19 @@ import { installationsRepo, repositoriesRepo } from "@folio/db";
 import { Injectable } from "@nestjs/common";
 import { config } from "../../config.js";
 
+export const RESOLVED_REPOSITORY_PERMISSION_CONCURRENCY = 4;
+
+export type ResolvedRepositoryPermissionInput = {
+  installationId: string;
+  owner: string;
+  repo: string;
+};
+
+export type ResolvedInstallationPermissionInput = {
+  id: string;
+  githubInstallationId: number;
+};
+
 @Injectable()
 export class GitHubOAuthAdapter {
   private callbackUrl(): string {
@@ -70,6 +83,57 @@ export class GitHubOAuthAdapter {
     }
     const client = await createInstallationOctokit(installation.githubInstallationId);
     return getUserRepoPermissionLevel(client, { owner, repo, username });
+  }
+
+  async getResolvedRepositoryPermissionLevels(input: {
+    installations: readonly ResolvedInstallationPermissionInput[];
+    repositories: readonly ResolvedRepositoryPermissionInput[];
+    username: string;
+  }): Promise<GitHubRepoAccessLevel[]> {
+    const levels = Array.from<GitHubRepoAccessLevel>({ length: input.repositories.length }).fill(
+      "none",
+    );
+    const installations = new Map(
+      input.installations.map((installation) => [installation.id, installation]),
+    );
+    const clients = new Map<string, ReturnType<typeof createInstallationOctokit>>();
+    let nextIndex = 0;
+    const workers = Array.from(
+      {
+        length: Math.min(RESOLVED_REPOSITORY_PERMISSION_CONCURRENCY, input.repositories.length),
+      },
+      async () => {
+        for (;;) {
+          const index = nextIndex;
+          nextIndex += 1;
+          const repository = input.repositories[index];
+          if (!repository) {
+            return;
+          }
+          const installation = installations.get(repository.installationId);
+          if (!installation) {
+            continue;
+          }
+          try {
+            let client = clients.get(installation.id);
+            if (!client) {
+              client = createInstallationOctokit(installation.githubInstallationId);
+              clients.set(installation.id, client);
+            }
+            levels[index] = await getUserRepoPermissionLevel(await client, {
+              owner: repository.owner,
+              repo: repository.repo,
+              username: input.username,
+            });
+          } catch {
+            // Dashboard discovery is fail-closed: unavailable permission data must not expose repos.
+            levels[index] = "none";
+          }
+        }
+      },
+    );
+    await Promise.all(workers);
+    return levels;
   }
 
   private async resolveRepo(owner: string, repo: string) {
