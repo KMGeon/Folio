@@ -15,6 +15,7 @@ import type { GitHubWebhookCommand, GitHubWebhookResult } from "./github-webhook
 const REVIEWABLE_PR_ACTIONS = new Set(["opened", "synchronize", "reopened", "ready_for_review"]);
 // installation actions that (re)grant access and warrant a repository sync.
 const INSTALL_SYNC_ACTIONS = new Set(["created", "new_permissions_accepted", "unsuspend"]);
+const INSTALL_DISCONNECT_ACTIONS = new Set(["suspend", "deleted"]);
 
 @Injectable()
 export class GitHubWebhookService {
@@ -98,6 +99,15 @@ export class GitHubWebhookService {
     try {
       if (
         event.name === "installation" &&
+        INSTALL_DISCONNECT_ACTIONS.has(event.action) &&
+        event.payload.installation
+      ) {
+        await this.installationSync.disconnect(event.payload.installation.id);
+        return;
+      }
+
+      if (
+        event.name === "installation" &&
         INSTALL_SYNC_ACTIONS.has(event.action) &&
         event.payload.installation
       ) {
@@ -113,7 +123,7 @@ export class GitHubWebhookService {
 
       if (
         event.name === "installation_repositories" &&
-        event.action === "added" &&
+        (event.action === "added" || event.action === "removed") &&
         event.payload.installation
       ) {
         await this.installationSync.sync({

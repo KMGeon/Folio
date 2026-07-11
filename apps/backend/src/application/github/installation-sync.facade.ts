@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { installationsRepo, repositoriesRepo } from "@folio/db";
+import { getDb, installationsRepo, repositoriesRepo, workspacesRepo } from "@folio/db";
 import type { AccountType } from "@folio/types";
 import { createInstallationOctokit } from "@folio/github";
 
@@ -40,17 +40,35 @@ export class InstallationSyncFacade {
     const repos = await octokit.paginate(octokit.rest.apps.listReposAccessibleToInstallation, {
       per_page: 100,
     });
+    const workspace =
+      installation.githubAccountId === null
+        ? null
+        : await workspacesRepo.getByGithubAccountId(installation.githubAccountId);
 
-    for (const repo of repos) {
-      await repositoriesRepo.upsertByGithubId({
-        installationId: installation.id,
+    await repositoriesRepo.reconcileInstallationAccess(
+      installation.id,
+      workspace?.id ?? null,
+      repos.map((repo) => ({
         githubRepoId: repo.id,
         owner: repo.owner.login,
         name: repo.name,
         fullName: repo.full_name,
         private: repo.private,
         defaultBranch: repo.default_branch,
-      });
+      })),
+    );
+  }
+
+  async disconnect(githubInstallationId: number, at: Date = new Date()): Promise<void> {
+    const installation = await installationsRepo.getByGithubId(githubInstallationId);
+    if (!installation) {
+      return;
     }
+
+    // Keep the installation as a tombstone while atomically revoking repository eligibility.
+    await getDb().transaction(async (transaction) => {
+      await installationsRepo.setSuspendedAt(installation.id, at, transaction);
+      await repositoriesRepo.disconnectInstallation(installation.id, transaction);
+    });
   }
 }
