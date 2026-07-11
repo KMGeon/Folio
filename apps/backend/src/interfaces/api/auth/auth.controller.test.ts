@@ -86,13 +86,11 @@ function configureProfile(profile: "dev" | "prd") {
 async function createServer(profile: "dev" | "prd" = "prd", appSlug: string | null = "folio-dev") {
   vi.resetModules();
   configureProfile(profile);
-  if (appSlug === null) {
-    delete process.env.GITHUB_APP_SLUG;
-  } else {
-    process.env.GITHUB_APP_SLUG = appSlug;
-  }
   const cookieParser = (await import("cookie-parser")).default;
   const { AppModule } = await import("../../../app.module.js");
+  const { config } = await import("../../../config.js");
+  // Boot with valid prd configuration, then isolate route-level misconfiguration cases.
+  config.GITHUB_APP_SLUG = appSlug ?? undefined;
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
   const app = moduleRef.createNestApplication({ rawBody: true });
   app.use(cookieParser());
