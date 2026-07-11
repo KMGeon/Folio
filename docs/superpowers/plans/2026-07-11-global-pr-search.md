@@ -19,7 +19,7 @@
 
 ---
 
-### Task 1: Replace page commands with recent open PR results
+### Task 1: Implement recent open PR search with request states
 
 **Files:**
 - Modify: `apps/web/src/components/app-search.test.tsx`
@@ -39,6 +39,7 @@ const dashboardApi = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/dashboard-api", () => ({
+  fetchDashboard: vi.fn(() => Promise.resolve({ pulls: [] })),
   fetchDashboardOpenPullPages: dashboardApi.fetchDashboardOpenPullPages,
 }));
 
@@ -204,16 +205,7 @@ pnpm --filter @folio/web test -- app-search.test.tsx
 
 Before running, add `await flushPromises()` after opening the dialog in the Tab-focus test so its result button exists. Expected: all `AppSearch` tests pass.
 
-- [ ] **Step 6: Commit recent PR result behavior**
-
-```bash
-git add apps/web/src/components/app-search.tsx apps/web/src/components/app-search.test.tsx
-git commit -m "fix(web): show recent PRs in global search"
-```
-
----
-
-### Task 2: Add debounced search and explicit request states
+#### Phase 2: Add debounced search and explicit request states
 
 **Files:**
 - Modify: `apps/web/src/components/app-search.test.tsx`
@@ -463,13 +455,13 @@ git commit -m "fix(web): search open PRs from global modal"
 
 ---
 
-### Task 3: Repository verification
+### Task 2: Repository verification
 
 **Files:**
 - Verify only; no planned source changes.
 
 **Interfaces:**
-- Consumes: completed global PR search behavior from Tasks 1 and 2.
+- Consumes: completed global PR search behavior from Task 1.
 - Produces: verification evidence that the monorepo remains healthy.
 
 - [ ] **Step 1: Run the required repository checks**
@@ -486,8 +478,8 @@ Expected: all four commands exit 0. If a command fails, use `superpowers:systema
 - [ ] **Step 2: Inspect the final diff and worktree**
 
 ```bash
-git diff HEAD~2 --check
-git diff HEAD~2 -- apps/web/src/components/app-search.tsx apps/web/src/components/app-search.test.tsx
+git diff HEAD~1 --check
+git diff HEAD~1 -- apps/web/src/components/app-search.tsx apps/web/src/components/app-search.test.tsx
 git status --short
 ```
 
