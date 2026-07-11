@@ -40,7 +40,7 @@ describe("ReviewTopBar", () => {
     expect(markup).toContain("text-info");
     expect(markup).toContain("bg-primary/15");
     expect(markup).toContain("text-primary");
-    expect(markup).toContain("shrink-0 px-4 py-4 md:px-6");
+    expect(markup).toContain("shrink-0 px-4 pt-3 md:px-6");
     expect(markup).toContain("flex min-w-0 flex-col gap-2.5");
     expect(markup).toContain("mt-3 flex flex-wrap items-center gap-x-3 gap-y-2");
     expect(markup).toContain("mt-4 flex items-center justify-between");
