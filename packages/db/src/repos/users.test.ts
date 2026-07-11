@@ -126,6 +126,24 @@ describe("usersRepo.approve", () => {
 });
 
 describe("usersRepo conditional global authorization transitions", () => {
+  it("locks unique user rows in deterministic user-id order", async () => {
+    const forUpdate = vi.fn().mockResolvedValue([]);
+    const orderBy = vi.fn().mockReturnValue({ for: forUpdate });
+    const where = vi.fn().mockReturnValue({ orderBy });
+    const from = vi.fn().mockReturnValue({ where });
+    const select = vi.fn().mockReturnValue({ from });
+
+    await expect(
+      usersRepo.getByIdsForUpdate(["user-z", "user-a", "user-z"], { select } as never),
+    ).resolves.toEqual([]);
+
+    expect(orderBy).toHaveBeenCalledOnce();
+    expect(forUpdate).toHaveBeenCalledWith("update");
+    const predicate = new PgDialect().sqlToQuery(where.mock.calls[0]?.[0]);
+    expect(predicate.sql).toContain('"users"."id" in ($1, $2)');
+    expect(predicate.params).toEqual(["user-a", "user-z"]);
+  });
+
   it("locks one user row for an authority-sensitive transaction", async () => {
     const forUpdate = vi.fn().mockResolvedValue([]);
     const limit = vi.fn().mockReturnValue({ for: forUpdate });

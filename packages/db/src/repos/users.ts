@@ -1,5 +1,5 @@
 import { GLOBAL_STATUS, type GlobalStatus } from "@folio/types";
-import { and, asc, eq, ne, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
 import { type Db, getDb } from "../client.js";
 import { type UserInsert, type UserRow, USER_STATUS, users } from "../schema/users.js";
 
@@ -20,6 +20,21 @@ export const usersRepo = {
   async getByIdForUpdate(id: string, db: Db = getDb()): Promise<UserRow | null> {
     const [row] = await db.select().from(users).where(eq(users.id, id)).limit(1).for("update");
     return row ?? null;
+  },
+
+  async getByIdsForUpdate(userIds: string[], db: Db = getDb()): Promise<UserRow[]> {
+    const orderedUserIds = [...new Set(userIds)].sort();
+    if (orderedUserIds.length === 0) {
+      return [];
+    }
+
+    // All global-user mutations share this order so overlapping authority locks cannot deadlock.
+    return db
+      .select()
+      .from(users)
+      .where(inArray(users.id, orderedUserIds))
+      .orderBy(asc(users.id))
+      .for("update");
   },
 
   async getByGithubId(githubUserId: number, db: Db = getDb()): Promise<UserRow | null> {

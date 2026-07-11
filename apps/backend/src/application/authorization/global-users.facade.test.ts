@@ -11,7 +11,7 @@ vi.mock("@folio/db", () => ({
   auditLogsRepo: { record: vi.fn() },
   getDb: () => ({ transaction: dbDouble.transaction }),
   usersRepo: {
-    getById: vi.fn(),
+    getByIdsForUpdate: vi.fn(),
     listAll: vi.fn(),
     setGlobalStatusIfCurrent: vi.fn(),
     setSystemAdminIfCurrent: vi.fn(),
@@ -56,6 +56,12 @@ function expectCoreError(error: unknown, errorType: (typeof ErrorType)[keyof typ
   expect((error as CoreException).errorType).toBe(errorType);
 }
 
+function arrangeLockedUsers(...rows: UserRow[]): void {
+  vi.mocked(usersRepo.getByIdsForUpdate).mockResolvedValue(
+    [...rows].sort((left, right) => left.id.localeCompare(right.id)),
+  );
+}
+
 describe("GlobalUsersFacade", () => {
   let facade: GlobalUsersFacade;
 
@@ -76,16 +82,43 @@ describe("GlobalUsersFacade", () => {
     ["approve", GLOBAL_STATUS.PENDING, GLOBAL_STATUS.ACTIVE, AUDIT_ACTION.USER_APPROVE],
     ["suspend", GLOBAL_STATUS.ACTIVE, GLOBAL_STATUS.SUSPENDED, AUDIT_ACTION.USER_SUSPEND],
   ] as const)("%s", (operation, fromStatus, toStatus, action) => {
+    it.each([
+      ["former admin", user("user-z", GLOBAL_STATUS.ACTIVE, false)],
+      ["suspended admin", user("user-z", GLOBAL_STATUS.SUSPENDED, true)],
+    ])("locks actor and target in sorted order before rejecting a %s", async (_label, actor) => {
+      const target = user("user-a", fromStatus);
+      vi.mocked(usersRepo.getByIdsForUpdate).mockResolvedValue([target, actor]);
+
+      const error = await facade[operation]({
+        actorUserId: actor.id,
+        targetUserId: target.id,
+      }).catch((caught: unknown) => caught);
+
+      expect(usersRepo.getByIdsForUpdate).toHaveBeenCalledWith(
+        ["user-a", "user-z"],
+        transactionHandle,
+      );
+      expectCoreError(error, ErrorType.Forbidden);
+      expect(usersRepo.setGlobalStatusIfCurrent).not.toHaveBeenCalled();
+      expect(auditLogsRepo.record).not.toHaveBeenCalled();
+    });
+
     it(`moves ${fromStatus} to ${toStatus} and records the exact audit atomically`, async () => {
       const before = user("user-1", fromStatus);
       const after = user("user-1", toStatus);
-      vi.mocked(usersRepo.getById).mockResolvedValue(before);
+      arrangeLockedUsers(user("admin-1", GLOBAL_STATUS.ACTIVE, true), before);
       vi.mocked(usersRepo.setGlobalStatusIfCurrent).mockResolvedValue(after);
       vi.mocked(auditLogsRepo.record).mockImplementation(async (input) => auditRow(input));
 
       await facade[operation]({ actorUserId: "admin-1", targetUserId: "user-1" });
 
-      expect(usersRepo.getById).toHaveBeenCalledWith("user-1", transactionHandle);
+      expect(usersRepo.getByIdsForUpdate).toHaveBeenCalledWith(
+        ["admin-1", "user-1"],
+        transactionHandle,
+      );
+      expect(vi.mocked(usersRepo.getByIdsForUpdate).mock.invocationCallOrder[0]).toBeLessThan(
+        vi.mocked(usersRepo.setGlobalStatusIfCurrent).mock.invocationCallOrder[0]!,
+      );
       if (operation === "suspend") {
         expect(usersRepo.setGlobalStatusIfCurrent).toHaveBeenCalledWith(
           "user-1",
@@ -117,7 +150,7 @@ describe("GlobalUsersFacade", () => {
     });
 
     it("throws UserNotFound and never audits a missing target", async () => {
-      vi.mocked(usersRepo.getById).mockResolvedValue(null);
+      arrangeLockedUsers(user("admin-1", GLOBAL_STATUS.ACTIVE, true));
 
       const error = await facade[operation]({
         actorUserId: "admin-1",
@@ -135,7 +168,7 @@ describe("GlobalUsersFacade", () => {
     });
 
     it("rejects a no-op or invalid source status without a mutation or audit", async () => {
-      vi.mocked(usersRepo.getById).mockResolvedValue(user("user-1", toStatus));
+      arrangeLockedUsers(user("admin-1", GLOBAL_STATUS.ACTIVE, true), user("user-1", toStatus));
 
       const error = await facade[operation]({
         actorUserId: "admin-1",
@@ -148,7 +181,7 @@ describe("GlobalUsersFacade", () => {
     });
 
     it("rejects a stale conditional update and never emits a false audit", async () => {
-      vi.mocked(usersRepo.getById).mockResolvedValue(user("user-1", fromStatus));
+      arrangeLockedUsers(user("admin-1", GLOBAL_STATUS.ACTIVE, true), user("user-1", fromStatus));
       vi.mocked(usersRepo.setGlobalStatusIfCurrent).mockResolvedValue(null);
 
       const error = await facade[operation]({
@@ -162,7 +195,7 @@ describe("GlobalUsersFacade", () => {
   });
 
   it("does not suspend the current system admin", async () => {
-    vi.mocked(usersRepo.getById).mockResolvedValue(user("admin-1", GLOBAL_STATUS.ACTIVE, true));
+    arrangeLockedUsers(user("admin-1", GLOBAL_STATUS.ACTIVE, true));
 
     const error = await facade
       .suspend({ actorUserId: "admin-1", targetUserId: "admin-1" })
@@ -175,9 +208,10 @@ describe("GlobalUsersFacade", () => {
 
   it("rejects suspend when a concurrent transfer promotes the target before the status CAS", async () => {
     let currentIsSystemAdmin = false;
-    vi.mocked(usersRepo.getById).mockImplementation(async () =>
+    vi.mocked(usersRepo.getByIdsForUpdate).mockImplementation(async () => [
+      user("admin-1", GLOBAL_STATUS.ACTIVE, true),
       user("user-1", GLOBAL_STATUS.ACTIVE, currentIsSystemAdmin),
-    );
+    ]);
     vi.mocked(usersRepo.setGlobalStatusIfCurrent).mockImplementation(
       async (_id, _expected, _next, _transaction, conditions) => {
         currentIsSystemAdmin = true;
@@ -203,11 +237,28 @@ describe("GlobalUsersFacade", () => {
   });
 
   describe("transferSystemAdmin", () => {
+    it("locks actor and target in sorted order before revalidating transfer authority", async () => {
+      const actor = user("user-z", GLOBAL_STATUS.ACTIVE, false);
+      const target = user("user-a", GLOBAL_STATUS.ACTIVE);
+      vi.mocked(usersRepo.getByIdsForUpdate).mockResolvedValue([target, actor]);
+
+      const error = await facade
+        .transferSystemAdmin({ actorUserId: actor.id, targetUserId: target.id })
+        .catch((caught: unknown) => caught);
+
+      expect(usersRepo.getByIdsForUpdate).toHaveBeenCalledWith(
+        ["user-a", "user-z"],
+        transactionHandle,
+      );
+      expectCoreError(error, ErrorType.Forbidden);
+      expect(usersRepo.setSystemAdminIfCurrent).not.toHaveBeenCalled();
+      expect(auditLogsRepo.record).not.toHaveBeenCalled();
+    });
+
     function arrangeValidTransfer(): void {
-      vi.mocked(usersRepo.getById).mockImplementation(async (id) =>
-        id === "admin-1"
-          ? user("admin-1", GLOBAL_STATUS.ACTIVE, true)
-          : user("user-1", GLOBAL_STATUS.ACTIVE),
+      arrangeLockedUsers(
+        user("admin-1", GLOBAL_STATUS.ACTIVE, true),
+        user("user-1", GLOBAL_STATUS.ACTIVE),
       );
       vi.mocked(usersRepo.setSystemAdminIfCurrent)
         .mockResolvedValueOnce(user("admin-1", GLOBAL_STATUS.ACTIVE))
@@ -223,8 +274,13 @@ describe("GlobalUsersFacade", () => {
         targetUserId: "user-1",
       });
 
-      expect(usersRepo.getById).toHaveBeenNthCalledWith(1, "admin-1", transactionHandle);
-      expect(usersRepo.getById).toHaveBeenNthCalledWith(2, "user-1", transactionHandle);
+      expect(usersRepo.getByIdsForUpdate).toHaveBeenCalledWith(
+        ["admin-1", "user-1"],
+        transactionHandle,
+      );
+      expect(vi.mocked(usersRepo.getByIdsForUpdate).mock.invocationCallOrder[0]).toBeLessThan(
+        vi.mocked(usersRepo.setSystemAdminIfCurrent).mock.invocationCallOrder[0]!,
+      );
       expect(usersRepo.setSystemAdminIfCurrent).toHaveBeenNthCalledWith(
         1,
         "admin-1",
@@ -265,24 +321,19 @@ describe("GlobalUsersFacade", () => {
     });
 
     it.each([
-      ["actor", "admin-1", null, user("user-1", GLOBAL_STATUS.ACTIVE)],
-      ["target", "user-1", user("admin-1", GLOBAL_STATUS.ACTIVE, true), null],
-    ] as const)(
-      "throws UserNotFound when the %s is missing",
-      async (_label, missingId, actor, target) => {
-        vi.mocked(usersRepo.getById).mockImplementation(async (id) =>
-          id === missingId ? null : id === "admin-1" ? actor : target,
-        );
+      ["actor", null, user("user-1", GLOBAL_STATUS.ACTIVE)],
+      ["target", user("admin-1", GLOBAL_STATUS.ACTIVE, true), null],
+    ] as const)("throws UserNotFound when the %s is missing", async (_label, actor, target) => {
+      arrangeLockedUsers(...([actor, target].filter(Boolean) as UserRow[]));
 
-        const error = await facade
-          .transferSystemAdmin({ actorUserId: "admin-1", targetUserId: "user-1" })
-          .catch((caught: unknown) => caught);
+      const error = await facade
+        .transferSystemAdmin({ actorUserId: "admin-1", targetUserId: "user-1" })
+        .catch((caught: unknown) => caught);
 
-        expectCoreError(error, ErrorType.UserNotFound);
-        expect(usersRepo.setSystemAdminIfCurrent).not.toHaveBeenCalled();
-        expect(auditLogsRepo.record).not.toHaveBeenCalled();
-      },
-    );
+      expectCoreError(error, ErrorType.UserNotFound);
+      expect(usersRepo.setSystemAdminIfCurrent).not.toHaveBeenCalled();
+      expect(auditLogsRepo.record).not.toHaveBeenCalled();
+    });
 
     it.each([
       [
@@ -311,9 +362,7 @@ describe("GlobalUsersFacade", () => {
         user("user-1", GLOBAL_STATUS.ACTIVE, true),
       ],
     ])("rejects transfer when %s", async (_label, actor, target) => {
-      vi.mocked(usersRepo.getById).mockImplementation(async (id) =>
-        id === "admin-1" ? actor : target,
-      );
+      arrangeLockedUsers(actor, target);
 
       const error = await facade
         .transferSystemAdmin({ actorUserId: "admin-1", targetUserId: "user-1" })
@@ -357,8 +406,8 @@ describe("GlobalUsersFacade", () => {
           throw error;
         }
       });
-      vi.mocked(usersRepo.getById).mockImplementation(async (id) =>
-        user(id, GLOBAL_STATUS.ACTIVE, adminById[id as keyof typeof adminById]),
+      vi.mocked(usersRepo.getByIdsForUpdate).mockImplementation(async (ids) =>
+        ids.map((id) => user(id, GLOBAL_STATUS.ACTIVE, adminById[id as keyof typeof adminById])),
       );
       vi.mocked(usersRepo.setSystemAdminIfCurrent).mockImplementation(
         async (id, expected, _status, value) => {

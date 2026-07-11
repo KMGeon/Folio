@@ -40,8 +40,7 @@ export class GlobalUsersFacade {
     }
 
     await getDb().transaction(async (transaction) => {
-      const actor = await usersRepo.getById(command.actorUserId, transaction);
-      const target = await usersRepo.getById(command.targetUserId, transaction);
+      const { actor, target } = await this.lockCommandUsers(command, transaction);
       if (!actor || !target) {
         this.userNotFound();
       }
@@ -99,13 +98,16 @@ export class GlobalUsersFacade {
     conditions?: { expectedIsSystemAdmin: boolean },
   ): Promise<void> {
     await getDb().transaction(async (transaction) => {
-      const before = await usersRepo.getById(command.targetUserId, transaction);
-      if (!before) {
+      const { actor, target } = await this.lockCommandUsers(command, transaction);
+      if (!target) {
         this.userNotFound();
       }
       if (
-        before.globalStatus !== expectedStatus ||
-        (nextStatus === GLOBAL_STATUS.SUSPENDED && before.isSystemAdmin)
+        !actor ||
+        actor.globalStatus !== GLOBAL_STATUS.ACTIVE ||
+        !actor.isSystemAdmin ||
+        target.globalStatus !== expectedStatus ||
+        (nextStatus === GLOBAL_STATUS.SUSPENDED && target.isSystemAdmin)
       ) {
         this.forbid();
       }
@@ -131,6 +133,19 @@ export class GlobalUsersFacade {
 
       await this.recordGlobalStatusAudit(command, expectedStatus, nextStatus, action, transaction);
     });
+  }
+
+  private async lockCommandUsers(
+    command: GlobalUserCommand,
+    transaction: Db,
+  ): Promise<{ actor: UserRow | undefined; target: UserRow | undefined }> {
+    // Users are the only lock class here; sorting preserves their place in the global lock order.
+    const orderedUserIds = [command.actorUserId, command.targetUserId].sort();
+    const lockedUsers = await usersRepo.getByIdsForUpdate(orderedUserIds, transaction);
+    return {
+      actor: lockedUsers.find((user) => user.id === command.actorUserId),
+      target: lockedUsers.find((user) => user.id === command.targetUserId),
+    };
   }
 
   private async recordGlobalStatusAudit(
