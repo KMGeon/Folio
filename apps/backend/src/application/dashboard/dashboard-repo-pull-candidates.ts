@@ -1,4 +1,5 @@
 import type { Octokit } from "octokit";
+import type { ReviewAnalysisStatus } from "../review/review-lifecycle.js";
 import {
   COMPLETED_PULL_LIMIT,
   type CompletedCursor,
@@ -15,6 +16,8 @@ import type {
 
 export type PullStatus = Record<"chapterCount" | "viewedChapters" | "changedFiles", number> & {
   status: DashboardReviewStatus;
+  analysisStatus: ReviewAnalysisStatus;
+  completedAt: string | null;
 };
 export type RepoRow = {
   id: string;
@@ -40,11 +43,17 @@ export type PullPageDeps = {
     octokit: Octokit,
     owner: string,
     repo: string,
-    state: "open" | "closed",
+    state: "open" | "closed" | "all",
     page?: number,
     direction?: DashboardDirection,
   ) => Promise<GitHubPullSummary[]>;
-  resolveStatus: (userId: string, repoId: string, prNumber: number) => Promise<PullStatus>;
+  resolveStatus: (
+    userId: string,
+    repoId: string,
+    repoFullName: string,
+    prNumber: number,
+    headSha: string,
+  ) => Promise<PullStatus>;
 };
 
 export type RepoCandidateResult = {
@@ -101,7 +110,7 @@ async function collectRepoCandidates(
       octokit,
       repo.owner,
       repo.name,
-      query.bucket === "completed" ? "closed" : "open",
+      query.bucket === "completed" ? "all" : "open",
       query.bucket === "completed" ? (page ?? undefined) : undefined,
       query.bucket === "completed" ? query.direction : undefined,
     );
@@ -110,13 +119,15 @@ async function collectRepoCandidates(
   }
 
   if (query.bucket === "completed") {
-    completedCandidates.push(...completedCandidatesForRepo(pulls, octokit, repo, query));
+    completedCandidates.push(
+      ...(await completedCandidatesForRepo(pulls, octokit, repo, user, query, deps)),
+    );
     return {
       openCandidates: [],
       completedCandidates,
       completedPage: {
         repoKey,
-        nextPage: pulls.length === COMPLETED_PULL_LIMIT ? (page ?? 1) + 1 : null,
+        nextPage: pulls.length >= COMPLETED_PULL_LIMIT ? (page ?? 1) + 1 : null,
       },
     };
   }
@@ -125,20 +136,52 @@ async function collectRepoCandidates(
   return { openCandidates, completedCandidates };
 }
 
-function completedCandidatesForRepo(
+async function completedCandidatesForRepo(
   pulls: GitHubPullSummary[],
   octokit: Octokit,
   repo: RepoRow,
+  user: { id: string; login: string },
   query: NormalizedQuery,
-): CompletedCandidate[] {
-  return pulls.flatMap((pr) => {
-    const candidate = completedCandidate(octokit, repo.owner, repo.name, pr);
-    return candidate &&
-      matchesClosedRange(candidate.completedIso, query.closedRange) &&
-      matchesPullQuery(query.q, repo.name, pr.number, pr.title, pr.user?.login)
-      ? [candidate]
-      : [];
-  });
+  deps: PullPageDeps,
+): Promise<CompletedCandidate[]> {
+  const candidates = await Promise.all(
+    pulls.map(async (pr): Promise<CompletedCandidate | null> => {
+      if (!matchesPullQuery(query.q, repo.name, pr.number, pr.title, pr.user?.login)) {
+        return null;
+      }
+      if (!pr.head.sha) {
+        const legacy = completedCandidate(octokit, repo.owner, repo.name, pr);
+        return legacy && matchesClosedRange(legacy.completedIso, query.closedRange)
+          ? { ...legacy, analysisStatus: "complete" }
+          : null;
+      }
+      const status = await deps.resolveStatus(
+        user.id,
+        repo.id,
+        repo.fullName,
+        pr.number,
+        pr.head.sha ?? "",
+      );
+      if (status.analysisStatus !== "complete" || !status.completedAt) {
+        return null;
+      }
+      if (!matchesClosedRange(status.completedAt, query.closedRange)) {
+        return null;
+      }
+      return {
+        octokit,
+        owner: repo.owner,
+        repo: repo.name,
+        number: pr.number,
+        title: pr.title,
+        author: pr.user?.login ?? "unknown",
+        completedIso: status.completedAt,
+        completedState: pr.merged_at ? "merged" : pr.draft ? "draft" : (pr.state ?? "open"),
+        analysisStatus: "complete",
+      };
+    }),
+  );
+  return candidates.filter((candidate): candidate is CompletedCandidate => candidate !== null);
 }
 
 async function openCandidatesForRepo(
@@ -157,7 +200,13 @@ async function openCandidatesForRepo(
       if (!matchesPullQuery(query.q, repo.name, pr.number, pr.title, pr.user?.login)) {
         return null;
       }
-      const status = await deps.resolveStatus(user.id, repo.id, pr.number);
+      const status = await deps.resolveStatus(
+        user.id,
+        repo.id,
+        repo.fullName,
+        pr.number,
+        pr.head.sha ?? "",
+      );
       return { octokit, repo, pr, status };
     }),
   );

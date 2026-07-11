@@ -1,6 +1,12 @@
 import { apiRequest } from "./api-client";
 
 export type DashboardReviewStatus = "ready" | "processing";
+export type ReviewAnalysisStatus =
+  | "not_requested"
+  | "processing"
+  | "retrying"
+  | "failed"
+  | "complete";
 export type DashboardRisk = "low" | "medium" | "high";
 
 export interface DashboardPull {
@@ -12,7 +18,11 @@ export interface DashboardPull {
   author: string;
   updatedAt: string;
   headBranch: string;
+  headSha: string;
   baseBranch: string;
+  githubStatus: DashboardCompletedState;
+  analysisStatus: ReviewAnalysisStatus;
+  completedAt: string | null;
   status: DashboardReviewStatus;
   chapterCount: number;
   viewedChapters: number;
@@ -22,7 +32,7 @@ export interface DashboardPull {
   risk: DashboardRisk;
 }
 
-export type DashboardCompletedState = "merged" | "closed";
+export type DashboardCompletedState = "open" | "draft" | "merged" | "closed";
 
 export interface DashboardCompletedPull {
   id: string;
@@ -33,6 +43,8 @@ export interface DashboardCompletedPull {
   author: string;
   completedAt: string;
   completedState: DashboardCompletedState;
+  githubStatus: DashboardCompletedState;
+  analysisStatus: "complete";
   additions: number;
   deletions: number;
   changedFiles: number;

@@ -12,7 +12,7 @@ const dashboardBoardLabels: DashboardBoardLabels = {
   ready: "Ready to review",
   yours: "Your pull requests",
   other: "Other",
-  completed: "Recently completed",
+  completed: "Complete",
 };
 
 export default async function DashboardPage() {

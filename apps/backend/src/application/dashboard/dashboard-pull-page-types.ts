@@ -47,11 +47,12 @@ export type DashboardOpenPullPages = Record<DashboardOpenBucket, DashboardPullPa
 export type GitHubPullSummary = Record<"title" | "updated_at", string> & {
   number: number;
   user?: { login?: string } | null;
-  head: { ref: string };
+  head: { ref: string; sha?: string };
   base: { ref: string };
   draft?: boolean;
   closed_at?: string | null;
   merged_at?: string | null;
+  state?: "open" | "closed";
 };
 
 export type CompletedCandidate = Record<
@@ -61,4 +62,5 @@ export type CompletedCandidate = Record<
   octokit: Octokit;
   number: number;
   completedState: DashboardCompletedState;
+  analysisStatus: "complete";
 };

@@ -31,7 +31,7 @@ describe("dashboard completed range", () => {
   it("limits completed pull pages to the last day when requested", async () => {
     vi.setSystemTime(new Date("2026-07-09T12:00:00Z"));
     const details = vi.fn(async (_client, _owner, _repo, state) => {
-      if (state !== "closed") {
+      if (state !== "all") {
         return [];
       }
       return [

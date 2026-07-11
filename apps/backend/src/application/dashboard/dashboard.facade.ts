@@ -1,16 +1,12 @@
 import { Injectable } from "@nestjs/common";
-import { chaptersRepo, pullRequestsRepo, reviewStateRepo, revisionsRepo } from "@folio/db";
 
 export type ActivityDay = { date: string; count: number };
 import { createInstallationOctokit } from "@folio/github";
 import type { Octokit } from "octokit";
 import { fetchPublicContributions } from "../../infrastructure/github/github-contributions.js";
 import { pullLineCounts, relativeTime } from "./dashboard-pull-details.js";
-import {
-  DASHBOARD_CLOSED_PULL_LIST_TTL_MS,
-  DASHBOARD_OPEN_PULL_LIST_TTL_MS,
-  cachedDashboardGithubRequest,
-} from "./dashboard-github-cache.js";
+import { listDashboardPulls } from "./dashboard-pull-list.js";
+import { resolveDashboardPullStatus } from "./dashboard-review-status.js";
 import {
   COMPLETED_PULL_LIMIT,
   completedCandidate,
@@ -23,11 +19,11 @@ import {
 import { getDashboardSummaryForUser } from "./dashboard-summary.js";
 import type {
   CompletedCandidate,
-  DashboardDirection,
   DashboardOpenPullPageQuery,
   DashboardPullPageQuery,
   GitHubPullSummary,
 } from "./dashboard-pull-page-types.js";
+import type { ReviewAnalysisStatus } from "../review/review-lifecycle.js";
 import {
   type DashboardWorkspaceScope,
   type DashboardResolvedRepositoryBatchAuthorizer,
@@ -49,7 +45,7 @@ export type {
 
 export type DashboardReviewStatus = "ready" | "processing";
 export type DashboardRisk = "low" | "medium" | "high";
-export type DashboardCompletedState = "merged" | "closed";
+export type DashboardCompletedState = "open" | "draft" | "merged" | "closed";
 
 type DashboardPullBase = Record<"id" | "org" | "repo" | "title" | "author", string> & {
   number: number;
@@ -60,6 +56,10 @@ type DashboardPullBase = Record<"id" | "org" | "repo" | "title" | "author", stri
 
 export type DashboardPull = DashboardPullBase &
   Record<"updatedAt" | "headBranch" | "baseBranch", string> & {
+    headSha: string;
+    githubStatus: DashboardCompletedState;
+    analysisStatus: ReviewAnalysisStatus;
+    completedAt: string | null;
     status: DashboardReviewStatus;
     chapterCount: number;
     viewedChapters: number;
@@ -69,6 +69,8 @@ export type DashboardPull = DashboardPullBase &
 export type DashboardCompletedPull = DashboardPullBase & {
   completedAt: string;
   completedState: DashboardCompletedState;
+  analysisStatus: "complete";
+  githubStatus: DashboardCompletedState;
 };
 
 export type DashboardRepo = Record<"id" | "fullName", string> & {
@@ -93,17 +95,6 @@ export interface DashboardDeps {
     filterReadableRepositories: DashboardResolvedRepositoryBatchAuthorizer,
   ) => Promise<DashboardWorkspaceScope | null>;
 }
-
-type PullStatus = Record<"chapterCount" | "viewedChapters" | "changedFiles", number> & {
-  status: DashboardReviewStatus;
-};
-
-const PROCESSING: PullStatus = {
-  status: "processing",
-  chapterCount: 0,
-  viewedChapters: 0,
-  changedFiles: 0,
-};
 
 @Injectable()
 export class DashboardFacade {
@@ -151,7 +142,7 @@ export class DashboardFacade {
       for (const repo of enabledRepoRows) {
         let openPrs: GitHubPullSummary[];
         try {
-          openPrs = await this.listPulls(octokit, repo.owner, repo.name, "open");
+          openPrs = await listDashboardPulls(octokit, repo.owner, repo.name, "open");
         } catch {
           repos.push(this.repoPayload(repo, 0, true));
           continue;
@@ -159,7 +150,7 @@ export class DashboardFacade {
 
         let closedPrs: GitHubPullSummary[] = [];
         try {
-          closedPrs = await this.listPulls(octokit, repo.owner, repo.name, "closed");
+          closedPrs = await listDashboardPulls(octokit, repo.owner, repo.name, "closed");
         } catch {
           closedPrs = [];
         }
@@ -168,7 +159,13 @@ export class DashboardFacade {
 
         for (const pr of openPrs) {
           const lineCounts = await pullLineCounts(octokit, repo.owner, repo.name, pr.number);
-          const status = await this.resolveStatus(user.id, repo.id, pr.number);
+          const status = await resolveDashboardPullStatus(
+            user.id,
+            repo.id,
+            repo.fullName,
+            pr.number,
+            pr.head.sha ?? "",
+          );
           pulls.push({
             id: `${repo.owner}-${repo.name}-${pr.number}`,
             org: repo.owner,
@@ -178,7 +175,9 @@ export class DashboardFacade {
             author: pr.user?.login ?? "unknown",
             updatedAt: relativeTime(pr.updated_at),
             headBranch: pr.head.ref,
+            headSha: pr.head.sha ?? "",
             baseBranch: pr.base.ref,
+            githubStatus: pr.merged_at ? "merged" : pr.draft ? "draft" : (pr.state ?? "open"),
             risk: "low",
             ...lineCounts,
             ...status,
@@ -227,8 +226,8 @@ export class DashboardFacade {
       input,
       {
         octokitFactory: this.deps.octokitFactory,
-        listPulls: this.listPulls.bind(this),
-        resolveStatus: this.resolveStatus.bind(this),
+        listPulls: listDashboardPulls,
+        resolveStatus: resolveDashboardPullStatus,
       },
       await this.loadWorkspaceScope(user),
     );
@@ -243,8 +242,8 @@ export class DashboardFacade {
       input,
       {
         octokitFactory: this.deps.octokitFactory,
-        listPulls: this.listPulls.bind(this),
-        resolveStatus: this.resolveStatus.bind(this),
+        listPulls: listDashboardPulls,
+        resolveStatus: resolveDashboardPullStatus,
       },
       await this.loadWorkspaceScope(user),
     );
@@ -269,67 +268,5 @@ export class DashboardFacade {
     folioEnabled: boolean,
   ): DashboardRepo {
     return { id: repo.id, fullName: repo.fullName, openPrCount, folioEnabled };
-  }
-
-  private async listPulls(
-    octokit: Octokit,
-    owner: string,
-    repo: string,
-    state: "open" | "closed",
-    page?: number,
-    direction?: DashboardDirection,
-  ): Promise<GitHubPullSummary[]> {
-    const cacheKey = `pulls:list:${owner}/${repo}:${state}:${page ?? 1}:${direction ?? "desc"}`;
-    const ttlMs =
-      state === "closed" ? DASHBOARD_CLOSED_PULL_LIST_TTL_MS : DASHBOARD_OPEN_PULL_LIST_TTL_MS;
-    return cachedDashboardGithubRequest(cacheKey, ttlMs, async () => {
-      if (state === "closed") {
-        const { data } = await octokit.rest.pulls.list({
-          owner,
-          repo,
-          state,
-          sort: "updated",
-          direction: direction ?? "desc",
-          per_page: COMPLETED_PULL_LIMIT,
-          ...(page ? { page } : {}),
-        });
-        return data as GitHubPullSummary[];
-      }
-
-      return (await octokit.paginate(octokit.rest.pulls.list, {
-        owner,
-        repo,
-        state,
-        per_page: 100,
-      })) as GitHubPullSummary[];
-    });
-  }
-
-  private async resolveStatus(
-    userId: string,
-    repoId: string,
-    prNumber: number,
-  ): Promise<PullStatus> {
-    const pr = await pullRequestsRepo.getByRepoAndNumber(repoId, prNumber);
-    if (!pr) {
-      return PROCESSING;
-    }
-    const revision = await revisionsRepo.latestForPr(pr.id);
-    if (!revision) {
-      return PROCESSING;
-    }
-    const chapterRows = await chaptersRepo.listByRevision(revision.id);
-    if (chapterRows.length === 0) {
-      return PROCESSING;
-    }
-    const { viewed } = await reviewStateRepo.progressForRevision(userId, revision.id);
-    const changedFiles = new Set(chapterRows.flatMap((c) => c.hunkRefs.map((h) => h.filePath)))
-      .size;
-    return {
-      status: "ready",
-      chapterCount: chapterRows.length,
-      viewedChapters: viewed,
-      changedFiles,
-    };
   }
 }

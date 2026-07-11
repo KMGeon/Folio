@@ -35,6 +35,7 @@ export function completedCandidate(
         author: pr.user?.login ?? "unknown",
         completedIso,
         completedState: pr.merged_at ? "merged" : "closed",
+        analysisStatus: "complete",
       }
     : null;
 }
@@ -62,6 +63,8 @@ export async function completedPulls(
       author: candidate.author,
       completedAt: relativeTime(candidate.completedIso),
       completedState: candidate.completedState,
+      analysisStatus: "complete",
+      githubStatus: candidate.completedState,
       ...counts,
     };
   });

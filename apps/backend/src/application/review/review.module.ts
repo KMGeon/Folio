@@ -3,9 +3,11 @@ import { PullsController } from "../../interfaces/api/pulls/pulls.controller.js"
 import { RepositoryPermissionGuard } from "../../interfaces/api/authorization/repository-permission.guard.js";
 import { AuthModule } from "../auth/auth.module.js";
 import { AuthorizationModule } from "../authorization/authorization.module.js";
+import { ReviewJobQueue } from "../../infrastructure/persistence/review-job-queue.js";
 import { ReviewPullFacade } from "./review-pull.facade.js";
 import { ReviewCommentFacade } from "./review-comment.facade.js";
 import { ReviewReadFacade } from "./review-read.facade.js";
+import { ReviewRequestFacade } from "./review-request.facade.js";
 import { ReviewStateFacade } from "./review-state.facade.js";
 
 @Module({
@@ -14,6 +16,8 @@ import { ReviewStateFacade } from "./review-state.facade.js";
   controllers: [PullsController],
   providers: [
     ReviewPullFacade,
+    ReviewRequestFacade,
+    ReviewJobQueue,
     ReviewReadFacade,
     ReviewStateFacade,
     ReviewCommentFacade,

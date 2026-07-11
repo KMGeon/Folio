@@ -4,6 +4,7 @@ import {
   Controller,
   Get,
   Inject,
+  HttpCode,
   NotFoundException,
   Param,
   ParseIntPipe,
@@ -13,7 +14,7 @@ import {
 } from "@nestjs/common";
 import { ENTITLEMENT_FEATURE, WORKSPACE_ROLE } from "@folio/types";
 import { ReviewCommentFacade } from "../../../application/review/review-comment.facade.js";
-import { ReviewPullFacade } from "../../../application/review/review-pull.facade.js";
+import { ReviewRequestFacade } from "../../../application/review/review-request.facade.js";
 import { ReviewReadFacade } from "../../../application/review/review-read.facade.js";
 import { ReviewStateFacade } from "../../../application/review/review-state.facade.js";
 import { CurrentUser } from "../common/current-user.decorator.js";
@@ -54,7 +55,7 @@ interface CreateInlineCommentBody {
 export class PullsController {
   constructor(
     // Explicit @Inject tokens because vitest doesn't emit decorator metadata.
-    @Inject(ReviewPullFacade) private readonly reviewPull: ReviewPullFacade,
+    @Inject(ReviewRequestFacade) private readonly reviewRequest: ReviewRequestFacade,
     @Inject(ReviewReadFacade) private readonly reviewRead: ReviewReadFacade,
     @Inject(ReviewStateFacade) private readonly reviewState: ReviewStateFacade,
     @Inject(ReviewCommentFacade) private readonly reviewComment: ReviewCommentFacade,
@@ -62,13 +63,14 @@ export class PullsController {
 
   /** Manually trigger decomposition for a PR (read diff → decompose → persist → comment). */
   @Post()
+  @HttpCode(202)
   @UseGuards(RepositoryPermissionGuard, WorkspaceRoleGuard, EntitlementGuard)
   @RequireLiveRepositoryPermission()
   @RequireRepositoryPermission("write")
   @RequireWorkspaceRole(WORKSPACE_ROLE.REVIEWER)
   @RequireEntitlement(ENTITLEMENT_FEATURE.PR_ANALYSIS)
   async createReview(@Body() body: CreateReviewBody) {
-    return this.reviewPull.run({ owner: body.owner, repo: body.repo, number: body.number });
+    return this.reviewRequest.enqueue({ owner: body.owner, repo: body.repo, number: body.number });
   }
 
   @Get(":owner/:repo/:number/review")

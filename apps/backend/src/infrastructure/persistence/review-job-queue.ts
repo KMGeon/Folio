@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { JOB_KIND, type Job, dedupeKeyFor, enqueueJob } from "@folio/db";
+import { JOB_KIND, dedupeKeyFor, enqueueJobWithOutcome } from "@folio/db";
 
 export interface EnqueueReviewPullInput {
   owner: string;
@@ -15,9 +15,9 @@ export interface EnqueueReviewPullInput {
  */
 @Injectable()
 export class ReviewJobQueue {
-  async enqueueReviewPull(input: EnqueueReviewPullInput): Promise<Job> {
+  async enqueueReviewPull(input: EnqueueReviewPullInput) {
     const fullName = `${input.owner}/${input.repo}`;
-    return enqueueJob({
+    return enqueueJobWithOutcome({
       kind: JOB_KIND.REVIEW_PULL,
       payload: { kind: JOB_KIND.REVIEW_PULL, ...input },
       dedupeKey: dedupeKeyFor(fullName, input.headSha, JOB_KIND.REVIEW_PULL),

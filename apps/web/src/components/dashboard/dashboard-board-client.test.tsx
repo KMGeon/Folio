@@ -14,9 +14,21 @@ import {
   finishDashboardRequest,
   resetDashboardRequestScope,
 } from "./dashboard-request-scope";
+import { hasActiveReviewJobs } from "./dashboard-board-client";
 import { dashboardOpenPullPagesPath, dashboardPullPagePath } from "@/lib/dashboard-api";
 
 describe("DashboardBoardClient", () => {
+  it("polls only while a visible review job is active", () => {
+    const columns = {
+      ready: { items: [{ analysisStatus: "processing" }] },
+      yours: { items: [] },
+      other: { items: [] },
+      completed: { items: [] },
+    };
+    expect(hasActiveReviewJobs(columns as never)).toBe(true);
+    columns.ready.items[0]!.analysisStatus = "complete";
+    expect(hasActiveReviewJobs(columns as never)).toBe(false);
+  });
   it("builds paginated pull URLs with only supported server-backed filters", () => {
     const query = {
       bucket: "ready",

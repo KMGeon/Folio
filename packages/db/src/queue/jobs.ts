@@ -6,7 +6,7 @@ import {
   type JobStatus,
   type Job as JobWire,
 } from "@folio/types";
-import { and, eq, inArray, lte, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, lte, sql } from "drizzle-orm";
 import { type Db, getDb } from "../client.js";
 import { type JobRow, jobs } from "../schema/jobs.js";
 
@@ -82,7 +82,15 @@ export interface EnqueueJobInput {
  * `dedupeKey` already exists (partial unique index), returns that job instead
  * of inserting (safe for I1 webhook retries).
  */
-export async function enqueueJob(input: EnqueueJobInput, db: Db = getDb()): Promise<Job> {
+export interface EnqueueJobOutcome {
+  job: Job;
+  deduplicated: boolean;
+}
+
+export async function enqueueJobWithOutcome(
+  input: EnqueueJobInput,
+  db: Db = getDb(),
+): Promise<EnqueueJobOutcome> {
   const values: typeof jobs.$inferInsert = {
     kind: input.kind,
     status: JOB_STATUS.PENDING,
@@ -96,7 +104,7 @@ export async function enqueueJob(input: EnqueueJobInput, db: Db = getDb()): Prom
 
   const row = inserted[0];
   if (row) {
-    return row;
+    return { job: row, deduplicated: false };
   }
 
   // Conflict on the active dedupe index — return the existing active job.
@@ -108,10 +116,35 @@ export async function enqueueJob(input: EnqueueJobInput, db: Db = getDb()): Prom
       .limit(1);
     const found = existing[0];
     if (found) {
-      return found;
+      return { job: found, deduplicated: true };
     }
   }
   throw new Error("enqueueJob: insert returned no row and no active duplicate was found");
+}
+
+export async function enqueueJob(input: EnqueueJobInput, db: Db = getDb()): Promise<Job> {
+  return (await enqueueJobWithOutcome(input, db)).job;
+}
+
+export async function getLatestJobsByDedupeKeys(
+  keys: readonly string[],
+  db: Db = getDb(),
+): Promise<Map<string, Job>> {
+  if (keys.length === 0) {
+    return new Map();
+  }
+  const rows = await db
+    .select()
+    .from(jobs)
+    .where(inArray(jobs.dedupeKey, [...new Set(keys)]))
+    .orderBy(desc(jobs.createdAt));
+  const latest = new Map<string, Job>();
+  for (const row of rows) {
+    if (row.dedupeKey && !latest.has(row.dedupeKey)) {
+      latest.set(row.dedupeKey, row);
+    }
+  }
+  return latest;
 }
 
 export interface ClaimJobOptions {

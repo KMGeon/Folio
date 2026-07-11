@@ -13,7 +13,7 @@ describe("DashboardPage", () => {
     expect(source).toContain("Ready to review");
     expect(source).toContain("Your pull requests");
     expect(source).toContain("Other");
-    expect(source).toContain("Recently completed");
+    expect(source).toContain("Complete");
     expect(source).not.toContain("completedPulls={");
     expect(source).not.toContain("RepositoryToggleForm");
   });

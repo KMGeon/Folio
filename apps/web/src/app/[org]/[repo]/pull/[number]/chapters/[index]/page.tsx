@@ -3,9 +3,10 @@ import { notFound, redirect } from "next/navigation";
 
 import { AppLayout } from "@/components/app-layout";
 import { ReviewView } from "@/components/review/review-view";
+import { MissingReviewPrompt } from "@/components/review/missing-review-prompt";
 import { ApiError } from "@/lib/api-client";
 import { getMe } from "@/lib/auth";
-import { type ReviewPayload, fetchReviewOrCreate } from "@/lib/review-api";
+import { type ReviewPayload, fetchReview } from "@/lib/review-api";
 
 // Prevent Next.js from attempting a static fetch at build time — the backend is not available then.
 export const dynamic = "force-dynamic";
@@ -23,16 +24,25 @@ export default async function ChapterReviewPage({
     .map((c) => `${c.name}=${c.value}`)
     .join("; ");
 
-  let review: ReviewPayload;
+  let review: ReviewPayload | null = null;
   try {
-    review = await fetchReviewOrCreate(org, repo, Number(number), { cookie: cookieHeader });
+    review = await fetchReview(org, repo, Number(number), { cookie: cookieHeader });
   } catch (err) {
     if (err instanceof ApiError && err.status === 401) {
       redirect(`/login?redirect=/${org}/${repo}/pull/${number}/chapters/${index}`);
     }
-    throw err;
+    if (!(err instanceof ApiError) || err.status !== 404) {
+      throw err;
+    }
   }
   const user = await getMe(cookieHeader);
+  if (!review) {
+    return (
+      <AppLayout user={user} breadcrumb={{ org, repo, number: Number(number) }}>
+        <MissingReviewPrompt org={org} repo={repo} number={Number(number)} />
+      </AppLayout>
+    );
+  }
   const chapterIndex = Number(index);
   if (!review.chapters.some((c) => c.index === chapterIndex)) {
     notFound();

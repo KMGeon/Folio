@@ -3,7 +3,7 @@ import { GUARDS_METADATA } from "@nestjs/common/constants.js";
 import { Test } from "@nestjs/testing";
 import { describe, expect, it, vi } from "vitest";
 import { ReviewCommentFacade } from "../../../application/review/review-comment.facade.js";
-import { ReviewPullFacade } from "../../../application/review/review-pull.facade.js";
+import { ReviewRequestFacade } from "../../../application/review/review-request.facade.js";
 import { ReviewReadFacade } from "../../../application/review/review-read.facade.js";
 import { ReviewStateFacade } from "../../../application/review/review-state.facade.js";
 import { RepoAccessGuard } from "../common/repo-access.guard.js";
@@ -23,7 +23,7 @@ const allowGuard = { canActivate: () => true };
 const user: AuthedUser = { id: "u1", login: "octocat", avatarUrl: "https://a/u1" };
 
 async function buildController(overrides: {
-  run?: ReturnType<typeof vi.fn>;
+  enqueue?: ReturnType<typeof vi.fn>;
   getReview?: ReturnType<typeof vi.fn>;
   setChapterViewed?: ReturnType<typeof vi.fn>;
   setFileViewed?: ReturnType<typeof vi.fn>;
@@ -33,7 +33,7 @@ async function buildController(overrides: {
   const moduleRef = await Test.createTestingModule({
     controllers: [PullsController],
     providers: [
-      { provide: ReviewPullFacade, useValue: { run: overrides.run ?? vi.fn() } },
+      { provide: ReviewRequestFacade, useValue: { enqueue: overrides.enqueue ?? vi.fn() } },
       { provide: ReviewReadFacade, useValue: { getReview: overrides.getReview ?? vi.fn() } },
       {
         provide: ReviewStateFacade,
@@ -102,19 +102,13 @@ describe("PullsController", () => {
     expect(Reflect.getMetadata(REQUIRE_LIVE_REPOSITORY_PERMISSION, handler)).toBeUndefined();
   });
 
-  it("POST triggers a review run", async () => {
-    const run = vi.fn(async () => ({
-      prId: "pr1",
-      revisionId: "rev1",
-      chapters: [{ order: 1, title: "C1" }],
-      commentUrl: "u",
-      commentError: null,
-    }));
-    const controller = await buildController({ run });
+  it("POST enqueues an asynchronous review", async () => {
+    const enqueue = vi.fn(async () => ({ jobId: "job-1", status: "pending" }));
+    const controller = await buildController({ enqueue });
 
     const result = await controller.createReview({ owner: "acme", repo: "widget", number: 7 });
-    expect(run).toHaveBeenCalledWith({ owner: "acme", repo: "widget", number: 7 });
-    expect(result.chapters).toHaveLength(1);
+    expect(enqueue).toHaveBeenCalledWith({ owner: "acme", repo: "widget", number: 7 });
+    expect(result.jobId).toBe("job-1");
   });
 
   it("GET returns the review payload scoped to the current user", async () => {
