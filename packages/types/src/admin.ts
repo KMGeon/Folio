@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { AuditActionSchema, GlobalStatusSchema } from "./authorization.js";
+import {
+  AuditActionSchema,
+  GlobalStatusSchema,
+  MembershipStatusSchema,
+  WorkspaceRoleSchema,
+} from "./authorization.js";
 import { IsoDateTimeSchema } from "./common.js";
 
 export const AdminUserStatusFilterSchema = z.enum(["all", "pending", "active", "suspended"]);
@@ -34,20 +39,37 @@ const AdminIdentitySchema = z
   })
   .strict();
 
+export const AdminAuditTargetTypeSchema = z.enum(["user", "workspace_member", "repository"]);
+
+export const AdminAuditSnapshotSchema = z
+  .object({
+    globalStatus: GlobalStatusSchema.nullable().optional(),
+    status: MembershipStatusSchema.nullable().optional(),
+    role: WorkspaceRoleSchema.nullable().optional(),
+    owner: z.string().uuid().optional(),
+    systemAdminUserId: z.string().uuid().optional(),
+    folioEnabled: z.boolean().optional(),
+  })
+  .strict();
+
 export const AdminAuditItemSchema = z
   .object({
     id: z.string().uuid(),
     action: AuditActionSchema,
     actor: AdminIdentitySchema,
     target: z
-      .object({ type: z.string().min(1), id: z.string().uuid(), label: z.string().min(1) })
+      .object({
+        type: AdminAuditTargetTypeSchema,
+        id: z.string().uuid(),
+        label: z.string().min(1),
+      })
       .strict(),
     workspace: z
       .object({ id: z.string().uuid(), accountLogin: z.string().min(1) })
       .strict()
       .nullable(),
-    before: z.record(z.unknown()),
-    after: z.record(z.unknown()),
+    before: AdminAuditSnapshotSchema,
+    after: AdminAuditSnapshotSchema,
     createdAt: IsoDateTimeSchema,
   })
   .strict();
