@@ -13,7 +13,8 @@ import { commentTargetForLine } from "./diff-comment-target";
 import type { DiffViewMode } from "./diff-view-mode-switch";
 import { type ActiveDiffLine, FileDiffPanel } from "./review-file-diff-panel";
 import { groupLinesByFile } from "./review-file-state";
-import { diffLineElementId, type JumpTarget } from "./resolve-line-ref";
+import { EMPTY_FOCUS_MARKERS } from "./focus-line-styles";
+import { diffLineElementId, type FocusLineMarker, type JumpTarget } from "./resolve-line-ref";
 
 interface CommentContext {
   org: string;
@@ -28,6 +29,7 @@ export function DiffViewer({
   compact = false,
   commentContext,
   collapsedFiles,
+  focusMarkers = EMPTY_FOCUS_MARKERS,
   jumpTarget = null,
   viewMode,
   onFileViewedChange,
@@ -37,6 +39,7 @@ export function DiffViewer({
   compact?: boolean;
   commentContext?: CommentContext;
   collapsedFiles: Record<string, boolean>;
+  focusMarkers?: FocusLineMarker[];
   jumpTarget?: JumpTarget | null;
   viewMode: DiffViewMode;
   onFileViewedChange?: (path: string, viewed: boolean) => Promise<void>;
@@ -179,6 +182,7 @@ export function DiffViewer({
             created={created}
             error={error}
             file={file}
+            focusMarkers={focusMarkers}
             jumpTarget={jumpTarget}
             lines={lines}
             viewMode={viewMode}

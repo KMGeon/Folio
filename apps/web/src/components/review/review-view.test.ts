@@ -78,7 +78,7 @@ describe("ReviewView source", () => {
     // Title lives on the chapter tool strip — panel does not repeat a large h2.
     expect(chapterPanelSource).not.toContain("<h2");
     expect(chapterPanelSource).not.toContain("text-lg font-medium leading-snug tracking-tight");
-    expect(chapterPanelSource).toContain("leading-5");
+    expect(chapterPanelSource).toContain("leading-6");
   });
 
   it("uses the shipped Korean chapter-completion labels", () => {
@@ -144,17 +144,24 @@ describe("ReviewView source", () => {
   it("orchestrates key-change lineRef jumps from the chapter panel", () => {
     expect(source).toContain("onJumpToKeyChange");
     expect(source).toContain("jumpTarget");
+    expect(source).toContain("focusMarkers");
+    expect(source).toContain("activeKeyChangeId");
     expect(keyChangeJumpSource).toContain("selectFirstResolvableLineRef");
+    expect(keyChangeJumpSource).toContain("collectFocusLineMarkers");
     expect(keyChangeJumpSource).toContain("이 질문에 연결된 diff 줄이 없습니다.");
     expect(keyChangeJumpSource).toContain("연결된 diff 줄을 찾지 못했습니다.");
     expect(keyChangeJumpSource).toContain("JUMP_HIGHLIGHT_MS");
+    // Entering a chapter auto-jumps the first unfinished linked focus question.
+    expect(keyChangeJumpSource).toContain("lastAutoChapterRef");
   });
 
   it("uses Approach A contrast for chapter summary and review questions", () => {
     expect(chapterPanelSource).toContain("text-sm leading-6 text-foreground");
     expect(chapterPanelSource).toContain("ListChecks");
     expect(chapterPanelSource).toContain("font-semibold text-primary text-xs");
-    expect(chapterPanelSource).toContain("bg-card text-foreground");
+    // Focus rows use a distinctive warning rail when open, primary when active.
+    expect(chapterPanelSource).toContain("shadow-warning/80");
+    expect(chapterPanelSource).toContain("activeKeyChangeId");
     expect(chapterPanelSource).not.toContain("bg-background/35");
   });
 
