@@ -1,28 +1,17 @@
-import type { ReviewDiffLine } from "@/lib/review-api";
-
 import { cn } from "@/lib/utils";
 
-import type { FocusLineMarker, JumpTarget } from "./resolve-line-ref";
+import type { FocusLineMarker } from "./resolve-line-ref";
 
 export const EMPTY_FOCUS_MARKERS: FocusLineMarker[] = [];
 
-/** Matches JumpTarget fields so key-change navigation can highlight the right row. */
-export function isJumpLine(
-  target: JumpTarget | null | undefined,
-  line: ReviewDiffLine,
-  chapterIndex: number,
-): boolean {
-  if (!target || target.chapterIndex !== chapterIndex) {
-    return false;
-  }
-  return target.path === line.path && target.kind === line.kind && target.lineNumber === line.n;
-}
+// isJumpLine lives on resolve-line-ref so range matching stays with the data model.
+export { isJumpLine } from "./resolve-line-ref";
 
 /**
  * Diff row styling for focus links.
  * Do NOT use primary green here — it collides with addition (diff-add) green.
  * - linked focus (always-on): amber warning rail
- * - active jump: info blue rail + ring so it stays distinct from add/del
+ * - active jump (full range): info blue rail + ring so it stays distinct from add/del
  */
 export function focusRowClass(isFocus: boolean, isJump: boolean, isActive: boolean): string {
   return cn(

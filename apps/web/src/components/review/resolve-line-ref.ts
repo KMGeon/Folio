@@ -5,12 +5,22 @@ export type ResolvedLineRef = {
   line: ReviewDiffLine;
 };
 
+/** Active 검토 사항 highlight — full startLine..endLine block(s), not a single row. */
 export type JumpTarget = {
   chapterIndex: number;
-  path: string;
-  lineNumber: number;
-  kind: ReviewDiffLine["kind"];
   token: number;
+  ranges: {
+    path: string;
+    side: ReviewLineRef["side"];
+    startLine: number;
+    endLine: number;
+  }[];
+  /** First resolvable row used for scrollIntoView. */
+  anchor: {
+    path: string;
+    kind: ReviewDiffLine["kind"];
+    lineNumber: number;
+  };
 };
 
 export function encodeDiffPath(path: string): string {
@@ -21,7 +31,10 @@ export function diffLineElementId(chapterIndex: number, line: ReviewDiffLine): s
   return `diff-line-${chapterIndex}-${encodeDiffPath(line.path)}-${line.kind}-${line.n}`;
 }
 
-function lineNumberForSide(line: ReviewDiffLine, side: ReviewLineRef["side"]): number | null {
+export function lineNumberForSide(
+  line: ReviewDiffLine,
+  side: ReviewLineRef["side"],
+): number | null {
   if (side === "deletions") {
     if (line.kind !== "del") {
       return null;
@@ -35,7 +48,18 @@ function lineNumberForSide(line: ReviewDiffLine, side: ReviewLineRef["side"]): n
   return line.newLineNumber ?? line.n;
 }
 
+/** First matching row in a lineRef range (legacy single-line callers / scroll anchor). */
 export function resolveLineRef(chapter: ReviewChapter, ref: ReviewLineRef): ReviewDiffLine | null {
+  const lines = resolveAllLinesForRef(chapter, ref);
+  return lines[0] ?? null;
+}
+
+/** Every diff row whose side-number falls inside the lineRef range. */
+export function resolveAllLinesForRef(
+  chapter: ReviewChapter,
+  ref: ReviewLineRef,
+): ReviewDiffLine[] {
+  const matched: ReviewDiffLine[] = [];
   for (const line of chapter.diffLines) {
     if (line.path !== ref.filePath) {
       continue;
@@ -45,10 +69,10 @@ export function resolveLineRef(chapter: ReviewChapter, ref: ReviewLineRef): Revi
       continue;
     }
     if (num >= ref.startLine && num <= ref.endLine) {
-      return line;
+      matched.push(line);
     }
   }
-  return null;
+  return matched;
 }
 
 export function selectFirstResolvableLineRef(
@@ -64,6 +88,49 @@ export function selectFirstResolvableLineRef(
   return null;
 }
 
+/** Build an active jump that highlights every row in every resolvable lineRef range. */
+export function jumpTargetFromKeyChange(
+  chapter: ReviewChapter,
+  keyChange: ReviewChapter["keyChanges"][number],
+  token: number,
+): JumpTarget | null {
+  const ranges: JumpTarget["ranges"] = [];
+  let anchor: JumpTarget["anchor"] | null = null;
+
+  for (const ref of keyChange.lineRefs) {
+    const lines = resolveAllLinesForRef(chapter, ref);
+    if (lines.length === 0) {
+      continue;
+    }
+    ranges.push({
+      path: ref.filePath,
+      side: ref.side,
+      startLine: ref.startLine,
+      endLine: ref.endLine,
+    });
+    if (!anchor) {
+      const first = lines[0];
+      anchor = {
+        path: first.path,
+        kind: first.kind,
+        lineNumber: first.n,
+      };
+    }
+  }
+
+  if (!anchor || ranges.length === 0) {
+    return null;
+  }
+
+  return {
+    chapterIndex: chapter.index,
+    token,
+    ranges,
+    anchor,
+  };
+}
+
+/** @deprecated Prefer jumpTargetFromKeyChange for full-range highlights. */
 export function jumpTargetFromResolved(
   chapterIndex: number,
   resolved: ResolvedLineRef,
@@ -71,10 +138,20 @@ export function jumpTargetFromResolved(
 ): JumpTarget {
   return {
     chapterIndex,
-    path: resolved.line.path,
-    lineNumber: resolved.line.n,
-    kind: resolved.line.kind,
     token,
+    ranges: [
+      {
+        path: resolved.ref.filePath,
+        side: resolved.ref.side,
+        startLine: resolved.ref.startLine,
+        endLine: resolved.ref.endLine,
+      },
+    ],
+    anchor: {
+      path: resolved.line.path,
+      kind: resolved.line.kind,
+      lineNumber: resolved.line.n,
+    },
   };
 }
 
@@ -86,27 +163,25 @@ export type FocusLineMarker = {
   keyChangeId: string;
 };
 
-/** Every resolvable focus-question line in a chapter — always-on markers in the diff. */
+/** Every resolvable focus-question line in a chapter — always-on markers for full ranges. */
 export function collectFocusLineMarkers(chapter: ReviewChapter): FocusLineMarker[] {
   const markers: FocusLineMarker[] = [];
   const seen = new Set<string>();
   for (const keyChange of chapter.keyChanges) {
     for (const ref of keyChange.lineRefs) {
-      const line = resolveLineRef(chapter, ref);
-      if (!line) {
-        continue;
+      for (const line of resolveAllLinesForRef(chapter, ref)) {
+        const id = `${line.path}|${line.kind}|${line.n}`;
+        if (seen.has(id)) {
+          continue;
+        }
+        seen.add(id);
+        markers.push({
+          path: line.path,
+          lineNumber: line.n,
+          kind: line.kind,
+          keyChangeId: keyChange.id,
+        });
       }
-      const id = `${line.path}|${line.kind}|${line.n}`;
-      if (seen.has(id)) {
-        continue;
-      }
-      seen.add(id);
-      markers.push({
-        path: line.path,
-        lineNumber: line.n,
-        kind: line.kind,
-        keyChangeId: keyChange.id,
-      });
     }
   }
   return markers;
@@ -122,4 +197,28 @@ export function isFocusMarkerLine(
         marker.path === line.path && marker.kind === line.kind && marker.lineNumber === line.n,
     ) ?? null
   );
+}
+
+/** True when this diff row falls inside any active jump range. */
+export function isJumpLine(
+  target: JumpTarget | null | undefined,
+  line: ReviewDiffLine,
+  chapterIndex: number,
+): boolean {
+  if (!target || target.chapterIndex !== chapterIndex) {
+    return false;
+  }
+  for (const range of target.ranges) {
+    if (line.path !== range.path) {
+      continue;
+    }
+    const num = lineNumberForSide(line, range.side);
+    if (num === null) {
+      continue;
+    }
+    if (num >= range.startLine && num <= range.endLine) {
+      return true;
+    }
+  }
+  return false;
 }

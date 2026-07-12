@@ -83,16 +83,16 @@ export function DiffViewer({
     };
   }, [lang, chapter.diffLines]);
 
-  // Parent owns clearing jumpTarget (2s highlight window); re-run when token changes.
+  // Parent owns clearing jumpTarget; scroll to the range anchor when the token changes.
   useEffect(() => {
     if (!jumpTarget || jumpTarget.chapterIndex !== chapter.index) {
       return;
     }
     const line = chapter.diffLines.find(
       (entry) =>
-        entry.path === jumpTarget.path &&
-        entry.kind === jumpTarget.kind &&
-        entry.n === jumpTarget.lineNumber,
+        entry.path === jumpTarget.anchor.path &&
+        entry.kind === jumpTarget.anchor.kind &&
+        entry.n === jumpTarget.anchor.lineNumber,
     );
     if (!line) {
       return;

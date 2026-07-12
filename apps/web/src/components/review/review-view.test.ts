@@ -147,7 +147,7 @@ describe("ReviewView source", () => {
     expect(source).toContain("jumpTarget");
     expect(source).toContain("focusMarkers");
     expect(source).toContain("activeKeyChangeId");
-    expect(keyChangeJumpSource).toContain("selectFirstResolvableLineRef");
+    expect(keyChangeJumpSource).toContain("jumpTargetFromKeyChange");
     expect(keyChangeJumpSource).toContain("collectFocusLineMarkers");
     expect(keyChangeJumpSource).toContain("이 질문에 연결된 diff 줄이 없습니다.");
     expect(keyChangeJumpSource).toContain("연결된 diff 줄을 찾지 못했습니다.");
