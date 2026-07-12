@@ -1,4 +1,11 @@
-import { Braces, GitPullRequestArrow, ListChecks, ScanSearch, type LucideIcon } from "lucide-react";
+import {
+  Braces,
+  GitPullRequestArrow,
+  ListChecks,
+  ScanSearch,
+  Sparkles,
+  type LucideIcon,
+} from "lucide-react";
 import React from "react";
 
 import type { ComplexityLevel, FocusAreaSeverity, Prologue } from "@folio/types";
@@ -20,9 +27,26 @@ const severityClasses: Record<FocusAreaSeverity, string> = {
   info: "border-primary/30 bg-primary/10 text-primary",
 };
 
+/** Prefer AI plainSummary; fall back to motivation/outcome for older prologues. */
+export function resolvePlainSummary(prologue: Prologue): string | null {
+  const dedicated = prologue.plainSummary?.trim();
+  if (dedicated) {
+    return dedicated;
+  }
+  const parts = [prologue.motivation?.trim(), prologue.outcome?.trim()].filter(
+    (part): part is string => Boolean(part),
+  );
+  return parts.length > 0 ? parts.join(" ") : null;
+}
+
 export function ReviewSummary({ prologue }: { prologue: Prologue }) {
+  const plainSummary = resolvePlainSummary(prologue);
+
   return (
     <article className="space-y-7 rounded-lg border bg-card p-6 md:p-8">
+      {/* Fluorescent callout — non-engineer TL;DR sits above code-level detail. */}
+      <PlainSummaryBanner text={plainSummary} />
+
       <SummarySection icon={GitPullRequestArrow} title="왜 이 PR인가?">
         <p className={cn("text-sm leading-7", !prologue.motivation && "text-muted-foreground")}>
           {prologue.motivation ?? "변경 내용에서 명확히 확인되지 않았습니다."}
@@ -110,6 +134,48 @@ export function ReviewSummary({ prologue }: { prologue: Prologue }) {
         )}
       </SummarySection>
     </article>
+  );
+}
+
+function PlainSummaryBanner({ text }: { text: string | null }) {
+  return (
+    <div
+      className={cn(
+        "rounded-lg border px-4 py-4 md:px-5",
+        // Warning amber reads as highlighter on dark surfaces — intentional emphasis.
+        text
+          ? "border-warning/55 bg-warning/20 shadow-[inset_4px_0_0_0] shadow-warning"
+          : "border-border bg-muted/30",
+      )}
+    >
+      <div className="mb-2 flex items-center gap-2">
+        <Sparkles
+          className={cn("size-4 shrink-0", text ? "text-warning" : "text-muted-foreground")}
+        />
+        <span
+          className={cn(
+            "font-mono font-medium text-[0.7rem] uppercase tracking-[0.16em]",
+            text ? "text-warning" : "text-muted-foreground",
+          )}
+        >
+          한눈에 보기
+        </span>
+        {text ? (
+          <span className="rounded-full border border-warning/40 bg-warning/25 px-2 py-0.5 font-medium text-[10px] text-warning">
+            비개발자용
+          </span>
+        ) : null}
+      </div>
+      <p
+        className={cn(
+          "text-sm leading-7",
+          text ? "font-medium text-foreground" : "text-muted-foreground",
+        )}
+      >
+        {text ??
+          "이 PR이 무엇을 처리하는지는 아직 요약되지 않았습니다. 재분석 후 비개발자용 한 줄 설명이 여기에 표시됩니다."}
+      </p>
+    </div>
   );
 }
 

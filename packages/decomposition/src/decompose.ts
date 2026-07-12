@@ -67,6 +67,7 @@ export function decomposeDeterministic(
 
 function emptyPrologue(): Prologue {
   return {
+    plainSummary: null,
     motivation: null,
     outcome: null,
     diagram: null,

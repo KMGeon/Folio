@@ -21,6 +21,7 @@ const pr = {
 };
 
 const prologue: Prologue = {
+  plainSummary: "PR 요약을 한 화면에서 바로 이해할 수 있게 만듭니다.",
   motivation: "리뷰 배경을 먼저 이해해야 합니다.",
   outcome: "총정리와 흐름도를 한 화면에서 제공합니다.",
   diagram: "flowchart LR\nA[Diff] --> B[Summary]",
@@ -46,6 +47,10 @@ describe("ReviewPrologue", () => {
     expect(markup).toContain("요약");
     expect(markup).toContain("설명");
     expect(markup).toContain("댓글 0");
+    expect(markup).toContain("한눈에 보기");
+    expect(markup).toContain("비개발자용");
+    expect(markup).toContain(prologue.plainSummary);
+    expect(markup).toContain("bg-warning/20");
     expect(markup).toContain("왜 이 PR인가?");
     expect(markup).toContain("무엇을 하는가");
     expect(markup).toContain("핵심 변경");

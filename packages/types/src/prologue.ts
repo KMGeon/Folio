@@ -51,6 +51,12 @@ export const ComplexitySchema = z.object({
 export type Complexity = z.infer<typeof ComplexitySchema>;
 
 export const PrologueSchema = z.object({
+  /**
+   * Non-engineer TL;DR (1–2 Korean sentences): what this PR handles and why it
+   * matters, with no file paths or code-level jargon. Null when the model
+   * cannot infer a product-level summary. Older stored prologues omit it.
+   */
+  plainSummary: z.string().nullable().default(null),
   motivation: z.string().nullable(),
   outcome: z.string().nullable(),
   /** Mermaid diagram source (without code fences), or null when prose alone is clear. */

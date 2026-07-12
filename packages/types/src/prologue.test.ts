@@ -10,18 +10,21 @@ const base = {
 };
 
 describe("PrologueSchema", () => {
-  it("defaults diagram to null when omitted", () => {
+  it("defaults plainSummary and diagram to null when omitted", () => {
     const parsed = PrologueSchema.parse(base);
+    expect(parsed.plainSummary).toBeNull();
     expect(parsed.diagram).toBeNull();
   });
 
-  it("accepts nullable motivation/outcome and a diagram", () => {
+  it("accepts plainSummary, nullable motivation/outcome, and a diagram", () => {
     const parsed = PrologueSchema.parse({
       ...base,
+      plainSummary: "리뷰 화면을 더 읽기 쉽게 정리합니다.",
       motivation: "fix a bug",
       outcome: "bug fixed",
       diagram: "graph TD; A-->B",
     });
+    expect(parsed.plainSummary).toBe("리뷰 화면을 더 읽기 쉽게 정리합니다.");
     expect(parsed.motivation).toBe("fix a bug");
     expect(parsed.diagram).toBe("graph TD; A-->B");
   });
