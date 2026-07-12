@@ -9,6 +9,10 @@ const keyChangeJumpSource = readFileSync(resolve(__dirname, "use-key-change-jump
 const chapterPanelSource = readFileSync(resolve(__dirname, "chapter-panel.tsx"), "utf8");
 const changedFileTreeSource = readFileSync(resolve(__dirname, "changed-file-tree.tsx"), "utf8");
 const chapterCardsSource = readFileSync(resolve(__dirname, "chapter-cards.tsx"), "utf8");
+const chapterViewedToggleSource = readFileSync(
+  resolve(__dirname, "chapter-viewed-toggle.tsx"),
+  "utf8",
+);
 const topBarSource = readFileSync(resolve(__dirname, "review-top-bar.tsx"), "utf8");
 
 describe("ReviewView source", () => {
@@ -72,8 +76,13 @@ describe("ReviewView source", () => {
     expect(source).toContain("lg:grid-cols-[minmax(0,1fr)_380px]");
     expect(chapterPanelSource).toContain("lg:w-[380px]");
     // Title lives on the chapter tool strip — panel does not repeat a large h2.
+    expect(chapterPanelSource).not.toContain("<h2");
     expect(chapterPanelSource).not.toContain("text-lg font-medium leading-snug tracking-tight");
     expect(chapterPanelSource).toContain("leading-5");
+  });
+
+  it("uses the shipped Korean chapter-completion labels", () => {
+    expect(chapterViewedToggleSource).toContain('viewed ? "챕터 완료" : "이 챕터 마치기"');
   });
 
   it("keeps the files tab file list independently scrollable", () => {
