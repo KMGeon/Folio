@@ -105,6 +105,7 @@ export class DashboardController {
     @Query("ordering") ordering: string | undefined,
     @Query("direction") direction: string | undefined,
     @Query("showDrafts") showDrafts: string | undefined,
+    @Query("repository") repository: string | undefined,
   ) {
     return this.dashboard.getOpenPullPagesForUser(
       { id: user.id, login: user.login },
@@ -118,6 +119,7 @@ export class DashboardController {
           | DashboardDirection
           | undefined,
         showDrafts: parseBoolean(showDrafts),
+        repository,
       },
     );
   }
@@ -133,6 +135,7 @@ export class DashboardController {
     @Query("direction") direction: string | undefined,
     @Query("closedRange") closedRange: string | undefined,
     @Query("showDrafts") showDrafts: string | undefined,
+    @Query("repository") repository: string | undefined,
   ) {
     return this.dashboard.getPullPageForUser(
       { id: user.id, login: user.login },
@@ -151,6 +154,7 @@ export class DashboardController {
           | DashboardClosedRange
           | undefined,
         showDrafts: parseBoolean(showDrafts),
+        repository,
       },
     );
   }

@@ -16,7 +16,9 @@ export const DEFAULT_PULL_PAGE_LIMIT = 20;
 export const MAX_PULL_PAGE_LIMIT = 50;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-export type NormalizedIndexQuery = Required<Omit<DashboardPullPageQuery, "cursor" | "q">> & {
+export type NormalizedIndexQuery = Required<
+  Omit<DashboardPullPageQuery, "cursor" | "q" | "repository">
+> & {
   cursor?: string;
   q?: string;
 };

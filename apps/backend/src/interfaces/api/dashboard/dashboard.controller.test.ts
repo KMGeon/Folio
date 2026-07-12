@@ -67,14 +67,21 @@ describe("DashboardController", () => {
     await app.init();
 
     const res = await request(app.getHttpServer()).get(
-      "/api/v1/dashboard/pulls/open?limit=20&ordering=updated&direction=desc&showDrafts=true",
+      "/api/v1/dashboard/pulls/open?limit=20&ordering=updated&direction=desc&showDrafts=true&repository=acme%2Fwidget",
     );
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ success: true, data });
     expect(getOpenPullPagesForUser).toHaveBeenCalledWith(
       { id: "u1", login: "KMGeon" },
-      { limit: 20, q: undefined, ordering: "updated", direction: "desc", showDrafts: true },
+      {
+        limit: 20,
+        q: undefined,
+        ordering: "updated",
+        direction: "desc",
+        showDrafts: true,
+        repository: "acme/widget",
+      },
     );
     await app.close();
   });

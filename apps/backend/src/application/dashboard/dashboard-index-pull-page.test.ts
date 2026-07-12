@@ -59,6 +59,28 @@ describe("dashboard index pull pages", () => {
     expect(octokitFactory).not.toHaveBeenCalled();
   });
 
+  it("limits index reads and counts to the exact repository scope", async () => {
+    listOpenByRepoIds.mockResolvedValue([
+      indexRow({ repoId: "ready-repo", number: 1, title: "Widget PR" }),
+    ]);
+    const facade = new DashboardFacade({ workspaceScopeLoader: async () => workspaceScope() });
+
+    const pages = await facade.getOpenPullPagesForUser(
+      { id: "user-1", login: "viewer" },
+      { repository: "ACME/WIDGET", showDrafts: true },
+    );
+
+    expect(listOpenByRepoIds).toHaveBeenCalledWith(["ready-repo"]);
+    expect(pages.other.count).toBe(1);
+
+    const outOfScope = await facade.getOpenPullPagesForUser(
+      { id: "user-1", login: "viewer" },
+      { repository: "acme/waiting", showDrafts: true },
+    );
+    expect(listOpenByRepoIds).toHaveBeenCalledTimes(1);
+    expect(outOfScope.other.count).toBe(0);
+  });
+
   it("filters drafts and matches queries by title, author, repository, and number", async () => {
     const rows = [
       indexRow({ number: 11, title: "Fix parser", author: "alice" }),
