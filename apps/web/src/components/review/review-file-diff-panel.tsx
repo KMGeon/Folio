@@ -7,10 +7,23 @@ import { cn } from "@/lib/utils";
 import { CommentButton, CreatedCommentLink, InlineCommentEditor } from "./diff-comment-controls";
 import type { DiffViewMode } from "./diff-view-mode-switch";
 import { filePanelId } from "./review-file-state";
+import { diffLineElementId, type JumpTarget } from "./resolve-line-ref";
 import { SplitLineCells } from "./split-diff-line-cells";
 import { buildSplitDiffRows } from "./split-diff-rows";
 
 const SIGN: Record<string, string> = { add: "+", del: "-", ctx: " " };
+
+/** Matches JumpTarget fields so key-change navigation can highlight the right row. */
+function isJumpLine(
+  target: JumpTarget | null | undefined,
+  line: ReviewDiffLine,
+  chapterIndex: number,
+): boolean {
+  if (!target || target.chapterIndex !== chapterIndex) {
+    return false;
+  }
+  return target.path === line.path && target.kind === line.kind && target.lineNumber === line.n;
+}
 
 export interface ActiveDiffLine {
   key: string;
@@ -26,6 +39,7 @@ export function FileDiffPanel({
   created,
   error,
   file,
+  jumpTarget,
   lines,
   submitting,
   viewMode,
@@ -46,6 +60,7 @@ export function FileDiffPanel({
   created: Record<string, CreatedReviewComment>;
   error: string | null;
   file: ReviewChapter["files"][number];
+  jumpTarget?: JumpTarget | null;
   lines: ReviewDiffLine[];
   submitting: boolean;
   viewMode: DiffViewMode;
@@ -103,8 +118,10 @@ export function FileDiffPanel({
               activeLine={activeLine}
               body={body}
               canComment={canComment}
+              chapterIndex={chapterIndex}
               created={created}
               error={error}
+              jumpTarget={jumpTarget}
               lines={lines}
               submitting={submitting}
               onBodyChange={onBodyChange}
@@ -119,8 +136,10 @@ export function FileDiffPanel({
               activeLine={activeLine}
               body={body}
               canComment={canComment}
+              chapterIndex={chapterIndex}
               created={created}
               error={error}
+              jumpTarget={jumpTarget}
               lines={lines}
               submitting={submitting}
               onBodyChange={onBodyChange}
@@ -141,8 +160,10 @@ function UnifiedDiffTable({
   activeLine,
   body,
   canComment,
+  chapterIndex,
   created,
   error,
+  jumpTarget,
   lines,
   submitting,
   onBodyChange,
@@ -158,15 +179,18 @@ function UnifiedDiffTable({
         {lines.map((line) => {
           const key = keyForLine(line);
           const isActive = activeLine?.key === key;
+          const isJump = isJumpLine(jumpTarget, line, chapterIndex);
           const createdComment = created[key];
           return (
             <Fragment key={key}>
               <tr
+                id={diffLineElementId(chapterIndex, line)}
                 className={cn(
                   "group",
                   line.kind === "add" && "bg-diff-add-bg",
                   line.kind === "del" && "bg-diff-del-bg",
                   isActive && "bg-primary/15",
+                  isJump && "bg-primary/20 ring-1 ring-inset ring-primary/40",
                 )}
               >
                 <td className="w-12 select-none border-r border-border/60 px-2 text-right align-top text-gutter tabular-nums">
@@ -229,9 +253,28 @@ function SplitDiffTable(props: DiffTableProps) {
           const createdComment =
             (oldKey ? props.created[oldKey] : null) ?? (newKey ? props.created[newKey] : null);
           const comment = createdComment ?? undefined;
+          const oldIsJump =
+            row.oldLine != null && isJumpLine(props.jumpTarget, row.oldLine, props.chapterIndex);
+          const newIsJump =
+            row.newLine != null && isJumpLine(props.jumpTarget, row.newLine, props.chapterIndex);
+          const isJump = oldIsJump || newIsJump;
+          // Prefer the matching jump line for the stable DOM id so scrollIntoView finds it.
+          const anchorLine =
+            row.oldLine && oldIsJump
+              ? row.oldLine
+              : row.newLine && newIsJump
+                ? row.newLine
+                : (row.newLine ?? row.oldLine);
           return (
             <Fragment key={`${oldKey ?? "blank"}-${newKey ?? "blank"}-${rowIndex}`}>
-              <tr className={cn("group", activeKey && "bg-primary/15")}>
+              <tr
+                id={anchorLine ? diffLineElementId(props.chapterIndex, anchorLine) : undefined}
+                className={cn(
+                  "group",
+                  activeKey && "bg-primary/15",
+                  isJump && "bg-primary/20 ring-1 ring-inset ring-primary/40",
+                )}
+              >
                 <SplitLineCells
                   line={row.oldLine}
                   side="old"
@@ -274,8 +317,10 @@ interface DiffTableProps {
   activeLine: ActiveDiffLine | null;
   body: string;
   canComment: boolean;
+  chapterIndex: number;
   created: Record<string, CreatedReviewComment>;
   error: string | null;
+  jumpTarget?: JumpTarget | null;
   lines: ReviewDiffLine[];
   submitting: boolean;
   onBodyChange: (body: string) => void;
