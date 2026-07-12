@@ -43,3 +43,22 @@
 - Audit snapshot values are rendered only through `JSON.stringify(value, null, 2)` as React text in scrollable `<pre>` elements; no HTML injection API is used.
 - Pagination failures preserve the current rows and cursor; retry uses the same cursor, and overlapping IDs are filtered.
 - Workspace settings retain only customer Workspace responsibilities.
+
+## Date-filter contract follow-up
+
+### RED
+
+`SUPABASE_DATABASE_URL= pnpm exec vitest run apps/web/src/app/admin/audit/page.test.tsx`
+
+- Failed: 3 of 5 tests. Valid `YYYY-MM-DD` values reached `fetchAdminAudit` without offset-aware timestamps, and invalid calendar/datetime values were forwarded.
+
+### GREEN
+
+`SUPABASE_DATABASE_URL= pnpm exec vitest run apps/web/src/app/admin/audit/page.test.tsx`
+
+- Passed: 1 file, 5 tests. Valid date-only values remain in the form props while API `from` and `to` use UTC day boundaries; absent and invalid dates are omitted.
+
+`SUPABASE_DATABASE_URL= pnpm exec vitest run apps/web/src/app/admin/audit/page.test.tsx apps/web/src/components/admin/admin-audit-client.test.tsx apps/web/src/lib/admin-api.test.ts && SUPABASE_DATABASE_URL= pnpm --filter @folio/web typecheck`
+
+- Passed: 3 test files, 16 tests; web TypeScript check exited 0.
+- No database, E2E, server, browser-runtime, or environment-file command was run.

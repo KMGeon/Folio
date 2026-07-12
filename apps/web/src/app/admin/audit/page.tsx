@@ -31,14 +31,21 @@ export default async function AdminAuditPage({
     workspaceId: value(raw.workspaceId),
     actorUserId: value(raw.actorUserId),
     targetId: value(raw.targetId),
-    from: value(raw.from),
-    to: value(raw.to),
+    from: dateOnlyValue(raw.from),
+    to: dateOnlyValue(raw.to),
   };
   const cookie = (await cookies())
     .getAll()
     .map((item) => `${item.name}=${item.value}`)
     .join("; ");
-  const initialPage = await fetchAdminAudit({ ...filters, limit: 25, cookie });
+  // Date inputs stay date-only in the form, while the API contract requires offset-aware instants.
+  const initialPage = await fetchAdminAudit({
+    ...filters,
+    from: dateBoundary(filters.from, "start"),
+    to: dateBoundary(filters.to, "end"),
+    limit: 25,
+    cookie,
+  });
 
   return (
     <section className="mx-auto max-w-6xl">
@@ -56,4 +63,22 @@ function value(input: string | string[] | undefined): string | undefined {
 function actionValue(input: string | string[] | undefined): AuditAction | undefined {
   const action = value(input);
   return action && AUDIT_ACTIONS.has(action as AuditAction) ? (action as AuditAction) : undefined;
+}
+
+function dateOnlyValue(input: string | string[] | undefined): string | undefined {
+  const date = value(input);
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return undefined;
+  }
+  const parsed = new Date(`${date}T00:00:00.000Z`);
+  return !Number.isNaN(parsed.valueOf()) && parsed.toISOString().slice(0, 10) === date
+    ? date
+    : undefined;
+}
+
+function dateBoundary(date: string | undefined, boundary: "start" | "end"): string | undefined {
+  if (!date) {
+    return undefined;
+  }
+  return `${date}${boundary === "start" ? "T00:00:00.000Z" : "T23:59:59.999Z"}`;
 }
