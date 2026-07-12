@@ -128,6 +128,18 @@ describe("DashboardBoardClient", () => {
     expect(source).not.toContain('<option value="responsibility">');
   });
 
+  it("uses cockpit priority until a user selects a desk state", async () => {
+    const boardClient = await readFile(
+      new URL("./dashboard-board-client.tsx", import.meta.url),
+      "utf8",
+    );
+
+    expect(boardClient).toContain("dashboardDefaultFocus(headerCounts)");
+    expect(boardClient).toContain("focusIsUserSelected");
+    expect(boardClient).toContain("setFocusIsUserSelected(true)");
+    expect(boardClient).toContain("setFocusIsUserSelected(false)");
+  });
+
   it("wires independent open and completed reset effects", async () => {
     const boardClient = await readFile(
       new URL("./dashboard-board-client.tsx", import.meta.url),

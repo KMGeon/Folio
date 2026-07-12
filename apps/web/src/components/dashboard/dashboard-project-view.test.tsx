@@ -15,17 +15,30 @@ describe("DashboardProjectView", () => {
     const html = render(null);
 
     expect(html).toContain('aria-label="All projects review sections"');
-    expect(html).toContain("Next up in Folio");
-    expect(html).toContain("Recent complete in Folio");
-    expect(html).toContain("docs 큐가 비어 있습니다");
+    expect(html).toContain("Attention");
+    expect(html).toContain("Ready");
+    expect(html).toContain("Reviewing");
+    expect(html).toContain("Processing");
+    expect(html).toContain("Complete");
+    expect(html).toContain("Start review");
+    expect(html).toContain("Project queue is clear");
+    expect(html).not.toContain("Recent complete in Folio");
   });
 
   it("renders only the selected repository as a focused desk", () => {
     const html = render("repo-folio");
 
     expect(html).toContain('aria-label="Folio review desk"');
-    expect(html).toContain("Next up in Folio");
-    expect(html).not.toContain("docs 큐가 비어 있습니다");
+    expect(html).toContain("Start review");
+    expect(html).not.toContain("Project queue is clear");
+  });
+
+  it("uses state-specific actions for each open cockpit panel", () => {
+    expect(render("repo-folio", "attention")).toContain("Retry analysis");
+    expect(render("repo-folio", "ready")).toContain("Start review");
+    expect(render("repo-folio", "reviewing")).toContain("Continue");
+    expect(render("repo-folio", "processing")).toContain("Preparing");
+    expect(render("repo-folio", "complete")).toContain("Completed Folio");
   });
 
   it("renders the dedicated no-enabled-repos panel when the list is empty", () => {
@@ -34,6 +47,7 @@ describe("DashboardProjectView", () => {
         projects={[]}
         activeRepoId={null}
         focus="ready"
+        onFocusChange={vi.fn()}
         visibleProperties={[]}
         onRetryReview={vi.fn()}
       />,
@@ -43,12 +57,16 @@ describe("DashboardProjectView", () => {
     expect(html).toContain("활성화된 레포가 없습니다");
   });
 
-  function render(activeRepoId: string | null) {
+  function render(
+    activeRepoId: string | null,
+    focus: "attention" | "ready" | "reviewing" | "processing" | "complete" = "ready",
+  ) {
     return renderToStaticMarkup(
       <DashboardProjectView
         projects={[folio, docs]}
         activeRepoId={activeRepoId}
-        focus="ready"
+        focus={focus}
+        onFocusChange={vi.fn()}
         visibleProperties={["Repository", "ID", "Author", "Lines changed", "Chapters"]}
         onRetryReview={vi.fn()}
       />,
@@ -57,7 +75,19 @@ describe("DashboardProjectView", () => {
 });
 
 function project(id: string, fullName: string, populated: boolean): DashboardProjectData {
-  const open = populated ? [openPull(fullName)] : [];
+  const open = populated
+    ? [
+        openPull(fullName),
+        { ...openPull(fullName), id: `${fullName}-attention`, analysisStatus: "failed" as const },
+        { ...openPull(fullName), id: `${fullName}-reviewing`, viewedChapters: 1 },
+        {
+          ...openPull(fullName),
+          id: `${fullName}-processing`,
+          analysisStatus: "processing" as const,
+          status: "processing" as const,
+        },
+      ]
+    : [];
   const completed = populated ? [completedPull(fullName)] : [];
   return {
     repo: { id, fullName, folioEnabled: true, openPrCount: open.length },
@@ -91,7 +121,7 @@ function openPull(fullName: string) {
     completedAt: null,
     status: "ready",
     chapterCount: 4,
-    viewedChapters: 1,
+    viewedChapters: 0,
     changedFiles: 2,
     additions: 10,
     deletions: 2,

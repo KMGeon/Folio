@@ -137,16 +137,22 @@ describe("jumpTargetFromKeyChange / isJumpLine", () => {
         },
       ],
     };
-    const target = jumpTargetFromKeyChange(ch, ch.keyChanges[0], 1);
+    const [keyChange] = ch.keyChanges;
+    const [anchorLine, followingLine, lastLine] = ch.diffLines;
+    if (!keyChange || !anchorLine || !followingLine || !lastLine) {
+      throw new Error("Test fixture must include one key change and three diff lines");
+    }
+
+    const target = jumpTargetFromKeyChange(ch, keyChange, 1);
     expect(target).not.toBeNull();
     expect(target?.ranges).toEqual([
       { path: "a.ts", side: "additions", startLine: 10, endLine: 12 },
     ]);
     expect(target?.anchor.lineNumber).toBe(10);
     // Point at the scroll anchor only — full-range wash is unreadable for review.
-    expect(isJumpLine(target, ch.diffLines[0], 1)).toBe(true);
-    expect(isJumpLine(target, ch.diffLines[1], 1)).toBe(false);
-    expect(isJumpLine(target, ch.diffLines[2], 1)).toBe(false);
+    expect(isJumpLine(target, anchorLine, 1)).toBe(true);
+    expect(isJumpLine(target, followingLine, 1)).toBe(false);
+    expect(isJumpLine(target, lastLine, 1)).toBe(false);
   });
 });
 

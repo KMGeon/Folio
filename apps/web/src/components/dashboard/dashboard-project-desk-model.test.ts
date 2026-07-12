@@ -1,19 +1,28 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  dashboardClassifyPull,
+  dashboardCockpitCounts,
+  dashboardDefaultFocus,
   dashboardEmptyDescription,
   dashboardEmptyTitle,
   dashboardNextPull,
   dashboardProjectCounts,
   dashboardProjectName,
+  dashboardProjectPullsForState,
   dashboardScopeCounts,
   dashboardScopeName,
   type DashboardProjectData,
 } from "./dashboard-project-desk-model";
 
 describe("dashboard project desk model", () => {
-  const folio = project("repo-folio", "KMGeon/Folio", { ready: 2, yours: 1, other: 3, done: 5 });
-  const orca = project("repo-orca", "KMGeon/orca", { ready: 3, yours: 0, other: 1, done: 2 });
+  const folio = project("repo-folio", "KMGeon/Folio", [
+    pull("attention", { analysisStatus: "failed" }),
+    pull("ready", { analysisStatus: "complete", status: "ready" }),
+    pull("reviewing", { status: "ready", viewedChapters: 1 }),
+    pull("processing", { analysisStatus: "processing" }),
+  ]);
+  const orca = project("repo-orca", "KMGeon/orca", [pull("ready", { status: "ready" })], 2);
 
   it("derives project identity without losing the full repository scope", () => {
     expect(dashboardProjectName("KMGeon/Folio")).toBe("Folio");
@@ -21,31 +30,70 @@ describe("dashboard project desk model", () => {
     expect(dashboardScopeName(folio.repo)).toBe("Folio");
   });
 
-  it("keeps metrics on the selected project axis", () => {
-    expect(dashboardProjectCounts(folio)).toEqual({ ready: 2, yours: 1, completed: 5 });
+  it("classifies every open pull into a mutually exclusive cockpit state", () => {
+    expect(dashboardClassifyPull(pull("failed", { analysisStatus: "failed" }))).toBe("attention");
+    expect(dashboardClassifyPull(pull("retrying", { analysisStatus: "retrying" }))).toBe(
+      "processing",
+    );
+    expect(dashboardClassifyPull(pull("reviewing", { status: "ready", viewedChapters: 1 }))).toBe(
+      "reviewing",
+    );
+    expect(
+      dashboardClassifyPull(pull("ready", { analysisStatus: "complete", status: "ready" })),
+    ).toBe("ready");
+    expect(dashboardClassifyPull(pull("fallback"))).toBe("processing");
+  });
+
+  it("derives cockpit counts and state pull lists from the open API pages", () => {
+    expect(dashboardCockpitCounts(folio)).toEqual({
+      attention: 1,
+      ready: 1,
+      reviewing: 1,
+      processing: 1,
+      complete: 5,
+    });
+    expect(dashboardProjectCounts(folio)).toEqual(dashboardCockpitCounts(folio));
+    expect(dashboardProjectPullsForState(folio, "reviewing").map((pull) => pull.title)).toEqual([
+      "reviewing 1",
+    ]);
+    expect(dashboardProjectPullsForState(folio, "complete")).toHaveLength(2);
+  });
+
+  it("keeps cockpit metrics on the selected project axis", () => {
     expect(dashboardScopeCounts([folio, orca], null)).toEqual({
-      ready: 5,
-      yours: 1,
-      completed: 7,
+      attention: 1,
+      ready: 2,
+      reviewing: 1,
+      processing: 1,
+      complete: 7,
     });
     expect(dashboardScopeCounts([folio, orca], "repo-folio")).toEqual({
-      ready: 2,
-      yours: 1,
-      completed: 5,
+      attention: 1,
+      ready: 1,
+      reviewing: 1,
+      processing: 1,
+      complete: 5,
     });
   });
 
-  it("selects next-up inside the project and chip focus", () => {
-    expect(dashboardNextPull(folio, "ready")?.title).toBe("ready 1");
-    expect(dashboardNextPull(folio, "yours")?.title).toBe("yours 1");
-    expect(dashboardNextPull(folio, "completed")).toBeNull();
+  it("defaults to the first populated state in cockpit priority order", () => {
+    expect(
+      dashboardDefaultFocus({ attention: 1, ready: 1, reviewing: 1, processing: 1, complete: 5 }),
+    ).toBe("attention");
+    expect(
+      dashboardDefaultFocus({ attention: 0, ready: 0, reviewing: 1, processing: 2, complete: 5 }),
+    ).toBe("reviewing");
+    expect(
+      dashboardDefaultFocus({ attention: 0, ready: 0, reviewing: 0, processing: 0, complete: 5 }),
+    ).toBe("complete");
+  });
 
-    const onlyOther = project("repo-docs", "KMGeon/docs", {
-      ready: 0,
-      yours: 0,
-      other: 1,
-      done: 0,
-    });
+  it("selects next-up inside the project and cockpit focus", () => {
+    expect(dashboardNextPull(folio, "ready")?.title).toBe("ready 1");
+    expect(dashboardNextPull(folio, "reviewing")?.title).toBe("reviewing 1");
+    expect(dashboardNextPull(folio, "complete")).toBeNull();
+
+    const onlyOther = project("repo-docs", "KMGeon/docs", [pull("processing")]);
     expect(dashboardNextPull(onlyOther, "ready")).toBeNull();
   });
 
@@ -53,35 +101,79 @@ describe("dashboard project desk model", () => {
     expect(dashboardEmptyTitle("Folio")).toContain("Folio");
     expect(dashboardEmptyTitle("All projects")).toContain("All projects");
     expect(dashboardEmptyDescription("Folio", "ready")).toContain("Folio");
-    expect(dashboardEmptyDescription("Folio", "completed")).toContain("Folio");
+    expect(dashboardEmptyDescription("Folio", "complete")).toContain("Folio");
   });
 });
 
 function project(
   id: string,
   fullName: string,
-  counts: { ready: number; yours: number; other: number; done: number },
+  openPulls: ReturnType<typeof pull>[],
+  completedCount = 5,
 ): DashboardProjectData {
   return {
     repo: { id, fullName, folioEnabled: true, openPrCount: 0 },
     pages: {
-      ready: page("ready", counts.ready),
-      yours: page("yours", counts.yours),
-      other: page("other", counts.other),
-      completed: page("completed", counts.done),
+      ready: page(openPulls.filter((pull) => pull.sourceBucket === "ready")),
+      yours: page(openPulls.filter((pull) => pull.sourceBucket === "yours")),
+      other: page(openPulls.filter((pull) => pull.sourceBucket === "other")),
+      completed: page(
+        Array.from({ length: Math.min(completedCount, 2) }, (_, index) => completed(index)),
+        completedCount,
+      ),
     },
     isLoading: false,
     error: null,
   };
 }
 
-function page(bucket: "ready" | "yours" | "other" | "completed", count: number) {
+function page(items: Record<string, unknown>[], count = items.length) {
   return {
     count,
     nextCursor: null,
-    items: Array.from({ length: Math.min(count, 2) }, (_, index) => ({
-      id: `${bucket}-${index + 1}`,
-      title: `${bucket} ${index + 1}`,
-    })) as never,
+    items: items as never,
+  };
+}
+
+function pull(
+  title: string,
+  overrides: Partial<{
+    analysisStatus: "not_requested" | "processing" | "retrying" | "failed" | "complete";
+    status: "ready" | "processing";
+    viewedChapters: number;
+    sourceBucket: "ready" | "yours" | "other";
+  }> = {},
+) {
+  return {
+    id: title,
+    title: `${title} 1`,
+    org: "KMGeon",
+    repo: "Folio",
+    number: 1,
+    author: "KMGeon",
+    updatedAt: "now",
+    updatedAtIso: "2026-07-12T00:00:00.000Z",
+    headBranch: "feature/cockpit",
+    headSha: "head",
+    baseBranch: "main",
+    githubStatus: "open" as const,
+    analysisStatus: "not_requested" as const,
+    completedAt: null,
+    status: "processing" as const,
+    chapterCount: 3,
+    viewedChapters: 0,
+    changedFiles: 1,
+    additions: 1,
+    deletions: 0,
+    risk: "low" as const,
+    sourceBucket: "other" as const,
+    ...overrides,
+  };
+}
+
+function completed(index: number) {
+  return {
+    id: `completed-${index + 1}`,
+    title: `completed ${index + 1}`,
   };
 }

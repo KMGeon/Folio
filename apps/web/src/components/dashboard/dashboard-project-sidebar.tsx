@@ -19,8 +19,8 @@ export function DashboardProjectSidebar({
   activeRepoId: string | null;
   onSelect: (repoId: string | null) => void;
 }) {
-  const readyTotal = projects.reduce(
-    (total, project) => total + dashboardProjectCounts(project).ready,
+  const openTotal = projects.reduce(
+    (total, project) => total + openCount(dashboardProjectCounts(project)),
     0,
   );
 
@@ -35,7 +35,7 @@ export function DashboardProjectSidebar({
           icon={<LayoutGrid className="size-3.5" />}
           name="All projects"
           detail={`workspace · ${projects.length} enabled`}
-          ready={readyTotal}
+          openCount={openTotal}
           onClick={() => onSelect(null)}
         />
         {projects.map((project) => (
@@ -45,7 +45,7 @@ export function DashboardProjectSidebar({
             icon={<FolderGit2 className="size-3.5" />}
             name={dashboardProjectName(project.repo.fullName)}
             detail={project.repo.fullName}
-            ready={dashboardProjectCounts(project).ready}
+            openCount={openCount(dashboardProjectCounts(project))}
             onClick={() => onSelect(project.repo.id)}
           />
         ))}
@@ -59,14 +59,14 @@ function ProjectButton({
   icon,
   name,
   detail,
-  ready,
+  openCount,
   onClick,
 }: {
   active: boolean;
   icon: ReactNode;
   name: string;
   detail: string;
-  ready: number;
+  openCount: number;
   onClick: () => void;
 }) {
   return (
@@ -89,11 +89,15 @@ function ProjectButton({
       <span
         className={cn(
           "min-w-6 rounded-full border px-1.5 py-0.5 text-center font-mono text-[0.65rem] tabular-nums",
-          ready > 0 ? "border-primary/30 bg-primary/10 text-primary" : "border-border",
+          openCount > 0 ? "border-primary/30 bg-primary/10 text-primary" : "border-border",
         )}
       >
-        {ready}
+        {openCount}
       </span>
     </button>
   );
+}
+
+function openCount(counts: ReturnType<typeof dashboardProjectCounts>): number {
+  return counts.attention + counts.ready + counts.reviewing + counts.processing;
 }

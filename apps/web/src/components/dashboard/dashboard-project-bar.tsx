@@ -3,12 +3,21 @@
 import { FolderGit2, LayoutGrid } from "lucide-react";
 
 import {
+  dashboardCockpitStates,
   dashboardProjectName,
   type DashboardQueueFocus,
   type DashboardScopeCounts,
 } from "@/components/dashboard/dashboard-project-desk-model";
 import type { DashboardRepo } from "@/lib/dashboard-api";
 import { cn } from "@/lib/utils";
+
+const cockpitLabels = {
+  attention: "Attention",
+  ready: "Ready",
+  reviewing: "Reviewing",
+  processing: "Processing",
+  complete: "Complete",
+} as const;
 
 export function DashboardProjectBar({
   activeRepo,
@@ -42,25 +51,16 @@ export function DashboardProjectBar({
           </span>
         </span>
       </div>
-      <div className="flex w-fit items-center gap-1 rounded-full border border-border bg-background/50 p-1">
-        <QueueChip
-          label="Ready"
-          value={counts.ready}
-          active={focus === "ready"}
-          onClick={() => onFocusChange("ready")}
-        />
-        <QueueChip
-          label="Yours"
-          value={counts.yours}
-          active={focus === "yours"}
-          onClick={() => onFocusChange("yours")}
-        />
-        <QueueChip
-          label="Complete"
-          value={counts.completed}
-          active={focus === "completed"}
-          onClick={() => onFocusChange("completed")}
-        />
+      <div className="flex w-fit max-w-full items-center gap-1 overflow-x-auto rounded-full border border-border bg-background/50 p-1">
+        {dashboardCockpitStates.map((state) => (
+          <QueueChip
+            key={state}
+            label={cockpitLabels[state]}
+            value={counts[state]}
+            active={focus === state}
+            onClick={() => onFocusChange(state)}
+          />
+        ))}
       </div>
     </section>
   );

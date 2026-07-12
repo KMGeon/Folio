@@ -42,7 +42,7 @@ export function DashboardNextUp({
       </div>
     );
   }
-  if (focus === "completed" && project.pages.completed.count > 0) {
+  if (focus === "complete" && project.pages.completed.count > 0) {
     return (
       <div className="rounded-xl border border-primary/20 bg-primary/5 p-5">
         <p className="font-mono text-[0.65rem] uppercase tracking-[0.16em] text-primary">

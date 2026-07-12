@@ -109,6 +109,7 @@ export function DashboardDesk({
               projects={projects}
               activeRepoId={activeRepoId}
               focus={queueFocus}
+              onFocusChange={onQueueFocusChange}
               visibleProperties={filters.visibleProperties}
               onRetryReview={onRetryReview}
             />
