@@ -15,7 +15,12 @@ describe("processReviewPullJob", () => {
     const complete = vi.fn(async () => undefined);
     const fail = vi.fn(async () => undefined);
 
-    await processReviewPullJob(reviewPullJob(), { runReview, complete, fail });
+    await processReviewPullJob(reviewPullJob(), {
+      runReview,
+      runIndexBackfill: vi.fn(),
+      complete,
+      fail,
+    });
 
     expect(runReview).toHaveBeenCalledWith({ owner: "acme", repo: "widget", number: 7 });
     expect(complete).toHaveBeenCalledWith("job-1", { prId: "pr1" });
@@ -29,7 +34,12 @@ describe("processReviewPullJob", () => {
     const complete = vi.fn(async () => undefined);
     const fail = vi.fn(async () => undefined);
 
-    await processReviewPullJob(reviewPullJob(), { runReview, complete, fail });
+    await processReviewPullJob(reviewPullJob(), {
+      runReview,
+      runIndexBackfill: vi.fn(),
+      complete,
+      fail,
+    });
 
     expect(fail).toHaveBeenCalledWith("job-1", "boom");
     expect(complete).not.toHaveBeenCalled();

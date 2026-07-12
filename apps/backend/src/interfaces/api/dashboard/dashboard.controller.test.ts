@@ -4,7 +4,9 @@ import { APP_FILTER, APP_INTERCEPTOR } from "@nestjs/core";
 import { Test } from "@nestjs/testing";
 import request from "supertest";
 import { describe, expect, it, vi } from "vitest";
+import { BoardEventHub } from "../../../application/dashboard/board-event-hub.js";
 import { DashboardFacade } from "../../../application/dashboard/dashboard.facade.js";
+import { RepoAccessService } from "../../../domain/auth/repo-access.service.js";
 import { LOGGER_PORT } from "../../../internal/logger/logger.port.js";
 import { CoreExceptionFilter } from "../../../support/error/core-exception.filter.js";
 import { ApiResponseInterceptor } from "../common/api-response.interceptor.js";
@@ -20,6 +22,14 @@ const dashboardAllowGuard = {
     return true;
   },
 };
+
+const streamProviders = [
+  { provide: BoardEventHub, useValue: { subscribe: vi.fn(() => () => undefined) } },
+  {
+    provide: RepoAccessService,
+    useValue: { filterReadableResolvedRepositories: vi.fn(async () => []) },
+  },
+];
 
 describe("DashboardController", () => {
   it("requires review-read entitlement for every dashboard route", () => {
@@ -42,6 +52,7 @@ describe("DashboardController", () => {
           provide: DashboardFacade,
           useValue: { getOpenPullPagesForUser, getPullPageForUser: vi.fn() },
         },
+        ...streamProviders,
         { provide: LOGGER_PORT, useValue: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } },
         { provide: APP_FILTER, useClass: CoreExceptionFilter },
         { provide: APP_INTERCEPTOR, useClass: ApiResponseInterceptor },
@@ -82,6 +93,7 @@ describe("DashboardController", () => {
           provide: DashboardFacade,
           useValue: { getOpenPullPagesForUser, getPullPageForUser: vi.fn() },
         },
+        ...streamProviders,
         { provide: LOGGER_PORT, useValue: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } },
         { provide: APP_FILTER, useClass: CoreExceptionFilter },
         { provide: APP_INTERCEPTOR, useClass: ApiResponseInterceptor },
@@ -114,6 +126,7 @@ describe("DashboardController", () => {
       controllers: [DashboardController],
       providers: [
         { provide: DashboardFacade, useValue: { getPullPageForUser: vi.fn() } },
+        ...streamProviders,
         { provide: LOGGER_PORT, useValue: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } },
         { provide: APP_FILTER, useClass: CoreExceptionFilter },
         { provide: APP_INTERCEPTOR, useClass: ApiResponseInterceptor },

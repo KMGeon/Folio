@@ -72,6 +72,12 @@ const baseSchema = z.object({
   PUBLIC_API_BASE_URL: z.string().default("http://localhost:8080"),
   // Base URL used to build "Open in Stage" deep links in the PR comment.
   FOLIO_WEB_BASE_URL: z.string().default("http://localhost:5173"),
+  // When true, dashboard open/completed pages read pull_request_index only.
+  // Default false until repos are backfilled; set true after PR index is ready.
+  DASHBOARD_READ_FROM_INDEX: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
 });
 
 export type Config = z.infer<typeof baseSchema>;

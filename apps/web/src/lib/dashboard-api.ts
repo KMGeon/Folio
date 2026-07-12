@@ -158,6 +158,38 @@ export function fetchDashboardOpenPullPages(
   return apiRequest<DashboardOpenPullPages>(dashboardOpenPullPagesPath(query));
 }
 
+export type BoardStreamEvent =
+  | {
+      type: "pr.upserted";
+      id: string;
+      repoId: string;
+      number: number;
+      githubUpdatedAt: string;
+      title?: string;
+      author?: string;
+      isDraft?: boolean;
+      githubState?: "open" | "closed";
+      additions?: number;
+      deletions?: number;
+      changedFiles?: number;
+    }
+  | {
+      type: "pr.removed";
+      id: string;
+      repoId: string;
+      number: number;
+    }
+  | {
+      type: "board.invalidate";
+      reason: "reconcile" | "repo_scope_changed" | "backfill_complete";
+      repoId?: string;
+    };
+
+/** Absolute SSE URL (EventSource cannot use relative paths with a separate API host). */
+export function dashboardStreamUrl(apiBaseUrl: string): string {
+  return `${apiBaseUrl.replace(/\/$/, "")}/api/v1/dashboard/stream`;
+}
+
 export function dashboardOpenPullPagesPath(query: DashboardOpenPullPagesQuery): string {
   const params = new URLSearchParams();
   if (query.limit) {

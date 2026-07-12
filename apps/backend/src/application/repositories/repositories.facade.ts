@@ -9,12 +9,14 @@ import {
 } from "@folio/db";
 import { AUDIT_ACTION, WORKSPACE_ROLE } from "@folio/types";
 import type { Repository } from "@folio/types";
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable, Optional } from "@nestjs/common";
 import { canAccessWorkspace } from "../../domain/authorization/authorization-policy.js";
 import { RepoAccessService } from "../../domain/auth/repo-access.service.js";
 import { WorkspaceResolver } from "../../infrastructure/authorization/workspace-resolver.js";
 import { CoreException } from "../../support/error/core-exception.js";
 import { ErrorType } from "../../support/error/error-type.js";
+import { PullRequestIndexBackfill } from "../dashboard/pull-request-index-backfill.js";
+import { PullRequestIndexWriter } from "../dashboard/pull-request-index-writer.js";
 
 const REPOSITORY_NOT_FOUND = {
   code: "repository_not_found",
@@ -38,6 +40,12 @@ export class RepositoriesFacade {
   constructor(
     @Inject(WorkspaceResolver) private readonly workspaceResolver: WorkspaceResolver,
     @Inject(RepoAccessService) private readonly repoAccess: RepoAccessService,
+    @Optional()
+    @Inject(PullRequestIndexBackfill)
+    private readonly indexBackfill?: PullRequestIndexBackfill,
+    @Optional()
+    @Inject(PullRequestIndexWriter)
+    private readonly indexWriter?: PullRequestIndexWriter,
   ) {}
 
   async listForUser(user: { userId: string; login: string }): Promise<RepositoryListPayload> {
@@ -109,7 +117,7 @@ export class RepositoriesFacade {
       throw new CoreException(ErrorType.RepoAccessDenied);
     }
 
-    return getDb().transaction(async (transaction) => {
+    const result = await getDb().transaction(async (transaction) => {
       const lockedWorkspace = await workspacesRepo.getByIdForUpdate(workspace.id, transaction);
       if (!lockedWorkspace) {
         throw new CoreException(ErrorType.WorkspaceNotFound);
@@ -155,7 +163,12 @@ export class RepositoriesFacade {
       }
 
       if (lockedRepo.folioEnabled === input.enabled) {
-        return toRepository(lockedRepo);
+        return {
+          repository: toRepository(lockedRepo),
+          repositoryId: lockedRepo.id,
+          enabled: input.enabled,
+          changed: false,
+        };
       }
 
       const updated = await repositoriesRepo.setFolioEnabled(
@@ -175,8 +188,21 @@ export class RepositoriesFacade {
         },
         transaction,
       );
-      return toRepository(updated);
+      return {
+        repository: toRepository(updated),
+        repositoryId: lockedRepo.id,
+        enabled: input.enabled,
+        changed: true,
+      };
     });
+
+    // Index backfill/clear runs after commit so webhook-adjacent jobs see committed state.
+    if (result.changed) {
+      await (result.enabled
+        ? this.indexBackfill?.enqueueForRepository(result.repositoryId)
+        : this.indexWriter?.clearRepo(result.repositoryId));
+    }
+    return result.repository;
   }
 }
 
