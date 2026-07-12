@@ -210,8 +210,9 @@ function UnifiedDiffTable({
                 id={diffLineElementId(chapterIndex, line)}
                 className={cn(
                   "group",
-                  line.kind === "add" && !isJump && !isFocus && "bg-diff-add-bg",
-                  line.kind === "del" && !isJump && !isFocus && "bg-diff-del-bg",
+                  // Keep normal add/del tints — jump is pointed only by the amber circle.
+                  line.kind === "add" && "bg-diff-add-bg",
+                  line.kind === "del" && "bg-diff-del-bg",
                   focusRowClass(isFocus, isJump, isActive),
                 )}
               >
@@ -230,12 +231,10 @@ function UnifiedDiffTable({
                 </td>
                 <td className="w-8 select-none px-1 align-top">
                   <div className="flex flex-col items-center gap-1 pt-0.5">
-                    {isFocus || isJump ? (
+                    {isJump ? (
                       <span
-                        className={focusMarkerDotClass(isJump)}
-                        title={
-                          isJump ? "지금 선택된 검토 사항 연결 구간" : "검토할 사항에 연결된 줄"
-                        }
+                        className={focusMarkerDotClass(true)}
+                        title="지금 선택된 검토 사항"
                         aria-hidden
                       />
                     ) : null}
@@ -315,6 +314,7 @@ function SplitDiffTable(props: DiffTableProps) {
                   canComment={props.canComment}
                   created={Boolean(oldKey && props.created[oldKey])}
                   isActive={Boolean(oldKey && props.activeLine?.key === oldKey)}
+                  isJump={oldIsJump}
                   renderLine={props.renderLine}
                   onSelect={(line) => props.selectLine(props.keyForLine(line), line)}
                 />
@@ -324,6 +324,7 @@ function SplitDiffTable(props: DiffTableProps) {
                   canComment={props.canComment}
                   created={Boolean(newKey && props.created[newKey])}
                   isActive={Boolean(newKey && props.activeLine?.key === newKey)}
+                  isJump={newIsJump}
                   renderLine={props.renderLine}
                   onSelect={(line) => props.selectLine(props.keyForLine(line), line)}
                 />

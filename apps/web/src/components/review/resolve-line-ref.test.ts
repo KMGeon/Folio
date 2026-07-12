@@ -121,7 +121,7 @@ describe("resolveAllLinesForRef", () => {
 });
 
 describe("jumpTargetFromKeyChange / isJumpLine", () => {
-  it("highlights the full range, not only the first row", () => {
+  it("stores the full range but only marks the anchor row as the jump highlight", () => {
     const ch: ReviewChapter = {
       ...chapter([
         line({ path: "a.ts", kind: "add", n: 10, newLineNumber: 10 }),
@@ -143,9 +143,10 @@ describe("jumpTargetFromKeyChange / isJumpLine", () => {
       { path: "a.ts", side: "additions", startLine: 10, endLine: 12 },
     ]);
     expect(target?.anchor.lineNumber).toBe(10);
+    // Point at the scroll anchor only — full-range wash is unreadable for review.
     expect(isJumpLine(target, ch.diffLines[0], 1)).toBe(true);
-    expect(isJumpLine(target, ch.diffLines[1], 1)).toBe(true);
-    expect(isJumpLine(target, ch.diffLines[2], 1)).toBe(true);
+    expect(isJumpLine(target, ch.diffLines[1], 1)).toBe(false);
+    expect(isJumpLine(target, ch.diffLines[2], 1)).toBe(false);
   });
 });
 

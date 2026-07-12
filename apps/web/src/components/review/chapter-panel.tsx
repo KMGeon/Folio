@@ -150,14 +150,13 @@ export function ChapterPanel({
                     key={item.id}
                     className={cn(
                       "relative flex w-full items-start gap-3 rounded-md border px-3 py-3 text-sm leading-6",
-                      // Amber family only — never primary green (reads as “added”) or info blue (reads as multi-line selection).
+                      // Amber fill only — no inset left rail; color distinguishes state.
                       item.viewed &&
                         "border-border/80 bg-muted/25 text-muted-foreground opacity-80",
                       !item.viewed &&
                         !isActive &&
-                        "border-warning/40 bg-warning/12 text-foreground shadow-[inset_3px_0_0_0] shadow-warning",
-                      isActive &&
-                        "border-warning/60 bg-warning/20 text-foreground shadow-[inset_3px_0_0_0] shadow-warning",
+                        "border-warning/35 bg-warning/12 text-foreground",
+                      isActive && "border-warning/50 bg-warning/20 text-foreground",
                     )}
                   >
                     {hasLink ? (

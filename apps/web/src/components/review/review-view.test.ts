@@ -162,9 +162,10 @@ describe("ReviewView source", () => {
     expect(chapterPanelSource).toContain("text-sm leading-6 text-foreground");
     expect(chapterPanelSource).toContain("ListChecks");
     expect(chapterPanelSource).toContain("font-semibold text-primary text-xs");
-    // Focus rows: amber when open and when active (not primary green / not info blue).
-    expect(chapterPanelSource).toContain("shadow-warning");
+    // Focus cards: amber fill only (no inset left rail / no info blue).
     expect(chapterPanelSource).toContain("bg-warning/20");
+    expect(chapterPanelSource).toContain("bg-warning/12");
+    expect(chapterPanelSource).not.toContain("shadow-[inset_3px_0_0_0]");
     expect(chapterPanelSource).not.toContain("shadow-info");
     expect(chapterPanelSource).toContain("activeKeyChangeId");
     expect(chapterPanelSource).not.toContain("bg-background/35");
