@@ -15,6 +15,7 @@ import {
   resetDashboardRequestScope,
 } from "./dashboard-request-scope";
 import { hasActiveReviewJobs } from "./dashboard-board-client";
+import { columnLoadingStateForReset } from "./dashboard-board-stream";
 import { dashboardOpenPullPagesPath, dashboardPullPagePath } from "@/lib/dashboard-api";
 
 describe("DashboardBoardClient", () => {
@@ -28,6 +29,30 @@ describe("DashboardBoardClient", () => {
     expect(hasActiveReviewJobs(columns as never)).toBe(true);
     columns.ready.items[0]!.analysisStatus = "complete";
     expect(hasActiveReviewJobs(columns as never)).toBe(false);
+  });
+
+  it("keeps cards visible on soft reset and wipes only on hard reset", () => {
+    const loaded = {
+      items: [{ id: "pr-1" }],
+      count: 1,
+      nextCursor: null,
+      isInitialLoading: false,
+      isLoadingMore: false,
+      error: null,
+    };
+
+    expect(columnLoadingStateForReset(loaded as never, true)).toEqual({
+      items: loaded.items,
+      isInitialLoading: false,
+      isLoadingMore: false,
+      error: null,
+    });
+    expect(columnLoadingStateForReset(loaded as never, false)).toEqual({
+      items: [],
+      isInitialLoading: true,
+      isLoadingMore: false,
+      error: null,
+    });
   });
   it("builds paginated pull URLs with only supported server-backed filters", () => {
     const query = {
@@ -162,7 +187,23 @@ describe("DashboardBoardClient", () => {
     );
     expect(boardClient).toContain("void loadOpenBuckets(openEpoch)");
     expect(boardClient).toContain('void loadBucket("completed", "reset", completedEpoch)');
+    // Active-job poll must soft-refresh so the board does not blink every 3s.
+    expect(boardClient).toContain("void loadOpenBuckets(openEpoch, { soft: true })");
+    expect(boardClient).toContain(
+      'void loadBucket("completed", "reset", completedEpoch, { soft: true })',
+    );
     expect(boardClient).not.toContain("requestVersionRef");
     expect(boardClient).not.toContain("filters.grouping,");
+  });
+
+  it("soft-reloads open buckets on SSE events and only after reconnect", async () => {
+    const stream = await readFile(new URL("./dashboard-board-stream.ts", import.meta.url), "utf8");
+
+    expect(stream).toContain("void input.loadOpenBuckets(openEpoch, { soft: true })");
+    expect(stream).toContain("let hasOpened = false");
+    expect(stream).toContain("if (!hasOpened)");
+    expect(stream).toContain("hasOpened = true");
+    // First connect must not force a reload; only reconnect does.
+    expect(stream).toMatch(/source\.onopen = \(\) => \{[\s\S]*?if \(!hasOpened\)/);
   });
 });

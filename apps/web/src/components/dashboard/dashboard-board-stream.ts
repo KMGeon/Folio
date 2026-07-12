@@ -56,6 +56,35 @@ export function hasActiveReviewJobs(columns: ColumnStateMap): boolean {
   );
 }
 
+export type DashboardReloadOptions = {
+  /** Keep existing cards visible; no skeleton wipe. Used for SSE/poll refresh. */
+  soft?: boolean;
+};
+
+/**
+ * Loading UI for a column reset. Soft refresh keeps current cards so background
+ * reloads (SSE reconnect, invalidate, active-job poll) do not flash skeleton.
+ */
+export function columnLoadingStateForReset(
+  prev: ColumnLoadState,
+  soft: boolean,
+): Pick<ColumnLoadState, "items" | "isInitialLoading" | "isLoadingMore" | "error"> {
+  if (soft) {
+    return {
+      items: prev.items,
+      isInitialLoading: prev.isInitialLoading,
+      isLoadingMore: false,
+      error: null,
+    };
+  }
+  return {
+    items: [],
+    isInitialLoading: true,
+    isLoadingMore: false,
+    error: null,
+  };
+}
+
 /**
  * Subscribe to dashboard SSE and apply light patches + debounced open reloads.
  * Returns a cleanup function for the React effect.
@@ -63,12 +92,14 @@ export function hasActiveReviewJobs(columns: ColumnStateMap): boolean {
 export function connectDashboardBoardStream(input: {
   inFlightRef: MutableRefObject<DashboardInFlightMap>;
   requestEpochsRef: MutableRefObject<DashboardRequestEpochs>;
-  loadOpenBuckets: (version?: number) => Promise<void>;
+  loadOpenBuckets: (version?: number, options?: DashboardReloadOptions) => Promise<void>;
   setColumns: Dispatch<SetStateAction<ColumnStateMap>>;
 }): () => void {
   let cancelled = false;
   let debounceTimer: number | null = null;
   let source: EventSource | null = null;
+  // First onopen is the initial connect; mount effects already load open buckets.
+  let hasOpened = false;
 
   const reloadOpenSoon = () => {
     if (debounceTimer !== null) {
@@ -83,7 +114,7 @@ export function connectDashboardBoardStream(input: {
         input.requestEpochsRef.current,
         "open",
       );
-      void input.loadOpenBuckets(openEpoch);
+      void input.loadOpenBuckets(openEpoch, { soft: true });
     }, 400);
   };
 
@@ -165,7 +196,11 @@ export function connectDashboardBoardStream(input: {
     reloadOpenSoon();
   });
   source.onopen = () => {
-    // After reconnect, force one full open reload to fill any missed gap.
+    if (!hasOpened) {
+      hasOpened = true;
+      return;
+    }
+    // Reconnect only: fill gaps without the first-connect double-fetch flash.
     reloadOpenSoon();
   };
 
