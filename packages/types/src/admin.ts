@@ -83,11 +83,98 @@ export const AdminAuditPageSchema = z
   .strict();
 export type AdminAuditPage = z.infer<typeof AdminAuditPageSchema>;
 
+export const AdminWorkspaceInstallationStateSchema = z.enum([
+  "none",
+  "active",
+  "suspended",
+  "mixed",
+]);
+export type AdminWorkspaceInstallationState = z.infer<typeof AdminWorkspaceInstallationStateSchema>;
+
+const AdminWorkspaceOwnerSchema = AdminIdentitySchema.nullable();
+
+export const AdminWorkspaceItemSchema = z
+  .object({
+    id: z.string().uuid(),
+    accountLogin: z.string().min(1),
+    accountType: z.enum(["User", "Organization"]),
+    createdAt: IsoDateTimeSchema,
+    owner: AdminWorkspaceOwnerSchema,
+    memberCount: z.number().int().nonnegative(),
+    repositoryCount: z.number().int().nonnegative(),
+    enabledRepositoryCount: z.number().int().nonnegative(),
+    installationState: AdminWorkspaceInstallationStateSchema,
+    recentActivityAt: IsoDateTimeSchema.nullable(),
+  })
+  .strict();
+export type AdminWorkspaceItem = z.infer<typeof AdminWorkspaceItemSchema>;
+
+export const AdminWorkspacePageSchema = z
+  .object({
+    items: z.array(AdminWorkspaceItemSchema),
+    nextCursor: z.string().min(1).nullable(),
+  })
+  .strict();
+export type AdminWorkspacePage = z.infer<typeof AdminWorkspacePageSchema>;
+
+const AdminWorkspaceMemberSchema = z
+  .object({
+    id: z.string().uuid(),
+    userId: z.string().uuid(),
+    login: z.string().min(1),
+    avatarUrl: z.string().min(1),
+    role: WorkspaceRoleSchema,
+    status: MembershipStatusSchema,
+    joinedAt: IsoDateTimeSchema,
+  })
+  .strict();
+
+const AdminWorkspaceRepositorySchema = z
+  .object({
+    id: z.string().uuid(),
+    fullName: z.string().min(1),
+    private: z.boolean(),
+    folioEnabled: z.boolean(),
+  })
+  .strict();
+
+const AdminWorkspaceInstallationSchema = z
+  .object({
+    id: z.string().uuid(),
+    githubInstallationId: z.number().int(),
+    accountLogin: z.string().min(1),
+    accountType: z.enum(["User", "Organization"]),
+    suspendedAt: IsoDateTimeSchema.nullable(),
+  })
+  .strict();
+
+export const AdminWorkspaceDetailSchema = AdminWorkspaceItemSchema.extend({
+  members: z.array(AdminWorkspaceMemberSchema),
+  repositories: z.array(AdminWorkspaceRepositorySchema),
+  installations: z.array(AdminWorkspaceInstallationSchema),
+  recentAudit: z.array(AdminAuditItemSchema).max(10),
+}).strict();
+export type AdminWorkspaceDetail = z.infer<typeof AdminWorkspaceDetailSchema>;
+
 export const AdminOverviewPayloadSchema = z
   .object({
-    metrics: z.object({ pendingUsers: z.number().int().nonnegative() }).strict(),
+    metrics: z
+      .object({
+        pendingUsers: z.number().int().nonnegative(),
+        workspaces: z.number().int().nonnegative(),
+        enabledRepositories: z.number().int().nonnegative(),
+      })
+      .strict(),
     attention: z.array(
-      z.object({ kind: z.literal("pending_users"), count: z.number().int().positive() }).strict(),
+      z.discriminatedUnion("kind", [
+        z.object({ kind: z.literal("pending_users"), count: z.number().int().positive() }).strict(),
+        z
+          .object({
+            kind: z.literal("suspended_installations"),
+            count: z.number().int().positive(),
+          })
+          .strict(),
+      ]),
     ),
     recentAudit: z.array(AdminAuditItemSchema).max(5),
   })
