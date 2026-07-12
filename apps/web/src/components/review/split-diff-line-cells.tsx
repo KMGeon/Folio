@@ -4,6 +4,7 @@ import type { ReviewDiffLine } from "@/lib/review-api";
 import { cn } from "@/lib/utils";
 
 import { CommentButton } from "./diff-comment-controls";
+import { focusMarkerDotClass } from "./focus-line-styles";
 
 export function SplitLineCells({
   line,
@@ -11,6 +12,7 @@ export function SplitLineCells({
   canComment,
   created,
   isActive,
+  isJump = false,
   renderLine,
   onSelect,
 }: {
@@ -19,6 +21,8 @@ export function SplitLineCells({
   canComment: boolean;
   created: boolean;
   isActive: boolean;
+  /** Active 검토할 사항 jump — amber circle only, no row rail. */
+  isJump?: boolean;
   renderLine: (line: ReviewDiffLine) => ReactNode;
   onSelect: (line: ReviewDiffLine) => void;
 }) {
@@ -59,13 +63,18 @@ export function SplitLineCells({
         {isNewAddition ? "+" : isOldDeletion ? "-" : " "}
       </td>
       <td className="w-8 select-none px-1 align-top">
-        <CommentButton
-          canComment={canComment}
-          created={created}
-          isActive={isActive}
-          line={line}
-          onClick={() => onSelect(line)}
-        />
+        <div className="flex flex-col items-center gap-1 pt-0.5">
+          {isJump ? (
+            <span className={focusMarkerDotClass(true)} title="지금 선택된 검토 사항" aria-hidden />
+          ) : null}
+          <CommentButton
+            canComment={canComment}
+            created={created}
+            isActive={isActive}
+            line={line}
+            onClick={() => onSelect(line)}
+          />
+        </div>
       </td>
       <td
         className={cn(

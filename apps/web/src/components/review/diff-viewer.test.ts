@@ -48,11 +48,11 @@ describe("DiffViewer source", () => {
     const focusStyleSource = readFileSync(resolve(__dirname, "focus-line-styles.ts"), "utf8");
     expect(filePanelSource).toContain("diffLineElementId");
     expect(filePanelSource).toContain("focusRowClass");
-    // Active jump: single-row amber pointer; linked range is rail-only (no fill wash).
-    expect(focusStyleSource).toContain("border-warning bg-warning/18");
-    expect(focusStyleSource).toContain("ring-1 ring-inset ring-warning/40");
-    expect(focusStyleSource).toContain("border-l-[3px] border-warning/70");
+    // Jump pointer is the amber circle only — no left rail / no row wash.
+    expect(focusStyleSource).toContain("rounded-full bg-warning");
+    expect(focusStyleSource).toContain("shadow-warning/40");
+    expect(focusStyleSource).not.toContain("border-l-[3px]");
     expect(focusStyleSource).not.toContain("border-info bg-info/20");
-    expect(focusStyleSource).not.toContain("bg-warning/15");
+    expect(focusStyleSource).not.toContain("bg-warning/18");
   });
 });
