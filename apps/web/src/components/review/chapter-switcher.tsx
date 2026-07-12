@@ -6,15 +6,18 @@ import { useEffect, useRef, useState } from "react";
 
 import { cn } from "@/lib/utils";
 
-/** "제 N 장 ▾" dropdown that jumps to any chapter. */
+/** "제 N 장 ▾" dropdown that jumps to any chapter (in-place when onSelect is set). */
 export function ChapterSwitcher({
   chapters,
   activeIndex,
   prPath,
+  onSelect,
 }: {
   chapters: { index: number; title: string }[];
   activeIndex: number;
   prPath: string;
+  /** Prefer in-place navigation so drill-in stays in ReviewView. */
+  onSelect?: (index: number) => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -42,22 +45,45 @@ export function ChapterSwitcher({
       </button>
       {open ? (
         <div className="absolute left-0 z-50 mt-1 max-h-72 w-64 overflow-y-auto rounded-md border bg-card p-1 shadow-md">
-          {chapters.map((c) => (
-            <Link
-              key={c.index}
-              href={`${prPath}/chapters/${c.index}`}
-              onClick={() => setOpen(false)}
-              className={cn(
-                "flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent",
-                c.index === activeIndex && "bg-accent text-foreground",
-              )}
-            >
-              <span className="w-5 shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
-                {c.index}
-              </span>
-              <span className="min-w-0 flex-1 truncate">{c.title}</span>
-            </Link>
-          ))}
+          {chapters.map((c) => {
+            const className = cn(
+              "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent",
+              c.index === activeIndex && "bg-accent text-foreground",
+            );
+            const body = (
+              <>
+                <span className="w-5 shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
+                  {c.index}
+                </span>
+                <span className="min-w-0 flex-1 truncate">{c.title}</span>
+              </>
+            );
+            if (onSelect) {
+              return (
+                <button
+                  key={c.index}
+                  type="button"
+                  className={className}
+                  onClick={() => {
+                    onSelect(c.index);
+                    setOpen(false);
+                  }}
+                >
+                  {body}
+                </button>
+              );
+            }
+            return (
+              <Link
+                key={c.index}
+                href={`${prPath}/chapters/${c.index}`}
+                onClick={() => setOpen(false)}
+                className={className}
+              >
+                {body}
+              </Link>
+            );
+          })}
         </div>
       ) : null}
     </div>
