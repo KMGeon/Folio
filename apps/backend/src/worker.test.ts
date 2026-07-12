@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { processReviewPullJob } from "./worker.js";
+import { processReviewPullJob, runScheduledReconcileIfDue } from "./worker.js";
 import type { Job } from "@folio/db";
 
 function reviewPullJob(): Job {
@@ -43,5 +43,35 @@ describe("processReviewPullJob", () => {
 
     expect(fail).toHaveBeenCalledWith("job-1", "boom");
     expect(complete).not.toHaveBeenCalled();
+  });
+});
+
+describe("runScheduledReconcileIfDue", () => {
+  it("runs a bounded round when the interval is due", async () => {
+    const runRound = vi.fn(async () => undefined);
+
+    const nextAt = await runScheduledReconcileIfDue(1_000, 900, runRound);
+
+    expect(runRound).toHaveBeenCalledWith({ limitRepos: 50 });
+    expect(nextAt).toBe(901_000);
+  });
+
+  it("does not run before the next interval", async () => {
+    const runRound = vi.fn(async () => undefined);
+
+    const nextAt = await runScheduledReconcileIfDue(899, 900, runRound);
+
+    expect(runRound).not.toHaveBeenCalled();
+    expect(nextAt).toBe(900);
+  });
+
+  it("delays the next attempt when a round fails", async () => {
+    const runRound = vi.fn(async () => {
+      throw new Error("GitHub unavailable");
+    });
+
+    const nextAt = await runScheduledReconcileIfDue(1_000, 900, runRound);
+
+    expect(nextAt).toBe(901_000);
   });
 });

@@ -80,6 +80,13 @@ export const repositoriesRepo = {
       );
   },
 
+  async listFolioEnabledWithGithubAccess(db: Db = getDb()): Promise<RepositoryRow[]> {
+    return db
+      .select()
+      .from(repositories)
+      .where(and(eq(repositories.folioEnabled, true), eq(repositories.githubAccessActive, true)));
+  },
+
   async listByInstallationIds(
     installationIds: string[],
     db: Db = getDb(),

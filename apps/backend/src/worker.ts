@@ -4,11 +4,13 @@
  * Claims jobs from the Postgres SKIP-LOCKED queue:
  * - `review_pull`: PR → chapters decomposition via ReviewPullFacade
  * - `pr_index_backfill`: populate pull_request_index for a repository
+ * - periodic reconcile: converge GitHub opens with pull_request_index
  */
 import "reflect-metadata";
 import { JOB_KIND, type Job, claimJob, completeJob, failJob, reclaimExpiredJobs } from "@folio/db";
 import { BoardEventHub } from "./application/dashboard/board-event-hub.js";
 import { PullRequestIndexBackfill } from "./application/dashboard/pull-request-index-backfill.js";
+import { PullRequestIndexReconcile } from "./application/dashboard/pull-request-index-reconcile.js";
 import { PullRequestIndexWriter } from "./application/dashboard/pull-request-index-writer.js";
 import { ReviewPullFacade } from "./application/review/review-pull.facade.js";
 import { bootstrapGitHub } from "./internal/github/github-bootstrap.js";
@@ -18,6 +20,8 @@ const WORKER_ID = `worker-${process.pid}`;
 // the reaper only reclaims work from genuinely dead workers, not slow ones.
 const LEASE_MS = 10 * 60_000;
 const POLL_MS = 2_000;
+const RECONCILE_MS = 15 * 60_000;
+const RECONCILE_REPO_LIMIT = 50;
 
 export interface ProcessJobDeps {
   runReview: (input: { owner: string; repo: string; number: number }) => Promise<unknown>;
@@ -53,6 +57,24 @@ export async function processReviewPullJob(job: Job, deps: ProcessJobDeps): Prom
   return processWorkerJob(job, deps);
 }
 
+export async function runScheduledReconcileIfDue(
+  now: number,
+  nextReconcileAt: number,
+  runRound: (input: { limitRepos: number }) => Promise<unknown>,
+): Promise<number> {
+  if (now < nextReconcileAt) {
+    return nextReconcileAt;
+  }
+  const nextAt = now + RECONCILE_MS;
+  try {
+    await runRound({ limitRepos: RECONCILE_REPO_LIMIT });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[folio] pull request index reconcile round failed: ${message}`);
+  }
+  return nextAt;
+}
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function loop(): Promise<void> {
@@ -61,6 +83,7 @@ async function loop(): Promise<void> {
   const hub = new BoardEventHub();
   const writer = new PullRequestIndexWriter(hub);
   const backfill = new PullRequestIndexBackfill(writer, hub);
+  const reconcile = new PullRequestIndexReconcile(writer, hub);
   const deps: ProcessJobDeps = {
     runReview: (input) => facade.run(input),
     runIndexBackfill: (repositoryId) => backfill.runForRepository(repositoryId),
@@ -69,6 +92,7 @@ async function loop(): Promise<void> {
   };
 
   console.log(`[folio] worker started (${WORKER_ID})`);
+  let nextReconcileAt = Date.now();
   for (;;) {
     await reclaimExpiredJobs();
     const job = await claimJob({
@@ -77,6 +101,9 @@ async function loop(): Promise<void> {
       workerId: WORKER_ID,
     });
     if (!job) {
+      nextReconcileAt = await runScheduledReconcileIfDue(Date.now(), nextReconcileAt, (input) =>
+        reconcile.runRound(input),
+      );
       await sleep(POLL_MS);
       continue;
     }

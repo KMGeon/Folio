@@ -6,6 +6,7 @@ import { AuthorizationModule } from "../authorization/authorization.module.js";
 import { BoardEventHub } from "./board-event-hub.js";
 import { DashboardFacade } from "./dashboard.facade.js";
 import { PullRequestIndexBackfill } from "./pull-request-index-backfill.js";
+import { PullRequestIndexReconcile } from "./pull-request-index-reconcile.js";
 import { PullRequestIndexWriter } from "./pull-request-index-writer.js";
 
 @Module({
@@ -16,12 +17,18 @@ import { PullRequestIndexWriter } from "./pull-request-index-writer.js";
     BoardEventHub,
     PullRequestIndexWriter,
     PullRequestIndexBackfill,
+    PullRequestIndexReconcile,
     {
       provide: DashboardFacade,
       inject: [RepoAccessService],
       useFactory: (repoAccess: RepoAccessService) => new DashboardFacade({ repoAccess }),
     },
   ],
-  exports: [BoardEventHub, PullRequestIndexWriter, PullRequestIndexBackfill],
+  exports: [
+    BoardEventHub,
+    PullRequestIndexWriter,
+    PullRequestIndexBackfill,
+    PullRequestIndexReconcile,
+  ],
 })
 export class DashboardModule {}
