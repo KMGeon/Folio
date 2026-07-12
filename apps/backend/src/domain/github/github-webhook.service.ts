@@ -1,5 +1,6 @@
 import { Inject, Injectable, Optional } from "@nestjs/common";
 import { repositoriesRepo } from "@folio/db";
+import { createInstallationOctokit, createIssueReaction } from "@folio/github";
 import type { AccountType } from "@folio/types";
 import { PullRequestIndexWriter } from "../../application/dashboard/pull-request-index-writer.js";
 import { InstallationSyncFacade } from "../../application/github/installation-sync.facade.js";
@@ -198,12 +199,27 @@ export class GitHubWebhookService {
         }
 
         if (REVIEWABLE_PR_ACTIONS.has(event.action)) {
-          await this.reviewJobQueue.enqueueReviewPull({
-            owner: repository.owner.login,
-            repo: repository.name,
-            number: event.payload.pull_request.number,
+          const owner = repository.owner.login;
+          const repo = repository.name;
+          const number = event.payload.pull_request.number;
+          const { deduplicated } = await this.reviewJobQueue.enqueueReviewPull({
+            owner,
+            repo,
+            number,
             headSha: event.payload.pull_request.head.sha,
           });
+
+          // Signal "queued" on the main PR body immediately (no bot comment required).
+          // Skip redelivered/deduped enqueues so we don't spam reaction API noise.
+          if (!deduplicated) {
+            await this.reactQueuedOnPull({
+              deliveryId,
+              installationId: event.payload.installation?.id,
+              owner,
+              repo,
+              number,
+            });
+          }
         }
       }
     } catch (err) {
@@ -211,6 +227,39 @@ export class GitHubWebhookService {
         deliveryId,
         event: event.name,
         action: event.action,
+      });
+    }
+  }
+
+  /** Best-effort 👀 on the PR; never throws into the webhook 202 path. */
+  private async reactQueuedOnPull(input: {
+    deliveryId: string;
+    installationId?: number;
+    owner: string;
+    repo: string;
+    number: number;
+  }): Promise<void> {
+    if (!input.installationId) {
+      return;
+    }
+    try {
+      const octokit = await createInstallationOctokit(input.installationId);
+      await createIssueReaction(
+        octokit,
+        { owner: input.owner, repo: input.repo, number: input.number },
+        "eyes",
+      );
+      this.logger.info("[folio] queued reaction on pull request", {
+        deliveryId: input.deliveryId,
+        repository: `${input.owner}/${input.repo}`,
+        pullNumber: input.number,
+        reaction: "eyes",
+      });
+    } catch (err) {
+      this.logger.error("[folio] queued reaction failed", err, {
+        deliveryId: input.deliveryId,
+        repository: `${input.owner}/${input.repo}`,
+        pullNumber: input.number,
       });
     }
   }

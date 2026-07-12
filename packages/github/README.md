@@ -42,6 +42,7 @@ webhook secret (`verifyWebhookSignature`, constant-time, never throws).
 | **Contents**      | **Read**         | Read file/blob content for decomposition (I2).                                            |
 | **Checks**        | **Read & write** | Create/update the Folio Check Run with a custom `details_url` and requested actions (I4). |
 | **Metadata**      | **Read**         | Mandatory baseline for any App (repo identity).                                           |
+| **Issues**        | **Write** (or Reactions write) | PR-body 👀 reaction when a review job is queued (uses issues reactions API). |
 | Commit statuses   | Write (optional) | Optional legacy status surface alongside the Check Run.                                   |
 
 ## Subscribed webhook events

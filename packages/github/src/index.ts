@@ -97,6 +97,9 @@ export {
   withMarker,
 } from "./comments.js";
 
+// ─── Reactions ───────────────────────────────────────────────────────────────
+export { createIssueReaction, type IssueReactionContent } from "./reactions.js";
+
 // ─── Check Run ───────────────────────────────────────────────────────────────
 export {
   buildCheckRunBody,
