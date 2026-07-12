@@ -10,16 +10,25 @@ From the repo root:
 
 ```bash
 pnpm dev:backend
+pnpm worker          # review + PR-index backfill/reconcile
+# optional explicit migrate (also runs automatically on backend/worker boot):
+pnpm db:migrate
 ```
 
 Or from this package:
 
 ```bash
-pnpm dev      # APP_PROFILE=dev + tsx watch src/index.ts
+pnpm dev      # APP_PROFILE=dev + tsx watch src/index.ts (runs Drizzle migrate first)
 pnpm build    # tsc -> dist/
 pnpm start    # APP_PROFILE=prd + node dist/index.js
-pnpm worker   # APP_PROFILE=dev decomposition worker (stub)
+pnpm worker   # APP_PROFILE=dev worker (migrate + enqueue not-ready index backfills)
 ```
+
+**Database:** backend and worker call `runMigrations()` on boot, so new SQL under
+`packages/db/drizzle/` is applied when processes start (idempotent). You do not
+need a separate manual migrate for normal dev/deploy if processes restart after
+pull. `DASHBOARD_READ_FROM_INDEX` defaults to `true` (ready repos only); set
+`false` to roll back to live GitHub lists.
 
 The server listens on `PORT` (default `8080`). Verify it is up:
 

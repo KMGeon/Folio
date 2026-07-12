@@ -174,6 +174,7 @@ describe("backend config", () => {
     expect(Array.from(keys).sort()).toEqual(
       [
         "APP_PROFILE",
+        "DASHBOARD_READ_FROM_INDEX",
         "FOLIO_WEB_BASE_URL",
         "GITHUB_APP_ID",
         "GITHUB_APP_CLIENT_ID",

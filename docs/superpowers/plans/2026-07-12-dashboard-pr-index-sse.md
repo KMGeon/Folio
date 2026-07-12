@@ -37,15 +37,15 @@ client `EventSource`, GitHub App Octokit for write-path backfill only.
 | Schema + migration `0013`                | **Done**        | `pull_request_index`, repo `pr_index_*` columns                   |
 | Index writer + webhook actions           | **Done**        | Best-effort upsert; review enqueue still runs if index fails      |
 | Backfill job `pr_index_backfill`         | **Done**        | Enqueued on folio enable; worker handles kind                     |
-| Index read path + flag                   | **Done**        | Flag default **`false`** for safe deploy                          |
+| Index read path + flag                   | **Done**        | Flag default **`true`** (ready repos only; `false` = rollback)    |
 | Batch review status                      | **Done**        | `resolveDashboardPullStatuses`                                    |
 | SSE stream + hub                         | **Done**        | `GET /api/v1/dashboard/stream`                                    |
 | Frontend EventSource                     | **Done**        | `connectDashboardBoardStream`                                     |
 | Reconcile job (~15m)                     | **Done**        | Worker runs bounded sequential rounds every ~15m                  |
-| Bulk backfill for already-enabled repos  | **Done (code)** | Enqueue command is ready; target environment run remains ops work |
+| Bulk backfill for already-enabled repos  | **Done**        | Script + **worker boot auto-enqueue** not-ready repos             |
+| Boot-time Drizzle migrate                | **Done**        | `applyPendingMigrations` on backend + worker                      |
 | Delete dead GitHub list cache from reads | **Partial**     | Flag off still uses live GitHub path                              |
 | Index read-path hardening tests          | **Done**        | Flag-on zero-Octokit, ready-only, filters, completed range        |
-| Production flag `true`                   | **Ops pending** | Task 11 cutover checklist; no production flag changed             |
 
 **Landing commit (core):** `9b9157e` — `feat: add PR index projection and dashboard SSE`  
 **Design commit:** `fe46d59` — `docs: add dashboard PR index + SSE design`

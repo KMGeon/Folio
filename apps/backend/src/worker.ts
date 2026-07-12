@@ -9,10 +9,12 @@
 import "reflect-metadata";
 import { JOB_KIND, type Job, claimJob, completeJob, failJob, reclaimExpiredJobs } from "@folio/db";
 import { BoardEventHub } from "./application/dashboard/board-event-hub.js";
+import { enqueueBackfillForEnabledRepositories } from "./application/dashboard/pull-request-index-backfill-all.js";
 import { PullRequestIndexBackfill } from "./application/dashboard/pull-request-index-backfill.js";
 import { PullRequestIndexReconcile } from "./application/dashboard/pull-request-index-reconcile.js";
 import { PullRequestIndexWriter } from "./application/dashboard/pull-request-index-writer.js";
 import { ReviewPullFacade } from "./application/review/review-pull.facade.js";
+import { applyPendingMigrations } from "./infrastructure/persistence/apply-pending-migrations.js";
 import { bootstrapGitHub } from "./internal/github/github-bootstrap.js";
 
 const WORKER_ID = `worker-${process.pid}`;
@@ -78,6 +80,8 @@ export async function runScheduledReconcileIfDue(
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function loop(): Promise<void> {
+  // Worker-only deploys still need schema; journal makes concurrent migrate with API a no-op.
+  await applyPendingMigrations("worker");
   bootstrapGitHub();
   const facade = new ReviewPullFacade();
   const hub = new BoardEventHub();
@@ -90,6 +94,17 @@ async function loop(): Promise<void> {
     complete: (jobId, result) => completeJob(jobId, result),
     fail: (jobId, error) => failJob(jobId, error),
   };
+
+  // Fill index for folio-enabled repos that are not ready yet (idempotent job dedupe).
+  try {
+    const { enqueued, skippedReady } = await enqueueBackfillForEnabledRepositories(backfill);
+    console.log(
+      `[folio] worker boot PR index backfill enqueue: enqueued=${enqueued} alreadyReady=${skippedReady}`,
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[folio] worker boot PR index backfill enqueue failed: ${message}`);
+  }
 
   console.log(`[folio] worker started (${WORKER_ID})`);
   let nextReconcileAt = Date.now();
