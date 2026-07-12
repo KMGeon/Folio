@@ -226,7 +226,12 @@ export class DashboardFacade {
   }
 
   async getSummaryForUser(user: { id: string; login: string }) {
-    return getDashboardSummaryForUser(user, await this.loadWorkspaceScope(user));
+    // Desk project list = Settings-enabled repos only. Do not require index READY
+    // just to appear in the sidebar (pulls can still be index-gated later).
+    return getDashboardSummaryForUser(
+      user,
+      await this.loadWorkspaceScope(user, { boardRead: true }),
+    );
   }
 
   async getPullPageForUser(user: { id: string; login: string }, input: DashboardPullPageQuery) {

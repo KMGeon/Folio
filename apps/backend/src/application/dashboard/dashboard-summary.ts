@@ -10,16 +10,14 @@ export async function getDashboardSummaryForUser(
   },
   scope: DashboardWorkspaceScope | null,
 ): Promise<DashboardSummaryPayload> {
-  const repos: DashboardRepo[] = [];
-
-  for (const repo of scope?.repositories ?? []) {
-    repos.push({
-      id: repo.id,
-      fullName: repo.fullName,
-      openPrCount: 0,
-      folioEnabled: repo.folioEnabled,
-    });
-  }
+  // Project-first desk only lists repositories toggled on in Settings.
+  const enabledRepos = (scope?.repositories ?? []).filter((repo) => repo.folioEnabled);
+  const repos: DashboardRepo[] = enabledRepos.map((repo) => ({
+    id: repo.id,
+    fullName: repo.fullName,
+    openPrCount: 0,
+    folioEnabled: true,
+  }));
 
   const activity = await fetchPublicContributions(user.login);
   return {
@@ -27,7 +25,7 @@ export async function getDashboardSummaryForUser(
       ready: 0,
       processing: 0,
       installedRepos: repos.length,
-      activeRepos: repos.filter((repo) => repo.folioEnabled).length,
+      activeRepos: repos.length,
       completed: 0,
     },
     repos,
