@@ -9,10 +9,16 @@ import type {
 } from "@/lib/review-api";
 import { cn } from "@/lib/utils";
 
-import { CommentButton, CreatedCommentLink, InlineCommentEditor } from "./diff-comment-controls";
+import { CommentButton, CommentRows } from "./diff-comment-controls";
 import type { DiffViewMode } from "./diff-view-mode-switch";
 import { filePanelId } from "./review-file-state";
-import { diffLineElementId, type JumpTarget } from "./resolve-line-ref";
+import { EMPTY_FOCUS_MARKERS, focusRowClass, isJumpLine } from "./focus-line-styles";
+import {
+  diffLineElementId,
+  isFocusMarkerLine,
+  type FocusLineMarker,
+  type JumpTarget,
+} from "./resolve-line-ref";
 import { SplitLineCells } from "./split-diff-line-cells";
 import { buildSplitDiffRows } from "./split-diff-rows";
 
@@ -33,18 +39,6 @@ function fileIconClass(status: ReviewFileStatus): string {
   }
 }
 
-/** Matches JumpTarget fields so key-change navigation can highlight the right row. */
-function isJumpLine(
-  target: JumpTarget | null | undefined,
-  line: ReviewDiffLine,
-  chapterIndex: number,
-): boolean {
-  if (!target || target.chapterIndex !== chapterIndex) {
-    return false;
-  }
-  return target.path === line.path && target.kind === line.kind && target.lineNumber === line.n;
-}
-
 export interface ActiveDiffLine {
   key: string;
   line: ReviewDiffLine;
@@ -59,6 +53,7 @@ export function FileDiffPanel({
   created,
   error,
   file,
+  focusMarkers = EMPTY_FOCUS_MARKERS,
   jumpTarget,
   lines,
   submitting,
@@ -80,6 +75,7 @@ export function FileDiffPanel({
   created: Record<string, CreatedReviewComment>;
   error: string | null;
   file: ReviewChapter["files"][number];
+  focusMarkers?: FocusLineMarker[];
   jumpTarget?: JumpTarget | null;
   lines: ReviewDiffLine[];
   submitting: boolean;
@@ -143,6 +139,7 @@ export function FileDiffPanel({
               chapterIndex={chapterIndex}
               created={created}
               error={error}
+              focusMarkers={focusMarkers}
               jumpTarget={jumpTarget}
               lines={lines}
               submitting={submitting}
@@ -161,6 +158,7 @@ export function FileDiffPanel({
               chapterIndex={chapterIndex}
               created={created}
               error={error}
+              focusMarkers={focusMarkers}
               jumpTarget={jumpTarget}
               lines={lines}
               submitting={submitting}
@@ -185,6 +183,7 @@ function UnifiedDiffTable({
   chapterIndex,
   created,
   error,
+  focusMarkers = EMPTY_FOCUS_MARKERS,
   jumpTarget,
   lines,
   submitting,
@@ -202,6 +201,7 @@ function UnifiedDiffTable({
           const key = keyForLine(line);
           const isActive = activeLine?.key === key;
           const isJump = isJumpLine(jumpTarget, line, chapterIndex);
+          const isFocus = Boolean(isFocusMarkerLine(focusMarkers, line));
           const createdComment = created[key];
           return (
             <Fragment key={key}>
@@ -209,10 +209,9 @@ function UnifiedDiffTable({
                 id={diffLineElementId(chapterIndex, line)}
                 className={cn(
                   "group",
-                  line.kind === "add" && "bg-diff-add-bg",
-                  line.kind === "del" && "bg-diff-del-bg",
-                  isActive && "bg-primary/15",
-                  isJump && "bg-primary/20 ring-1 ring-inset ring-primary/40",
+                  line.kind === "add" && !isJump && !isFocus && "bg-diff-add-bg",
+                  line.kind === "del" && !isJump && !isFocus && "bg-diff-del-bg",
+                  focusRowClass(isFocus, isJump, isActive),
                 )}
               >
                 <td className="w-12 select-none border-r border-border/60 px-2 text-right align-top text-gutter tabular-nums">
@@ -229,13 +228,25 @@ function UnifiedDiffTable({
                   {SIGN[line.kind]}
                 </td>
                 <td className="w-8 select-none px-1 align-top">
-                  <CommentButton
-                    canComment={canComment}
-                    created={Boolean(createdComment)}
-                    isActive={isActive}
-                    line={line}
-                    onClick={() => selectLine(key, line)}
-                  />
+                  <div className="flex flex-col items-center gap-1 pt-0.5">
+                    {isFocus || isJump ? (
+                      <span
+                        className={cn(
+                          "inline-flex size-2 rounded-full",
+                          isJump ? "bg-primary shadow-[0_0_0_3px] shadow-primary/30" : "bg-warning",
+                        )}
+                        title="검토할 사항에 연결된 줄"
+                        aria-hidden
+                      />
+                    ) : null}
+                    <CommentButton
+                      canComment={canComment}
+                      created={Boolean(createdComment)}
+                      isActive={isActive}
+                      line={line}
+                      onClick={() => selectLine(key, line)}
+                    />
+                  </div>
                 </td>
                 <td className="whitespace-pre-wrap break-words py-px pr-4 align-top text-foreground/90">
                   {renderLine(line)}
@@ -280,6 +291,11 @@ function SplitDiffTable(props: DiffTableProps) {
           const newIsJump =
             row.newLine != null && isJumpLine(props.jumpTarget, row.newLine, props.chapterIndex);
           const isJump = oldIsJump || newIsJump;
+          const isFocus =
+            (row.oldLine != null &&
+              Boolean(isFocusMarkerLine(props.focusMarkers ?? [], row.oldLine))) ||
+            (row.newLine != null &&
+              Boolean(isFocusMarkerLine(props.focusMarkers ?? [], row.newLine)));
           // Prefer the matching jump line for the stable DOM id so scrollIntoView finds it.
           const anchorLine =
             row.oldLine && oldIsJump
@@ -291,11 +307,7 @@ function SplitDiffTable(props: DiffTableProps) {
             <Fragment key={`${oldKey ?? "blank"}-${newKey ?? "blank"}-${rowIndex}`}>
               <tr
                 id={anchorLine ? diffLineElementId(props.chapterIndex, anchorLine) : undefined}
-                className={cn(
-                  "group",
-                  activeKey && "bg-primary/15",
-                  isJump && "bg-primary/20 ring-1 ring-inset ring-primary/40",
-                )}
+                className={cn("group", focusRowClass(isFocus, isJump, Boolean(activeKey)))}
               >
                 <SplitLineCells
                   line={row.oldLine}
@@ -342,6 +354,7 @@ interface DiffTableProps {
   chapterIndex: number;
   created: Record<string, CreatedReviewComment>;
   error: string | null;
+  focusMarkers?: FocusLineMarker[];
   jumpTarget?: JumpTarget | null;
   lines: ReviewDiffLine[];
   submitting: boolean;
@@ -351,58 +364,4 @@ interface DiffTableProps {
   keyForLine: (line: ReviewDiffLine) => string;
   renderLine: (line: ReviewDiffLine) => ReactNode;
   selectLine: (key: string, line: ReviewDiffLine) => void;
-}
-
-function CommentRows({
-  active,
-  body,
-  colSpan,
-  comment,
-  error,
-  submitting,
-  onBodyChange,
-  onCancel,
-  onSubmit,
-}: {
-  active: boolean;
-  body: string;
-  colSpan: number;
-  comment?: CreatedReviewComment;
-  error: string | null;
-  submitting: boolean;
-  onBodyChange: (body: string) => void;
-  onCancel: () => void;
-  onSubmit: () => void;
-}) {
-  return (
-    <>
-      {active ? (
-        <tr className="bg-primary/15">
-          <td className="border-r border-border/60" />
-          <td />
-          <td />
-          <td colSpan={colSpan} className="py-3 pr-4">
-            <InlineCommentEditor
-              value={body}
-              onChange={onBodyChange}
-              submitting={submitting}
-              error={error}
-              onCancel={onCancel}
-              onSubmit={onSubmit}
-            />
-          </td>
-        </tr>
-      ) : null}
-      {comment ? (
-        <tr className="bg-primary/10">
-          <td className="border-r border-border/60" />
-          <td />
-          <td />
-          <td colSpan={colSpan} className="py-2 pr-4">
-            <CreatedCommentLink comment={comment} />
-          </td>
-        </tr>
-      ) : null}
-    </>
-  );
 }

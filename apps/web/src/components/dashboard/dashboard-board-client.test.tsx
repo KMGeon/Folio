@@ -14,8 +14,7 @@ import {
   finishDashboardRequest,
   resetDashboardRequestScope,
 } from "./dashboard-request-scope";
-import { hasActiveReviewJobs } from "./dashboard-board-client";
-import { columnLoadingStateForReset } from "./dashboard-board-stream";
+import { columnLoadingStateForReset, hasActiveReviewJobs } from "./dashboard-board-stream";
 import { dashboardOpenPullPagesPath, dashboardPullPagePath } from "@/lib/dashboard-api";
 
 describe("DashboardBoardClient", () => {
@@ -160,7 +159,11 @@ describe("DashboardBoardClient", () => {
       "utf8",
     );
 
-    expect(boardClient).toContain('closedRange: "1d"');
+    expect(boardClient).toContain("DashboardDesk");
+    expect(boardClient).toContain("initialDashboardFilters");
+    const config = await readFile(new URL("./dashboard-board-config.ts", import.meta.url), "utf8");
+    expect(config).toContain('closedRange: "1d"');
+    expect(config).toContain("showEmptyColumns: false");
     expect(source).toContain("Layout");
     expect(source).toContain("Grouping");
     expect(source).toContain("Ordering");

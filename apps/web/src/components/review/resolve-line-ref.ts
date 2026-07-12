@@ -77,3 +77,49 @@ export function jumpTargetFromResolved(
     token,
   };
 }
+
+/** Stable identity for a diff row linked from any 검토할 사항 lineRef. */
+export type FocusLineMarker = {
+  path: string;
+  lineNumber: number;
+  kind: ReviewDiffLine["kind"];
+  keyChangeId: string;
+};
+
+/** Every resolvable focus-question line in a chapter — always-on markers in the diff. */
+export function collectFocusLineMarkers(chapter: ReviewChapter): FocusLineMarker[] {
+  const markers: FocusLineMarker[] = [];
+  const seen = new Set<string>();
+  for (const keyChange of chapter.keyChanges) {
+    for (const ref of keyChange.lineRefs) {
+      const line = resolveLineRef(chapter, ref);
+      if (!line) {
+        continue;
+      }
+      const id = `${line.path}|${line.kind}|${line.n}`;
+      if (seen.has(id)) {
+        continue;
+      }
+      seen.add(id);
+      markers.push({
+        path: line.path,
+        lineNumber: line.n,
+        kind: line.kind,
+        keyChangeId: keyChange.id,
+      });
+    }
+  }
+  return markers;
+}
+
+export function isFocusMarkerLine(
+  markers: FocusLineMarker[],
+  line: ReviewDiffLine,
+): FocusLineMarker | null {
+  return (
+    markers.find(
+      (marker) =>
+        marker.path === line.path && marker.kind === line.kind && marker.lineNumber === line.n,
+    ) ?? null
+  );
+}

@@ -26,6 +26,7 @@ export function ChapterPanel({
   onChapterViewedChange,
   onSelectChapter,
   onJumpToKeyChange,
+  activeKeyChangeId = null,
   jumpNotice,
 }: {
   chapters: ReviewChapter[];
@@ -42,6 +43,8 @@ export function ChapterPanel({
   onSelectChapter?: (index: number) => void;
   /** Request scroll/highlight for a key-change's lineRef (wired by parent). */
   onJumpToKeyChange?: (keyChangeId: string) => void;
+  /** Which focus question is currently linked in the diff. */
+  activeKeyChangeId?: string | null;
   /** Shown under 검토할 사항 when a jump target cannot be resolved. */
   jumpNotice?: string | null;
 }) {
@@ -139,62 +142,88 @@ export function ChapterPanel({
           ) : null}
           <div className="mt-3.5 space-y-2.5">
             {keyChanges.length > 0 ? (
-              keyChanges.map((item) => (
-                <div
-                  key={item.id}
-                  className={cn(
-                    "flex w-full items-start gap-3 rounded-md border px-3 py-3 text-sm leading-6",
-                    item.viewed
-                      ? "border-primary/25 bg-primary/10 text-muted-foreground"
-                      : "border-border bg-card text-foreground",
-                  )}
-                >
-                  <button
-                    type="button"
-                    role="checkbox"
-                    aria-checked={item.viewed}
-                    aria-label={item.viewed ? "검토 완료 해제" : "검토 완료로 표시"}
-                    onClick={async () => {
-                      const next = !item.viewed;
-                      setKeyChanges((prev) =>
-                        prev.map((keyChange) =>
-                          keyChange.id === item.id ? { ...keyChange, viewed: next } : keyChange,
-                        ),
-                      );
-                      onKeyChangeViewedChange?.(chapter.index, item.id, next);
-                      try {
-                        await setKeyChangeViewed(org, repo, number, chapter.index, item.id, next);
-                      } catch {
-                        onKeyChangeViewedChange?.(chapter.index, item.id, !next);
+              keyChanges.map((item) => {
+                const isActive = activeKeyChangeId === item.id;
+                const hasLink = item.lineRefs.length > 0;
+                return (
+                  <div
+                    key={item.id}
+                    className={cn(
+                      "relative flex w-full items-start gap-3 rounded-md border px-3 py-3 text-sm leading-6",
+                      item.viewed &&
+                        "border-border/80 bg-muted/25 text-muted-foreground opacity-80",
+                      !item.viewed &&
+                        !isActive &&
+                        "border-warning/35 bg-warning/10 text-foreground shadow-[inset_3px_0_0_0] shadow-warning/80",
+                      isActive &&
+                        "border-primary/45 bg-primary/15 text-foreground shadow-[inset_3px_0_0_0] shadow-primary",
+                    )}
+                  >
+                    {hasLink ? (
+                      <span
+                        className={cn(
+                          "absolute top-3 right-3 size-2 rounded-full",
+                          isActive
+                            ? "bg-primary shadow-[0_0_0_3px] shadow-primary/25"
+                            : "bg-warning",
+                        )}
+                        title="연결된 diff 줄이 있습니다"
+                        aria-hidden
+                      />
+                    ) : null}
+                    <button
+                      type="button"
+                      role="checkbox"
+                      aria-checked={item.viewed}
+                      aria-label={item.viewed ? "검토 완료 해제" : "검토 완료로 표시"}
+                      onClick={async () => {
+                        const next = !item.viewed;
                         setKeyChanges((prev) =>
                           prev.map((keyChange) =>
-                            keyChange.id === item.id ? { ...keyChange, viewed: !next } : keyChange,
+                            keyChange.id === item.id ? { ...keyChange, viewed: next } : keyChange,
                           ),
                         );
-                      }
-                    }}
-                    className={cn(
-                      "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded border",
-                      item.viewed
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "border-foreground/30",
-                    )}
-                  >
-                    {item.viewed ? <Check className="size-3" /> : null}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onJumpToKeyChange?.(item.id)}
-                    className={cn(
-                      "min-w-0 flex-1 text-left transition-colors hover:text-primary",
-                      item.viewed && "line-through text-muted-foreground",
-                    )}
-                    aria-label="관련 diff로 이동"
-                  >
-                    {item.content}
-                  </button>
-                </div>
-              ))
+                        onKeyChangeViewedChange?.(chapter.index, item.id, next);
+                        // Checking a question should also reveal its linked diff row.
+                        onJumpToKeyChange?.(item.id);
+                        try {
+                          await setKeyChangeViewed(org, repo, number, chapter.index, item.id, next);
+                        } catch {
+                          onKeyChangeViewedChange?.(chapter.index, item.id, !next);
+                          setKeyChanges((prev) =>
+                            prev.map((keyChange) =>
+                              keyChange.id === item.id
+                                ? { ...keyChange, viewed: !next }
+                                : keyChange,
+                            ),
+                          );
+                        }
+                      }}
+                      className={cn(
+                        "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded border",
+                        item.viewed
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : isActive
+                            ? "border-primary bg-primary/20"
+                            : "border-warning/60 bg-warning/15",
+                      )}
+                    >
+                      {item.viewed ? <Check className="size-3" /> : null}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onJumpToKeyChange?.(item.id)}
+                      className={cn(
+                        "min-w-0 flex-1 pr-4 text-left transition-colors hover:text-primary",
+                        item.viewed && "line-through text-muted-foreground",
+                      )}
+                      aria-label="관련 diff로 이동"
+                    >
+                      {item.content}
+                    </button>
+                  </div>
+                );
+              })
             ) : (
               <p className="text-muted-foreground text-sm leading-6">검토할 사항이 없습니다.</p>
             )}

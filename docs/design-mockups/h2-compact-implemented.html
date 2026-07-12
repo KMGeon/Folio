@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="ko" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Folio — H2 Compact (implemented)</title>
+    <style>
+      :root {
+        --background: oklch(0.145 0 0);
+        --foreground: oklch(0.903 0.014 60.6);
+        --card: oklch(0.192 0.002 17.3);
+        --muted-foreground: oklch(0.726 0.004 67.8);
+        --border: oklch(1 0 0 / 0.06);
+        --primary: oklch(0.58 0.13 145);
+        --destructive: oklch(0.65 0.2 25);
+        --warning: oklch(0.78 0.12 75);
+        --emphasis: oklch(0.7 0.12 300);
+        --font-sans: "Geist", "Inter", ui-sans-serif, system-ui, sans-serif;
+        --font-mono: "Geist Mono", "JetBrains Mono", ui-monospace, monospace;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: var(--font-sans);
+        font-size: 13px;
+        background: #0a0a0a;
+        color: var(--foreground);
+        line-height: 1.45;
+      }
+      .page {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 32px 20px 64px;
+      }
+      .page > h1 {
+        font-size: 1.35rem;
+        font-weight: 500;
+        letter-spacing: -0.02em;
+        margin: 0 0 6px;
+      }
+      .page > .lead {
+        color: var(--muted-foreground);
+        margin: 0 0 20px;
+        font-size: 0.85rem;
+      }
+      .tabs {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 16px;
+        flex-wrap: wrap;
+      }
+      .tab {
+        border: 1px solid var(--border);
+        background: transparent;
+        color: var(--muted-foreground);
+        border-radius: 999px;
+        padding: 7px 12px;
+        font-size: 0.78rem;
+        cursor: pointer;
+      }
+      .tab.active {
+        background: var(--primary);
+        color: oklch(0.98 0 0);
+        border-color: transparent;
+      }
+      .frame {
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        overflow: hidden;
+        background: var(--background);
+        box-shadow: 0 24px 80px oklch(0 0 0 / 0.5);
+      }
+      .app {
+        display: grid;
+        grid-template-columns: 48px 1fr;
+        min-height: 640px;
+      }
+      .rail {
+        border-right: 1px solid oklch(1 0 0 / 0.04);
+        background: oklch(0.13 0 0);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 0;
+      }
+      .rail .dot {
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        background: oklch(0.22 0.002 17.3);
+        border: 1px solid var(--border);
+      }
+      .rail .dot.on {
+        background: oklch(0.58 0.13 145 / 0.18);
+        border-color: oklch(0.58 0.13 145 / 0.35);
+      }
+      .main {
+        padding: 32px 28px 28px;
+      }
+      .topbar {
+        height: 48px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        padding: 0 16px;
+        color: var(--muted-foreground);
+        font-size: 0.8rem;
+        background: var(--background);
+      }
+
+      /* H2 header */
+      .header {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-bottom: 20px;
+      }
+      .header-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+      .identity {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+      }
+      .avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 11px;
+        border: 1px solid var(--border);
+        background: linear-gradient(145deg, oklch(0.75 0.08 80), oklch(0.42 0.1 30));
+        flex-shrink: 0;
+      }
+      .kicker {
+        font-family: var(--font-mono);
+        font-size: 0.65rem;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--muted-foreground);
+        margin: 0 0 2px;
+      }
+      .title {
+        margin: 0;
+        font-size: 1.15rem;
+        font-weight: 500;
+        letter-spacing: -0.02em;
+      }
+      .title .name {
+        font-weight: 400;
+        color: oklch(0.72 0.1 145);
+      }
+      .metrics {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 4px;
+        background: oklch(0.192 0.002 17.3 / 0.7);
+      }
+      .metric {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        color: var(--muted-foreground);
+      }
+      .metric strong {
+        font-weight: 500;
+        color: var(--foreground);
+        font-variant-numeric: tabular-nums;
+      }
+      .metric.live {
+        background: oklch(0.58 0.13 145 / 0.12);
+        color: oklch(0.82 0.05 145);
+      }
+      .metric.live strong {
+        color: var(--primary);
+      }
+      .standfirst {
+        margin: 0;
+        color: var(--muted-foreground);
+        font-size: 0.875rem;
+        padding-left: 48px;
+      }
+
+      .search-row {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 20px;
+        align-items: center;
+      }
+      .search {
+        flex: 1;
+        height: 32px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--card);
+        color: var(--muted-foreground);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 12px;
+        font-size: 0.85rem;
+      }
+      .icon-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        border: 1px solid transparent;
+        color: var(--muted-foreground);
+        display: grid;
+        place-items: center;
+        background: transparent;
+      }
+
+      .focus-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+        gap: 20px;
+      }
+      .focus-empty {
+        min-height: 260px;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 24px;
+        background: linear-gradient(160deg, oklch(0.58 0.13 145 / 0.12), var(--card) 48%);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+      .focus-empty .icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        display: grid;
+        place-items: center;
+        color: var(--primary);
+        margin-bottom: 12px;
+        background: oklch(0.145 0 0 / 0.4);
+      }
+      .focus-empty h2 {
+        margin: 0 0 8px;
+        font-size: 1rem;
+        font-weight: 500;
+      }
+      .focus-empty p {
+        margin: 0;
+        color: var(--muted-foreground);
+        max-width: 38ch;
+        font-size: 0.875rem;
+      }
+      .btns {
+        display: flex;
+        gap: 8px;
+        margin-top: 20px;
+      }
+      .btn {
+        height: 32px;
+        padding: 0 14px;
+        border-radius: 8px;
+        border: none;
+        font-size: 0.8rem;
+        font-weight: 500;
+      }
+      .btn.primary {
+        background: var(--primary);
+        color: oklch(0.98 0 0);
+      }
+      .btn.outline {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--foreground);
+      }
+
+      .col-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 8px;
+        margin-bottom: 12px;
+      }
+      .col-head h2 {
+        margin: 0;
+        font-size: 0.95rem;
+        font-weight: 500;
+      }
+      .count {
+        font-family: var(--font-mono);
+        font-size: 0.7rem;
+        color: var(--muted-foreground);
+      }
+      .cards {
+        display: grid;
+        gap: 10px;
+      }
+      .card {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: oklch(0.16 0 0 / 0.55);
+        padding: 14px;
+      }
+      .card-meta {
+        display: flex;
+        justify-content: space-between;
+        font-family: var(--font-mono);
+        font-size: 0.7rem;
+        color: var(--muted-foreground);
+        margin-bottom: 8px;
+      }
+      .card h3 {
+        margin: 0;
+        font-size: 0.95rem;
+        font-weight: 500;
+        line-height: 1.35;
+      }
+      .card-foot {
+        margin-top: 12px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        font-size: 0.75rem;
+      }
+      .pill {
+        border-radius: 999px;
+        border: 1px solid oklch(0.78 0.12 75 / 0.4);
+        background: oklch(0.78 0.12 75 / 0.1);
+        color: var(--warning);
+        font-size: 0.7rem;
+        padding: 2px 8px;
+      }
+      .author {
+        color: var(--warning);
+      }
+      .plus {
+        color: var(--primary);
+      }
+      .minus {
+        color: var(--destructive);
+      }
+
+      .board {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 18px;
+      }
+      .open-card {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--card);
+        padding: 14px;
+      }
+      .open-card h3 {
+        margin: 10px 0 0;
+        font-size: 0.98rem;
+        font-weight: 500;
+      }
+
+      .caption {
+        margin-top: 14px;
+        color: var(--muted-foreground);
+        font-size: 0.78rem;
+      }
+      .caption strong {
+        color: oklch(0.88 0.01 60);
+      }
+
+      .panel {
+        display: none;
+      }
+      .panel.active {
+        display: block;
+      }
+
+      @media (max-width: 900px) {
+        .focus-layout,
+        .board {
+          grid-template-columns: 1fr;
+        }
+        .standfirst {
+          padding-left: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <h1>H2 · Compact command bar — 구현 시각화</h1>
+      <p class="lead">
+        코드에 반영된 실제 구조 기준 미리보기입니다. 빈 큐 / 리뷰 대기 두 상태를 비교하세요.
+      </p>
+      <div class="tabs">
+        <button class="tab active" data-tab="empty" type="button">상태 A · 큐 비어 있음</button>
+        <button class="tab" data-tab="ready" type="button">상태 B · Ready 3건</button>
+      </div>
+
+      <!-- EMPTY STATE -->
+      <div class="panel active" id="panel-empty">
+        <div class="frame">
+          <div class="topbar">Dashboard</div>
+          <div class="app">
+            <aside class="rail">
+              <div class="dot on"></div>
+              <div class="dot"></div>
+              <div class="dot"></div>
+              <div class="dot"></div>
+            </aside>
+            <div class="main">
+              <header class="header">
+                <div class="header-row">
+                  <div class="identity">
+                    <div class="avatar" aria-hidden="true"></div>
+                    <div>
+                      <p class="kicker">리뷰 데스크</p>
+                      <h1 class="title">Welcome back, <span class="name">KMGeon</span></h1>
+                    </div>
+                  </div>
+                  <div class="metrics" role="group" aria-label="Desk metrics">
+                    <div class="metric live">Ready <strong>0</strong></div>
+                    <div class="metric">Yours <strong>0</strong></div>
+                    <div class="metric">Done <strong>18</strong></div>
+                  </div>
+                </div>
+                <p class="standfirst">
+                  오늘은 대기 중인 리뷰가 없습니다. 최근 완료 작업을 확인하세요.
+                </p>
+              </header>
+
+              <div class="search-row">
+                <div class="search">⌕ Search pull requests...</div>
+                <div class="icon-btn">☰</div>
+                <div class="icon-btn">⇅</div>
+              </div>
+
+              <div class="focus-layout">
+                <section class="focus-empty">
+                  <div>
+                    <div class="icon">⎇</div>
+                    <h2>리뷰 큐가 비어 있습니다</h2>
+                    <p>
+                      새 리뷰 요청이 오면 여기에 가장 먼저 표시됩니다. 그동안 최근 완료된 작업을
+                      훑거나 PR을 검색해 보세요.
+                    </p>
+                  </div>
+                  <div class="btns">
+                    <button class="btn primary" type="button">PR 검색</button>
+                    <button class="btn outline" type="button">Complete 보기</button>
+                  </div>
+                </section>
+
+                <section>
+                  <div class="col-head">
+                    <h2>Complete</h2>
+                    <span class="count">18</span>
+                  </div>
+                  <div class="cards">
+                    <article class="card">
+                      <div class="card-meta">
+                        <span>⎇ Folio#115</span><span>방금</span>
+                      </div>
+                      <h3>feat(web): review page Sprint A density polish</h3>
+                      <div class="card-foot">
+                        <span class="pill">size/M</span>
+                        <span class="author">KMGeon</span>
+                        <span class="plus">+86</span>
+                        <span class="minus">-61</span>
+                      </div>
+                    </article>
+                    <article class="card">
+                      <div class="card-meta">
+                        <span>⎇ Folio#114</span><span>8분 전</span>
+                      </div>
+                      <h3>feat(web): chapter-first review progress policy</h3>
+                      <div class="card-foot">
+                        <span class="pill">size/M</span>
+                        <span class="author">KMGeon</span>
+                        <span class="plus">+336</span>
+                        <span class="minus">-111</span>
+                      </div>
+                    </article>
+                    <article class="card">
+                      <div class="card-meta">
+                        <span>× Folio#113</span><span>14분 전</span>
+                      </div>
+                      <h3>fix(admin): bind ISO timestamps in overview SQL filters</h3>
+                      <div class="card-foot">
+                        <span class="pill">size/S</span>
+                        <span class="author">KMGeon</span>
+                        <span class="plus">+42</span>
+                        <span class="minus">-18</span>
+                      </div>
+                    </article>
+                  </div>
+                </section>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="caption">
+          <strong>상태 A:</strong> open 큐 전부 0 → Focus empty + Complete 리스트. 빈 칼럼 3개
+          숨김.
+        </p>
+      </div>
+
+      <!-- READY STATE -->
+      <div class="panel" id="panel-ready">
+        <div class="frame">
+          <div class="topbar">Dashboard</div>
+          <div class="app">
+            <aside class="rail">
+              <div class="dot on"></div>
+              <div class="dot"></div>
+              <div class="dot"></div>
+              <div class="dot"></div>
+            </aside>
+            <div class="main">
+              <header class="header">
+                <div class="header-row">
+                  <div class="identity">
+                    <div class="avatar" aria-hidden="true"></div>
+                    <div>
+                      <p class="kicker">리뷰 데스크</p>
+                      <h1 class="title">Welcome back, <span class="name">KMGeon</span></h1>
+                    </div>
+                  </div>
+                  <div class="metrics">
+                    <div class="metric live">Ready <strong>3</strong></div>
+                    <div class="metric">Yours <strong>1</strong></div>
+                    <div class="metric">Done <strong>18</strong></div>
+                  </div>
+                </div>
+                <p class="standfirst">
+                  리뷰 3건이 대기 중입니다. 챕터 순서로 읽어 내려가세요.
+                </p>
+              </header>
+
+              <div class="search-row">
+                <div class="search">⌕ Search pull requests...</div>
+                <div class="icon-btn">☰</div>
+                <div class="icon-btn">⇅</div>
+              </div>
+
+              <div class="board">
+                <section>
+                  <div class="col-head">
+                    <h2>Ready to review</h2>
+                    <span class="count">03</span>
+                  </div>
+                  <div class="cards">
+                    <article class="open-card">
+                      <div class="card-meta"><span>⎇ Folio#120</span><span>2분 전</span></div>
+                      <h3>feat(web): chapter navigator keyboard shortcuts</h3>
+                      <div class="card-foot">
+                        <span class="pill">size/S</span>
+                        <span class="author">alice</span>
+                        <span class="plus">+64</span>
+                        <span class="minus">-12</span>
+                      </div>
+                    </article>
+                    <article class="open-card">
+                      <div class="card-meta"><span>⎇ Folio#119</span><span>1시간 전</span></div>
+                      <h3>fix(diff): preserve fold state across chapter jump</h3>
+                      <div class="card-foot">
+                        <span class="pill">size/M</span>
+                        <span class="author">bob</span>
+                        <span class="plus">+112</span>
+                        <span class="minus">-40</span>
+                      </div>
+                    </article>
+                  </div>
+                </section>
+                <section>
+                  <div class="col-head">
+                    <h2>Your pull requests</h2>
+                    <span class="count">01</span>
+                  </div>
+                  <div class="cards">
+                    <article class="open-card" style="border-color: oklch(0.58 0.13 145 / 0.45); background: oklch(0.58 0.13 145 / 0.05)">
+                      <div class="card-meta"><span>⎇ Folio#118</span><span>어제</span></div>
+                      <h3>feat(web): dashboard H2 compact command bar</h3>
+                      <div class="card-foot">
+                        <span class="pill">size/M</span>
+                        <span class="author">KMGeon</span>
+                        <span class="plus">+210</span>
+                        <span class="minus">-48</span>
+                      </div>
+                    </article>
+                  </div>
+                </section>
+                <section>
+                  <div class="col-head">
+                    <h2>Complete</h2>
+                    <span class="count">18</span>
+                  </div>
+                  <div class="cards">
+                    <article class="card">
+                      <div class="card-meta"><span>⎇ Folio#115</span><span>방금</span></div>
+                      <h3>feat(web): review page Sprint A density polish</h3>
+                      <div class="card-foot">
+                        <span class="pill">size/M</span>
+                        <span class="author">KMGeon</span>
+                        <span class="plus">+86</span>
+                        <span class="minus">-61</span>
+                      </div>
+                    </article>
+                  </div>
+                </section>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="caption">
+          <strong>상태 B:</strong> Ready/Yours에 아이템이 있으면 보드 레이아웃. Other(0)는 기본
+          숨김. standfirst·Ready chip이 큐를 반영.
+        </p>
+      </div>
+    </div>
+    <script>
+      const tabs = document.querySelectorAll(".tab");
+      tabs.forEach((tab) => {
+        tab.addEventListener("click", () => {
+          tabs.forEach((t) => t.classList.toggle("active", t === tab));
+          document
+            .getElementById("panel-empty")
+            .classList.toggle("active", tab.dataset.tab === "empty");
+          document
+            .getElementById("panel-ready")
+            .classList.toggle("active", tab.dataset.tab === "ready");
+        });
+      });
+    </script>
+  </body>
+</html>
