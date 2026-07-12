@@ -1,6 +1,7 @@
 import { Inject, Injectable, Optional } from "@nestjs/common";
 import { repositoriesRepo } from "@folio/db";
 import { createInstallationOctokit, createIssueReaction } from "@folio/github";
+import type { AccountType } from "@folio/types";
 import { PullRequestIndexWriter } from "../../application/dashboard/pull-request-index-writer.js";
 import { InstallationSyncFacade } from "../../application/github/installation-sync.facade.js";
 import { config } from "../../config.js";
