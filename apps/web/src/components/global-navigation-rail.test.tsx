@@ -47,6 +47,22 @@ describe("global navigation rail", () => {
     expect(container.querySelector('button[aria-label="계정 메뉴"]')).toBeNull();
   });
 
+  it("renders Admin only for system administrators", async () => {
+    const ordinary = await mountRail(false, sessionUser(false));
+    expect(ordinary.querySelector('a[aria-label="관리자"]')).toBeNull();
+
+    const admin = await mountRail(false, sessionUser(true));
+    expect(getLink(admin, "관리자").getAttribute("href")).toBe("/admin/overview");
+  });
+
+  it("replaces the account trigger with a dashboard back action on admin routes", async () => {
+    navigation.pathname = "/admin/users";
+    const container = await mountRail(false, sessionUser(true));
+
+    expect(getLink(container, "앱으로 돌아가기").getAttribute("href")).toBe("/dashboard");
+    expect(container.querySelector('button[aria-label="계정 메뉴"]')).toBeNull();
+  });
+
   it("dismisses the account menu with Escape and outside pointer input", async () => {
     const outside = document.createElement("button");
     document.body.append(outside);
@@ -88,7 +104,10 @@ describe("global navigation rail", () => {
   });
 });
 
-async function mountRail(withAfterControl = false) {
+async function mountRail(
+  withAfterControl = false,
+  user = null as ReturnType<typeof sessionUser> | null,
+) {
   const container = document.createElement("div");
   document.body.append(container);
   const root = createRoot(container);
@@ -98,7 +117,7 @@ async function mountRail(withAfterControl = false) {
       React.createElement(
         React.Fragment,
         null,
-        React.createElement(GlobalNavigationRail, { user: null }),
+        React.createElement(GlobalNavigationRail, { user }),
         withAfterControl
           ? React.createElement("button", { type: "button", "data-after-rail": true })
           : null,
@@ -106,6 +125,15 @@ async function mountRail(withAfterControl = false) {
     );
   });
   return container;
+}
+
+function sessionUser(isSystemAdmin: boolean) {
+  return {
+    id: "user-1",
+    login: "octocat",
+    avatarUrl: "https://avatars.example/octocat",
+    isSystemAdmin,
+  };
 }
 
 function getButton(container: ParentNode, name: string) {

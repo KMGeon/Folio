@@ -42,7 +42,8 @@ export async function apiRequest<T>(
   });
 
   if (response.status === 401 && typeof window !== "undefined") {
-    window.location.href = "/login";
+    const returnPath = window.location.pathname + window.location.search;
+    window.location.href = `/login?redirect=${encodeURIComponent(returnPath)}`;
     return new Promise<T>(() => {});
   }
 

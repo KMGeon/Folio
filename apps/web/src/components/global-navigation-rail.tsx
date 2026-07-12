@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, LayoutDashboard, LogOut, Search, Settings } from "lucide-react";
+import { ArrowLeft, LayoutDashboard, LogOut, Search, Settings, Shield } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { type KeyboardEvent as ReactKeyboardEvent, useEffect, useRef, useState } from "react";
@@ -19,7 +19,10 @@ const railControlClassName =
 
 export function GlobalNavigationRail({ user }: { user: SessionUser | null }) {
   const pathname = usePathname();
-  const settingsRoute = pathname.startsWith("/settings");
+  const sectionRoute = pathname.startsWith("/settings") || pathname.startsWith("/admin");
+  const navItems = user?.isSystemAdmin
+    ? [...NAV_ITEMS, { href: "/admin/overview", label: "관리자", icon: Shield }]
+    : NAV_ITEMS;
   const [accountOpen, setAccountOpen] = useState(false);
   const menuRef = useRef<HTMLElement>(null);
   const accountMenuRef = useRef<HTMLDivElement>(null);
@@ -105,7 +108,7 @@ export function GlobalNavigationRail({ user }: { user: SessionUser | null }) {
   return (
     <aside ref={menuRef} className="relative z-50 h-svh w-12 shrink-0">
       <div className="flex h-full w-full flex-col items-center border-r bg-card/70 py-2">
-        {settingsRoute ? (
+        {sectionRoute ? (
           <Link
             href="/dashboard"
             aria-label="앱으로 돌아가기"
@@ -139,7 +142,7 @@ export function GlobalNavigationRail({ user }: { user: SessionUser | null }) {
           </button>
         )}
         <nav className="mt-4 grid gap-1">
-          {NAV_ITEMS.map((item) => (
+          {navItems.map((item) => (
             <RailLink key={item.href} item={item} pathname={pathname} />
           ))}
         </nav>
@@ -161,7 +164,7 @@ export function GlobalNavigationRail({ user }: { user: SessionUser | null }) {
         </button>
       </div>
 
-      {accountOpen && !settingsRoute ? (
+      {accountOpen && !sectionRoute ? (
         <div
           ref={accountMenuRef}
           className="absolute top-2 left-12 w-56 overflow-hidden rounded-lg border bg-popover shadow-lg"
@@ -241,6 +244,9 @@ function RailLink({
 function isActivePath(pathname: string, href: string): boolean {
   if (href === "/settings/preferences") {
     return pathname.startsWith("/settings");
+  }
+  if (href === "/admin/overview") {
+    return pathname.startsWith("/admin");
   }
   return pathname === href || pathname.startsWith(`${href}/`);
 }
