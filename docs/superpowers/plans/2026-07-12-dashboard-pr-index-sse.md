@@ -32,19 +32,20 @@ client `EventSource`, GitHub App Octokit for write-path backfill only.
 
 ## Implementation status (as of 2026-07-12)
 
-| Area | Status | Notes |
-|------|--------|--------|
-| Schema + migration `0013` | **Done** | `pull_request_index`, repo `pr_index_*` columns |
-| Index writer + webhook actions | **Done** | Best-effort upsert; review enqueue still runs if index fails |
-| Backfill job `pr_index_backfill` | **Done** | Enqueued on folio enable; worker handles kind |
-| Index read path + flag | **Done** | Flag default **`false`** for safe deploy |
-| Batch review status | **Done** | `resolveDashboardPullStatuses` |
-| SSE stream + hub | **Done** | `GET /api/v1/dashboard/stream` |
-| Frontend EventSource | **Done** | `connectDashboardBoardStream` |
-| Reconcile job (~15m) | **Not done** | Spec requires; Task 9 below |
-| Bulk backfill for already-enabled repos | **Not done** | Needed before cutover; Task 10 |
-| Delete dead GitHub list cache from reads | **Partial** | Flag off still uses live GitHub path |
-| Production flag `true` | **Ops pending** | Task 11 cutover checklist |
+| Area                                     | Status          | Notes                                                             |
+| ---------------------------------------- | --------------- | ----------------------------------------------------------------- |
+| Schema + migration `0013`                | **Done**        | `pull_request_index`, repo `pr_index_*` columns                   |
+| Index writer + webhook actions           | **Done**        | Best-effort upsert; review enqueue still runs if index fails      |
+| Backfill job `pr_index_backfill`         | **Done**        | Enqueued on folio enable; worker handles kind                     |
+| Index read path + flag                   | **Done**        | Flag default **`false`** for safe deploy                          |
+| Batch review status                      | **Done**        | `resolveDashboardPullStatuses`                                    |
+| SSE stream + hub                         | **Done**        | `GET /api/v1/dashboard/stream`                                    |
+| Frontend EventSource                     | **Done**        | `connectDashboardBoardStream`                                     |
+| Reconcile job (~15m)                     | **Done**        | Worker runs bounded sequential rounds every ~15m                  |
+| Bulk backfill for already-enabled repos  | **Done (code)** | Enqueue command is ready; target environment run remains ops work |
+| Delete dead GitHub list cache from reads | **Partial**     | Flag off still uses live GitHub path                              |
+| Index read-path hardening tests          | **Done**        | Flag-on zero-Octokit, ready-only, filters, completed range        |
+| Production flag `true`                   | **Ops pending** | Task 11 cutover checklist; no production flag changed             |
 
 **Landing commit (core):** `9b9157e` — `feat: add PR index projection and dashboard SSE`  
 **Design commit:** `fe46d59` — `docs: add dashboard PR index + SSE design`
@@ -55,49 +56,51 @@ client `EventSource`, GitHub App Octokit for write-path backfill only.
 
 ### Created (landed)
 
-| Path | Responsibility |
-|------|----------------|
-| `packages/db/drizzle/0013_pull_request_index.sql` | Migration: table + repo columns + indexes |
-| `packages/db/src/schema/pull-request-index.ts` | Drizzle schema for list projection |
-| `packages/db/src/repos/pull-request-index.ts` | Upsert (stale guard), list, delete, prune |
-| `apps/backend/src/application/dashboard/board-event-hub.ts` | In-process SSE fan-out by repo scope |
-| `apps/backend/src/application/dashboard/board-event-hub.test.ts` | Hub scope filtering tests |
-| `apps/backend/src/application/dashboard/pull-request-index-writer.ts` | Map GitHub PR → upsert + publish |
-| `apps/backend/src/application/dashboard/pull-request-index-writer.test.ts` | Writer unit tests |
-| `apps/backend/src/application/dashboard/pull-request-index-backfill.ts` | Enqueue + run backfill for one repo |
-| `apps/backend/src/application/dashboard/dashboard-review-status-batch.ts` | Batch review status for list cards |
-| `apps/backend/src/application/dashboard/dashboard-index-pull-map.ts` | Map/filter/page helpers for index reads |
-| `apps/backend/src/application/dashboard/dashboard-index-pull-page.ts` | `getDashboard*FromIndex` entry points |
-| `apps/web/src/components/dashboard/dashboard-board-stream.ts` | EventSource connect + patch/refetch |
+| Path                                                                       | Responsibility                            |
+| -------------------------------------------------------------------------- | ----------------------------------------- |
+| `packages/db/drizzle/0013_pull_request_index.sql`                          | Migration: table + repo columns + indexes |
+| `packages/db/src/schema/pull-request-index.ts`                             | Drizzle schema for list projection        |
+| `packages/db/src/repos/pull-request-index.ts`                              | Upsert (stale guard), list, delete, prune |
+| `apps/backend/src/application/dashboard/board-event-hub.ts`                | In-process SSE fan-out by repo scope      |
+| `apps/backend/src/application/dashboard/board-event-hub.test.ts`           | Hub scope filtering tests                 |
+| `apps/backend/src/application/dashboard/pull-request-index-writer.ts`      | Map GitHub PR → upsert + publish          |
+| `apps/backend/src/application/dashboard/pull-request-index-writer.test.ts` | Writer unit tests                         |
+| `apps/backend/src/application/dashboard/pull-request-index-backfill.ts`    | Enqueue + run backfill for one repo       |
+| `apps/backend/src/application/dashboard/dashboard-review-status-batch.ts`  | Batch review status for list cards        |
+| `apps/backend/src/application/dashboard/dashboard-index-pull-map.ts`       | Map/filter/page helpers for index reads   |
+| `apps/backend/src/application/dashboard/dashboard-index-pull-page.ts`      | `getDashboard*FromIndex` entry points     |
+| `apps/web/src/components/dashboard/dashboard-board-stream.ts`              | EventSource connect + patch/refetch       |
 
 ### Modified (landed)
 
-| Path | Change |
-|------|--------|
-| `packages/db/src/schema/repositories.ts` | `prIndexStatus`, `prIndexBackfilledAt` |
-| `packages/db/src/repos/repositories.ts` | `setPrIndexStatus`, enable resets index meta |
-| `packages/types/src/job.ts` | `JOB_KIND.PR_INDEX_BACKFILL` + payload schema |
-| `packages/db/src/schema/jobs.ts` | Kind enum includes backfill |
-| `apps/backend/src/config.ts` | `DASHBOARD_READ_FROM_INDEX` (default `false`) |
-| `apps/backend/src/domain/github/github-webhook.service.ts` | Index PR actions + best-effort upsert |
-| `apps/backend/src/application/dashboard/dashboard.facade.ts` | Flag-gated index vs GitHub read |
-| `apps/backend/src/application/dashboard/dashboard.module.ts` | Export hub/writer/backfill |
-| `apps/backend/src/application/repositories/repositories.facade.ts` | Enable → enqueue backfill; disable → clear index |
-| `apps/backend/src/application/repositories/repositories.module.ts` | Import `DashboardModule` |
-| `apps/backend/src/interfaces/api/dashboard/dashboard.controller.ts` | `GET stream` SSE |
-| `apps/backend/src/worker.ts` | Claim/run `pr_index_backfill` |
-| `apps/web/src/lib/dashboard-api.ts` | `BoardStreamEvent`, `dashboardStreamUrl` |
-| `apps/web/src/components/dashboard/dashboard-board-client.tsx` | Wire SSE effect |
+| Path                                                                | Change                                           |
+| ------------------------------------------------------------------- | ------------------------------------------------ |
+| `packages/db/src/schema/repositories.ts`                            | `prIndexStatus`, `prIndexBackfilledAt`           |
+| `packages/db/src/repos/repositories.ts`                             | `setPrIndexStatus`, enable resets index meta     |
+| `packages/types/src/job.ts`                                         | `JOB_KIND.PR_INDEX_BACKFILL` + payload schema    |
+| `packages/db/src/schema/jobs.ts`                                    | Kind enum includes backfill                      |
+| `apps/backend/src/config.ts`                                        | `DASHBOARD_READ_FROM_INDEX` (default `false`)    |
+| `apps/backend/src/domain/github/github-webhook.service.ts`          | Index PR actions + best-effort upsert            |
+| `apps/backend/src/application/dashboard/dashboard.facade.ts`        | Flag-gated index vs GitHub read                  |
+| `apps/backend/src/application/dashboard/dashboard.module.ts`        | Export hub/writer/backfill                       |
+| `apps/backend/src/application/repositories/repositories.facade.ts`  | Enable → enqueue backfill; disable → clear index |
+| `apps/backend/src/application/repositories/repositories.module.ts`  | Import `DashboardModule`                         |
+| `apps/backend/src/interfaces/api/dashboard/dashboard.controller.ts` | `GET stream` SSE                                 |
+| `apps/backend/src/worker.ts`                                        | Claim/run `pr_index_backfill`                    |
+| `apps/web/src/lib/dashboard-api.ts`                                 | `BoardStreamEvent`, `dashboardStreamUrl`         |
+| `apps/web/src/components/dashboard/dashboard-board-client.tsx`      | Wire SSE effect                                  |
 
-### Remaining (Tasks 9–11)
+### Follow-up files (Tasks 9–12)
 
-| Path | Responsibility |
-|------|----------------|
-| `apps/backend/src/application/dashboard/pull-request-index-reconcile.ts` | Diff GitHub open set vs index; converge |
-| `apps/backend/src/application/dashboard/pull-request-index-reconcile.test.ts` | Reconcile unit tests |
-| `apps/backend/src/worker.ts` | Schedule or claim reconcile work |
-| Optional script or admin enqueue path | Bulk enqueue backfill for all folio-enabled repos |
-| Env / deploy docs | Cutover and rollback |
+| Path                                                                          | Responsibility                                         |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------ |
+| `apps/backend/src/application/dashboard/pull-request-index-reconcile.ts`      | Diff GitHub open set vs index; converge                |
+| `apps/backend/src/application/dashboard/pull-request-index-reconcile.test.ts` | Reconcile unit tests                                   |
+| `apps/backend/src/worker.ts`                                                  | Schedule or claim reconcile work                       |
+| `apps/backend/src/application/dashboard/pull-request-index-backfill-all.ts`   | Bulk enqueue backfill for all eligible non-ready repos |
+| `apps/backend/src/scripts/enqueue-pr-index-backfill.ts`                       | Runnable bulk enqueue operations entry                 |
+| `apps/backend/src/application/dashboard/dashboard-index-pull-page.test.ts`    | Index read-path cutover regression coverage            |
+| Env / deploy docs                                                             | Cutover and rollback                                   |
 
 ---
 
@@ -106,6 +109,7 @@ client `EventSource`, GitHub App Octokit for write-path backfill only.
 ### Task 1: Schema + migration — **DONE**
 
 **Files:**
+
 - Create: `packages/db/drizzle/0013_pull_request_index.sql`
 - Create: `packages/db/src/schema/pull-request-index.ts`
 - Modify: `packages/db/src/schema/repositories.ts`
@@ -127,9 +131,11 @@ Expected: migration `0013_pull_request_index` applied without error.
 ### Task 2: Index writer + BoardEventHub — **DONE**
 
 **Files:**
+
 - Create: `board-event-hub.ts`, `pull-request-index-writer.ts` + tests
 
 **Interfaces:**
+
 - Produces: `PullRequestIndexWriter.applyPull`, `clearRepo`
 - Produces: `BoardEventHub.subscribe` / `publish` with event types  
   `pr.upserted` | `pr.removed` | `board.invalidate`
@@ -141,6 +147,7 @@ Expected: migration `0013_pull_request_index` applied without error.
 ### Task 3: Webhook index side-effects — **DONE**
 
 **Files:**
+
 - Modify: `apps/backend/src/domain/github/github-webhook.service.ts`
 
 Index actions: `opened`, `synchronize`, `reopened`, `ready_for_review`,
@@ -153,6 +160,7 @@ Index actions: `opened`, `synchronize`, `reopened`, `ready_for_review`,
 ### Task 4: Backfill job — **DONE**
 
 **Files:**
+
 - Create: `pull-request-index-backfill.ts`
 - Modify: `packages/types/src/job.ts`, worker, repositories facade
 
@@ -165,12 +173,13 @@ Index actions: `opened`, `synchronize`, `reopened`, `ready_for_review`,
 ### Task 5: Index read path + flag — **DONE**
 
 **Files:**
+
 - Create: `dashboard-index-pull-page.ts`, `dashboard-index-pull-map.ts`
 - Modify: `dashboard.facade.ts`, `config.ts`
 
 ```ts
 // config default
-DASHBOARD_READ_FROM_INDEX: false  // set true after backfill ready
+DASHBOARD_READ_FROM_INDEX: false; // set true after backfill ready
 ```
 
 - [x] `getOpenPullPagesForUser` / `getPullPageForUser` branch on flag
@@ -180,6 +189,7 @@ DASHBOARD_READ_FROM_INDEX: false  // set true after backfill ready
 ### Task 6: Batch review status — **DONE**
 
 **Files:**
+
 - Create: `dashboard-review-status-batch.ts`
 
 - [x] `resolveDashboardPullStatuses(userId, keys) → Map<`${repoId}:${prNumber}`, status>`
@@ -188,6 +198,7 @@ DASHBOARD_READ_FROM_INDEX: false  // set true after backfill ready
 ### Task 7: SSE endpoint — **DONE**
 
 **Files:**
+
 - Modify: `dashboard.controller.ts` (`GET stream`)
 - Modify: controller tests with hub + repoAccess mocks
 
@@ -198,6 +209,7 @@ DASHBOARD_READ_FROM_INDEX: false  // set true after backfill ready
 ### Task 8: Frontend stream client — **DONE**
 
 **Files:**
+
 - Create: `dashboard-board-stream.ts`
 - Modify: `dashboard-board-client.tsx`, `dashboard-api.ts`
 
@@ -225,6 +237,7 @@ Expected: all pass (as of landing commit).
 **Why:** Spec success criterion — missed webhooks / downtime must converge within ~15 minutes.
 
 **Files:**
+
 - Create: `apps/backend/src/application/dashboard/pull-request-index-reconcile.ts`
 - Create: `apps/backend/src/application/dashboard/pull-request-index-reconcile.test.ts`
 - Modify: `apps/backend/src/worker.ts` (or a light scheduler loop in API process — prefer worker)
@@ -232,11 +245,12 @@ Expected: all pass (as of landing commit).
   **or** worker-internal timer without new kind (allowed if simpler)
 
 **Interfaces:**
+
 - Consumes: `PullRequestIndexWriter.applyPull`, `pullRequestIndexRepo`, `repositoriesRepo`, Octokit factory
 - Produces: `PullRequestIndexReconcile.runForRepository(repositoryId): Promise<{ upserted: number; closed: number }>`
 - Produces: optional `enqueueAllReadyRepos()` / periodic claim
 
-- [ ] **Step 1: Write failing unit test (diff open sets)**
+- [x] **Step 1: Write failing unit test (diff open sets)**
 
 ```ts
 // pull-request-index-reconcile.test.ts
@@ -250,13 +264,13 @@ describe("PullRequestIndexReconcile", () => {
 });
 ```
 
-- [ ] **Step 2: Run test — expect FAIL** (module missing)
+- [x] **Step 2: Run test — expect FAIL** (module missing)
 
 ```bash
 pnpm --filter @folio/backend exec vitest run src/application/dashboard/pull-request-index-reconcile.test.ts
 ```
 
-- [ ] **Step 3: Implement reconcile algorithm**
+- [x] **Step 3: Implement reconcile algorithm**
 
 ```text
 for each folio_enabled && github_access_active repo (prefer ready/error first):
@@ -272,7 +286,7 @@ for each folio_enabled && github_access_active repo (prefer ready/error first):
 
 Keep GitHub traffic **only** on this path and backfill — never on user REST when flag is true.
 
-- [ ] **Step 4: Schedule**
+- [x] **Step 4: Schedule**
 
 Preferred: worker loop every 15 minutes:
 
@@ -287,7 +301,7 @@ if (Date.now() - lastReconcile > RECONCILE_MS) {
 }
 ```
 
-- [ ] **Step 5: Tests pass + commit**
+- [x] **Step 5: Tests pass + commit**
 
 ```bash
 pnpm --filter @folio/backend exec vitest run src/application/dashboard/pull-request-index-reconcile.test.ts
@@ -305,14 +319,16 @@ git commit -m "feat(dashboard): reconcile pull_request_index with GitHub"
 **Why:** Cutover requires `pr_index_status=ready` on active repos. Enable-path only backfills on **toggle**, not repos already enabled before this feature.
 
 **Files (pick one approach):**
+
 - **A (recommended):** small backend method + one-off script under `packages/db` or `apps/backend/scripts`
 - **B:** SQL + manual enqueue via worker only
 
 **Interfaces:**
+
 - Consumes: `PullRequestIndexBackfill.enqueueForRepository`
 - Produces: enqueued job per enabled repo with status not `ready` (or force all)
 
-- [ ] **Step 1: Implement enqueue helper**
+- [x] **Step 1: Implement enqueue helper**
 
 ```ts
 // e.g. apps/backend/src/application/dashboard/pull-request-index-backfill-all.ts
@@ -326,11 +342,11 @@ export async function enqueueBackfillForEnabledRepos(
 }
 ```
 
-- [ ] **Step 2: Runnable entry (dev/ops)**
+- [x] **Step 2: Runnable entry (dev/ops)**
 
 ```bash
 # Example once script exists:
-pnpm --filter @folio/backend exec tsx src/scripts/enqueue-pr-index-backfill.ts
+pnpm --filter @folio/backend enqueue:pr-index-backfill
 ```
 
 Expected stdout: `enqueued: N`
@@ -346,7 +362,7 @@ GROUP BY 1;
 
 Expected before cutover: all active enabled rows `ready` (or explicit acceptance of excluding non-ready).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git commit -m "feat(dashboard): bulk enqueue pr_index_backfill for enabled repos"
@@ -356,15 +372,19 @@ git commit -m "feat(dashboard): bulk enqueue pr_index_backfill for enabled repos
 
 ### Task 11: Cutover + rollback runbook
 
+**Status:** Runbook documented. Target-environment execution remains intentionally pending;
+no production flag or database state was changed by this implementation.
+
 **Files:**
+
 - Modify: this plan’s status table after cutover
 - Optional: `.env.example` / deploy skill notes with `DASHBOARD_READ_FROM_INDEX`
 
 - [ ] **Step 1: Preflight**
 
-1. Migration `0013` applied on target DB  
-2. API + worker processes running  
-3. Task 10 complete — enabled repos mostly/all `ready`  
+1. Migration `0013` applied on target DB
+2. API + worker processes running
+3. Task 10 complete — enabled repos mostly/all `ready`
 4. Webhook deliveries healthy (GitHub App → `/webhooks/github`)
 
 - [ ] **Step 2: Enable flag**
@@ -377,9 +397,9 @@ DASHBOARD_READ_FROM_INDEX=true
 
 - [ ] **Step 3: Smoke**
 
-1. Open dashboard — open columns populate without multi-second GitHub lag  
-2. Create/edit a PR on an enabled repo — card appears/updates within ~5s with SSE tab open  
-3. Disconnect network briefly / kill SSE — REST refresh still works  
+1. Open dashboard — open columns populate without multi-second GitHub lag
+2. Create/edit a PR on an enabled repo — card appears/updates within ~5s with SSE tab open
+3. Disconnect network briefly / kill SSE — REST refresh still works
 4. Global PR search still returns open PRs (uses open pages API)
 
 - [ ] **Step 4: Rollback (if needed)**
@@ -393,8 +413,8 @@ Index continues to update via webhooks/backfill while flag is false (writes stay
 
 - [ ] **Step 5: Post-cutover cleanup (optional, separate PR)**
 
-- Remove or shrink process-local dashboard GitHub list cache usage on the legacy path  
-- Add facade test that when flag true, mock Octokit is never called for open pages  
+- Remove or shrink process-local dashboard GitHub list cache usage on the legacy path
+- Add facade test that when flag true, mock Octokit is never called for open pages
 - Document default flip to `true` in prd env template once stable
 
 ---
@@ -402,19 +422,20 @@ Index continues to update via webhooks/backfill while flag is false (writes stay
 ### Task 12: Hardening tests for index read path (recommended before default-true)
 
 **Files:**
+
 - Create: `apps/backend/src/application/dashboard/dashboard-index-pull-page.test.ts`
 - Modify: `dashboard.facade.test.ts` only if needed with env isolation
 
-- [ ] **Step 1:** When `DASHBOARD_READ_FROM_INDEX=true`, open pages return buckets from seeded index rows without calling `listPulls`
-- [ ] **Step 2:** Non-ready repos excluded even if folio_enabled
-- [ ] **Step 3:** `showDrafts=false` filters drafts; `q` matches title/author/repo/number
-- [ ] **Step 4:** Completed respects `closedRange`
+- [x] **Step 1:** When `DASHBOARD_READ_FROM_INDEX=true`, open pages return buckets from seeded index rows without calling `listPulls`
+- [x] **Step 2:** Non-ready repos excluded even if folio_enabled
+- [x] **Step 3:** `showDrafts=false` filters drafts; `q` matches title/author/repo/number
+- [x] **Step 4:** Completed respects `closedRange`
 
 ```bash
 pnpm --filter @folio/backend exec vitest run src/application/dashboard/dashboard-index-pull-page.test.ts
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "test(dashboard): cover index-backed open and completed pages"
@@ -424,8 +445,8 @@ git commit -m "test(dashboard): cover index-backed open and completed pages"
 
 ## Env reference
 
-| Variable | Default | Meaning |
-|----------|---------|---------|
+| Variable                    | Default | Meaning                                                       |
+| --------------------------- | ------- | ------------------------------------------------------------- |
 | `DASHBOARD_READ_FROM_INDEX` | `false` | `true` → board/completed pages from `pull_request_index` only |
 
 Parsed in `apps/backend/src/config.ts` as boolean via `"true"|"false"` enum transform.
@@ -434,30 +455,30 @@ Parsed in `apps/backend/src/config.ts` as boolean via `"true"|"false"` enum tran
 
 ## Verification matrix
 
-| Layer | Command |
-|-------|---------|
-| Types | `pnpm --filter @folio/types typecheck && pnpm --filter @folio/db typecheck && pnpm --filter @folio/backend typecheck && pnpm --filter @folio/web typecheck` |
-| Backend tests | `pnpm --filter @folio/backend test` |
-| Web tests | `pnpm --filter @folio/web test` |
-| Repo gate (before push) | `pnpm lint && pnpm typecheck && pnpm test && pnpm build` |
+| Layer                   | Command                                                                                                                                                     |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Types                   | `pnpm --filter @folio/types typecheck && pnpm --filter @folio/db typecheck && pnpm --filter @folio/backend typecheck && pnpm --filter @folio/web typecheck` |
+| Backend tests           | `pnpm --filter @folio/backend test`                                                                                                                         |
+| Web tests               | `pnpm --filter @folio/web test`                                                                                                                             |
+| Repo gate (before push) | `pnpm lint && pnpm typecheck && pnpm test && pnpm build`                                                                                                    |
 
 ---
 
 ## Spec coverage checklist
 
-| Spec requirement | Task |
-|------------------|------|
-| `pull_request_index` separate from review `pull_requests` | Task 1 (done) |
-| Webhook upsert + broader PR actions | Task 3 (done) |
-| Backfill on enable | Task 4 (done) |
-| DB-only reads behind flag | Task 5 (done) |
-| Batch review join | Task 6 (done) |
-| SSE + light events + debounced refetch | Tasks 7–8 (done) |
-| Reconcile ~15m | Task 9 (remaining) |
-| Bulk backfill before cutover | Task 10 (remaining) |
-| Flag cutover / rollback | Task 11 (remaining) |
-| Read-path regression tests for index | Task 12 (remaining, recommended) |
-| Optional UI polish of “New/Open” page | **Out of scope** for this plan (data plane only; separate design) |
+| Spec requirement                                          | Task                                                              |
+| --------------------------------------------------------- | ----------------------------------------------------------------- |
+| `pull_request_index` separate from review `pull_requests` | Task 1 (done)                                                     |
+| Webhook upsert + broader PR actions                       | Task 3 (done)                                                     |
+| Backfill on enable                                        | Task 4 (done)                                                     |
+| DB-only reads behind flag                                 | Task 5 (done)                                                     |
+| Batch review join                                         | Task 6 (done)                                                     |
+| SSE + light events + debounced refetch                    | Tasks 7–8 (done)                                                  |
+| Reconcile ~15m                                            | Task 9 (done)                                                     |
+| Bulk backfill before cutover                              | Task 10 (code done; environment run pending)                      |
+| Flag cutover / rollback                                   | Task 11 (runbook done; cutover pending)                           |
+| Read-path regression tests for index                      | Task 12 (done)                                                    |
+| Optional UI polish of “New/Open” page                     | **Out of scope** for this plan (data plane only; separate design) |
 
 ---
 

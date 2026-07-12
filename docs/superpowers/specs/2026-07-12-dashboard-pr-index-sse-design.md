@@ -7,13 +7,13 @@ and **near real-time** when GitHub PRs change.
 
 Success criteria:
 
-| Goal | Criterion |
-|------|-----------|
+| Goal             | Criterion                                                                                                                             |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
 | Fast first paint | Open-board request performs **zero** GitHub list/detail calls; p95 &lt; 500ms under normal DB load (≤50 enabled repos, ≤500 open PRs) |
-| Near real-time | With an active SSE connection, webhook-driven changes appear in the UI within **5 seconds** |
-| Consistency | Periodic reconcile converges Folio’s open set with GitHub within the reconcile interval (target **15 minutes**) |
-| Resilience | Board remains fully usable via REST if SSE is down |
-| Compatibility | Existing open/completed bucket semantics, card fields, and cursor pagination shape stay intact |
+| Near real-time   | With an active SSE connection, webhook-driven changes appear in the UI within **5 seconds**                                           |
+| Consistency      | Periodic reconcile converges Folio’s open set with GitHub within the reconcile interval (target **15 minutes**)                       |
+| Resilience       | Board remains fully usable via REST if SSE is down                                                                                    |
+| Compatibility    | Existing open/completed bucket semantics, card fields, and cursor pagination shape stay intact                                        |
 
 This continues the longer-term direction called out in
 [`2026-07-10-dashboard-cold-start-design.md`](./2026-07-10-dashboard-cold-start-design.md):
@@ -61,10 +61,10 @@ Web client
 
 ### Alternatives considered
 
-| Approach | Summary | Why not for this goal |
-|----------|---------|------------------------|
-| Shared cache + SWR + webhook invalidation | Redis/cache in front of live GitHub | Improves average latency but cold/miss paths stay slow; refresh still hits GitHub |
-| Client/server polling of GitHub Search/GraphQL | Always live from GitHub | Conflicts with fast + cheap real-time; rate limits and cost |
+| Approach                                       | Summary                             | Why not for this goal                                                             |
+| ---------------------------------------------- | ----------------------------------- | --------------------------------------------------------------------------------- |
+| Shared cache + SWR + webhook invalidation      | Redis/cache in front of live GitHub | Improves average latency but cold/miss paths stay slow; refresh still hits GitHub |
+| Client/server polling of GitHub Search/GraphQL | Always live from GitHub             | Conflicts with fast + cheap real-time; rate limits and cost                       |
 
 ### Real-time transport
 
@@ -87,11 +87,11 @@ SSE payload policy (v1):
 
 ### Role split
 
-| Concern | Source of truth |
-|---------|-----------------|
-| Board / open-list cards | `pull_request_index` in Postgres |
-| Review lifecycle (chapters, jobs, analysis) | Existing `pull_requests` / revisions / jobs |
-| Diff and review content | GitHub + existing review read path (unchanged) |
+| Concern                                     | Source of truth                                |
+| ------------------------------------------- | ---------------------------------------------- |
+| Board / open-list cards                     | `pull_request_index` in Postgres               |
+| Review lifecycle (chapters, jobs, analysis) | Existing `pull_requests` / revisions / jobs    |
+| Diff and review content                     | GitHub + existing review read path (unchanged) |
 
 ### High-level flow
 
@@ -162,21 +162,21 @@ pull_request_index
 
 ### Derived UI status (not stored)
 
-| `githubStatus` | Rule |
-|----------------|------|
-| `merged` | `merged_at IS NOT NULL` |
-| `draft` | open and `is_draft` |
-| `closed` | closed and not merged |
-| `open` | other open |
+| `githubStatus` | Rule                    |
+| -------------- | ----------------------- |
+| `merged`       | `merged_at IS NOT NULL` |
+| `draft`        | open and `is_draft`     |
+| `closed`       | closed and not merged   |
+| `open`         | other open              |
 
 ### Bucket rules (unchanged product semantics)
 
-| Bucket | Rule |
-|--------|------|
-| `yours` | Open-ish PR authored by current user (existing `openBucketFor`) |
-| `ready` | Others’ PRs with Folio review progress / analysis rules as today |
-| `other` | Others’ PRs not ready |
-| `completed` | Merged/closed within `closedRange` |
+| Bucket      | Rule                                                             |
+| ----------- | ---------------------------------------------------------------- |
+| `yours`     | Open-ish PR authored by current user (existing `openBucketFor`)  |
+| `ready`     | Others’ PRs with Folio review progress / analysis rules as today |
+| `other`     | Others’ PRs not ready                                            |
+| `completed` | Merged/closed within `closedRange`                               |
 
 Do **not** duplicate “review complete” into the index. Always join/project from the
 existing review/job tables so lifecycle stays single-sourced.
@@ -207,9 +207,9 @@ pr_index_cursor          text null          -- optional resume token
 
 ### Prune policy
 
-| State | Retention |
-|-------|-----------|
-| open / draft | Keep while repo is folio-enabled |
+| State           | Retention                                                                  |
+| --------------- | -------------------------------------------------------------------------- |
+| open / draft    | Keep while repo is folio-enabled                                           |
 | merged / closed | Keep **90 days + small buffer (e.g. 7 days)** from `merged_at`/`closed_at` |
 
 Covers dashboard `closedRange` up to `90d`. Periodic prune job (or reconcile) deletes
@@ -246,30 +246,30 @@ multi-instance without changing SSE clients.
 
 ### Components
 
-| Component | Responsibility |
-|-----------|----------------|
-| `PullRequestIndexWriter` | Map webhook/list payloads → upsert/delete index rows |
-| `PullRequestIndexBackfill` | Initial load per repo (all open + recent closed) |
-| `PullRequestIndexReconcile` | Periodic GitHub ↔ index convergence |
-| `BoardEventHub` | Scoped SSE fan-out |
-| Existing `ReviewJobQueue` | Decomposition jobs; independent of index |
+| Component                   | Responsibility                                       |
+| --------------------------- | ---------------------------------------------------- |
+| `PullRequestIndexWriter`    | Map webhook/list payloads → upsert/delete index rows |
+| `PullRequestIndexBackfill`  | Initial load per repo (all open + recent closed)     |
+| `PullRequestIndexReconcile` | Periodic GitHub ↔ index convergence                  |
+| `BoardEventHub`             | Scoped SSE fan-out                                   |
+| Existing `ReviewJobQueue`   | Decomposition jobs; independent of index             |
 
 Webhook HTTP semantics stay **202 best-effort**: index/SSE failures are logged and
 must not turn the delivery into 5xx. Reconcile repairs drift.
 
 ### `pull_request` webhook actions
 
-| Action | Index | Review job | SSE |
-|--------|-------|------------|-----|
-| `opened` | upsert | yes if folio-enabled | `pr.upserted` |
-| `reopened` | upsert | yes | `pr.upserted` |
-| `synchronize` | upsert | yes | `pr.upserted` |
-| `ready_for_review` | upsert | yes | `pr.upserted` |
-| `converted_to_draft` | upsert | no | `pr.upserted` |
-| `edited` | upsert | no | `pr.upserted` |
-| `closed` | upsert (closed/merged fields) | no (keep current product policy) | `pr.upserted` |
-| `labeled` / `unlabeled` | refresh `labels_json` | no | `pr.upserted` |
-| assignees / review_requested / etc. | ignore in v1 | — | — |
+| Action                              | Index                         | Review job                       | SSE           |
+| ----------------------------------- | ----------------------------- | -------------------------------- | ------------- |
+| `opened`                            | upsert                        | yes if folio-enabled             | `pr.upserted` |
+| `reopened`                          | upsert                        | yes                              | `pr.upserted` |
+| `synchronize`                       | upsert                        | yes                              | `pr.upserted` |
+| `ready_for_review`                  | upsert                        | yes                              | `pr.upserted` |
+| `converted_to_draft`                | upsert                        | no                               | `pr.upserted` |
+| `edited`                            | upsert                        | no                               | `pr.upserted` |
+| `closed`                            | upsert (closed/merged fields) | no (keep current product policy) | `pr.upserted` |
+| `labeled` / `unlabeled`             | refresh `labels_json`         | no                               | `pr.upserted` |
+| assignees / review_requested / etc. | ignore in v1                  | —                                | —             |
 
 Today only reviewable actions are handled for side effects. Indexing requires the
 broader action set above.
@@ -297,12 +297,12 @@ Prevents out-of-order webhook delivery from regressing the row.
 
 ### Installation / activation hooks
 
-| Trigger | Write behavior |
-|---------|----------------|
+| Trigger                                   | Write behavior                                                            |
+| ----------------------------------------- | ------------------------------------------------------------------------- |
 | Installation created / repositories added | Existing installation sync + enqueue backfill for new folio-enabled repos |
-| Settings: folio enable | Enqueue backfill; set `pr_index_status = backfilling` |
-| Settings: folio disable | Delete or exclude that repo’s index rows; `board.invalidate` |
-| Installation suspend/delete | Existing disconnect + cascade cleanup + invalidate |
+| Settings: folio enable                    | Enqueue backfill; set `pr_index_status = backfilling`                     |
+| Settings: folio disable                   | Delete or exclude that repo’s index rows; `board.invalidate`              |
+| Installation suspend/delete               | Existing disconnect + cascade cleanup + invalidate                        |
 
 ### Backfill
 
@@ -335,12 +335,12 @@ Prevents out-of-order webhook delivery from regressing the row.
 
 ### API surface
 
-| Endpoint | Change |
-|----------|--------|
-| `GET /api/v1/dashboard/pulls/open` | Implementation becomes DB-only; response shape unchanged |
-| `GET /api/v1/dashboard/pulls?bucket=…` | Same |
-| `GET /api/v1/dashboard` / summary | Metrics and `openPrCount` from index aggregates |
-| `GET /api/v1/dashboard/stream` | **New** SSE endpoint, session-authenticated |
+| Endpoint                               | Change                                                   |
+| -------------------------------------- | -------------------------------------------------------- |
+| `GET /api/v1/dashboard/pulls/open`     | Implementation becomes DB-only; response shape unchanged |
+| `GET /api/v1/dashboard/pulls?bucket=…` | Same                                                     |
+| `GET /api/v1/dashboard` / summary      | Metrics and `openPrCount` from index aggregates          |
+| `GET /api/v1/dashboard/stream`         | **New** SSE endpoint, session-authenticated              |
 
 ### Read pipeline
 
@@ -397,9 +397,9 @@ output: Map<key, DashboardPullStatus>
 
 Batch:
 
-1. `pull_requests` for `(repo_id, number)` pairs  
-2. Latest revision per PR  
-3. Chapter counts + user viewed progress  
+1. `pull_requests` for `(repo_id, number)` pairs
+2. Latest revision per PR
+3. Chapter counts + user viewed progress
 4. Latest jobs by dedupe keys for `analysisStatus`
 
 Card `changedFiles` / additions / deletions on the board come from the **index**
@@ -439,43 +439,43 @@ benefit from the DB-backed open endpoint. No separate GitHub search path.
 
 ### Caching
 
-| Layer | Role |
-|-------|------|
-| Postgres index | List source of truth |
+| Layer                       | Role                                                                         |
+| --------------------------- | ---------------------------------------------------------------------------- |
+| Postgres index              | List source of truth                                                         |
 | In-memory GitHub list cache | Remove from dashboard **read** path; optional only inside backfill/reconcile |
-| HTTP cache | None (user-specific) |
+| HTTP cache                  | None (user-specific)                                                         |
 
 ## Error handling
 
-| Failure | Handling | User impact |
-|---------|----------|-------------|
-| Webhook index upsert fails | Log; still 202 | Temporary stale list until reconcile/retry |
-| Review enqueue fails | Existing job retry path | Review delayed; card meta can still update |
-| Backfill fails | `pr_index_status = error`, retry/backoff | That repo omitted until ready |
-| Reconcile fails | Retry next cycle | Stale window ≤ reconcile interval |
-| Open REST DB error | Standard API envelope + column retry UI | Open columns error state |
-| Partial review join failure | Conservative `not_requested` / `processing` fallback | Card still listed |
-| SSE auth failure | 401, close stream | REST-only board still works |
-| SSE disconnect | Auto-reconnect + open reload on open | Brief gap, then consistent |
-| Out-of-order webhook | Timestamp/sha guard skips older write | Latest meta kept |
+| Failure                     | Handling                                             | User impact                                |
+| --------------------------- | ---------------------------------------------------- | ------------------------------------------ |
+| Webhook index upsert fails  | Log; still 202                                       | Temporary stale list until reconcile/retry |
+| Review enqueue fails        | Existing job retry path                              | Review delayed; card meta can still update |
+| Backfill fails              | `pr_index_status = error`, retry/backoff             | That repo omitted until ready              |
+| Reconcile fails             | Retry next cycle                                     | Stale window ≤ reconcile interval          |
+| Open REST DB error          | Standard API envelope + column retry UI              | Open columns error state                   |
+| Partial review join failure | Conservative `not_requested` / `processing` fallback | Card still listed                          |
+| SSE auth failure            | 401, close stream                                    | REST-only board still works                |
+| SSE disconnect              | Auto-reconnect + open reload on open                 | Brief gap, then consistent                 |
+| Out-of-order webhook        | Timestamp/sha guard skips older write                | Latest meta kept                           |
 
 ## Rollout
 
 Feature flag: `DASHBOARD_READ_FROM_INDEX` (boolean env, default `false` until cutover).
 
-| Phase | Work | Status |
-|-------|------|--------|
-| P0 | Schema migration: `pull_request_index` + repo backfill metadata | Done |
-| P1 | `PullRequestIndexWriter` + expanded webhook actions | Done |
-| P2a | Backfill job on folio enable | Done |
-| P2b | Reconcile job (~15m) | Remaining (plan Task 9) |
-| P3 | Read path behind flag (open/completed → DB) | Done (flag default off) |
-| P4 | Batch review status join on list path | Done |
-| P5 | SSE endpoint + `BoardEventHub` | Done |
-| P6 | Frontend EventSource + patch + debounced refetch | Done |
-| P7 | Delete dead GitHub list caching from dashboard reads | After permanent flag-on |
-| P8 | Optional UI polish of open/new page | Out of scope (separate design) |
-| Cutover | Bulk backfill already-enabled repos + set flag `true` | Remaining (plan Tasks 10–11) |
+| Phase   | Work                                                            | Status                                                       |
+| ------- | --------------------------------------------------------------- | ------------------------------------------------------------ |
+| P0      | Schema migration: `pull_request_index` + repo backfill metadata | Done                                                         |
+| P1      | `PullRequestIndexWriter` + expanded webhook actions             | Done                                                         |
+| P2a     | Backfill job on folio enable                                    | Done                                                         |
+| P2b     | Reconcile job (~15m)                                            | Done (plan Task 9)                                           |
+| P3      | Read path behind flag (open/completed → DB)                     | Done (flag default off)                                      |
+| P4      | Batch review status join on list path                           | Done                                                         |
+| P5      | SSE endpoint + `BoardEventHub`                                  | Done                                                         |
+| P6      | Frontend EventSource + patch + debounced refetch                | Done                                                         |
+| P7      | Delete dead GitHub list caching from dashboard reads            | After permanent flag-on                                      |
+| P8      | Optional UI polish of open/new page                             | Out of scope (separate design)                               |
+| Cutover | Bulk backfill already-enabled repos + set flag `true`           | Enqueue code done; environment run + flag remain ops pending |
 
 Before enabling the flag in production:
 
@@ -559,31 +559,31 @@ v1 read policy while flag is on: **only repos with `pr_index_status = ready`**.
 
 ### Landed (2026-07-12, commit `9b9157e`)
 
-| Spec area | Landed as |
-|-----------|-----------|
-| `pull_request_index` + repo backfill meta | Migration `0013_pull_request_index`, schema/repos under `@folio/db` |
-| Webhook-maintained index | `GitHubWebhookService` index actions + `PullRequestIndexWriter` |
-| Backfill on folio enable | Job kind `pr_index_backfill`, worker + `PullRequestIndexBackfill` |
-| DB-only board reads | `getDashboard*FromIndex` behind `DASHBOARD_READ_FROM_INDEX` |
-| Batch review status join | `resolveDashboardPullStatuses` |
-| SSE | `GET /api/v1/dashboard/stream` + `BoardEventHub` |
-| Client live updates | `connectDashboardBoardStream` (patch + ~400ms debounced open reload) |
+| Spec area                                 | Landed as                                                            |
+| ----------------------------------------- | -------------------------------------------------------------------- |
+| `pull_request_index` + repo backfill meta | Migration `0013_pull_request_index`, schema/repos under `@folio/db`  |
+| Webhook-maintained index                  | `GitHubWebhookService` index actions + `PullRequestIndexWriter`      |
+| Backfill on folio enable                  | Job kind `pr_index_backfill`, worker + `PullRequestIndexBackfill`    |
+| DB-only board reads                       | `getDashboard*FromIndex` behind `DASHBOARD_READ_FROM_INDEX`          |
+| Batch review status join                  | `resolveDashboardPullStatuses`                                       |
+| SSE                                       | `GET /api/v1/dashboard/stream` + `BoardEventHub`                     |
+| Client live updates                       | `connectDashboardBoardStream` (patch + ~400ms debounced open reload) |
 
 ### Config
 
-| Variable | Default | Behavior |
-|----------|---------|----------|
+| Variable                    | Default | Behavior                                                                                                                                                                                                              |
+| --------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `DASHBOARD_READ_FROM_INDEX` | `false` | When `true`, open/completed dashboard pages read only `pull_request_index` (ready repos). When `false`, legacy live GitHub list path remains. Index **writes** (webhook/backfill) always run regardless of this flag. |
 
-### Not yet landed (tracked in plan Tasks 9–12)
+### Follow-up implementation (plan Tasks 9–12)
 
-| Spec area | Gap |
-|-----------|-----|
-| Reconcile ~15 minutes | No periodic GitHub ↔ index convergence yet; freshness depends on webhooks + backfill |
-| Bulk backfill for already-enabled repos | Enable toggle enqueues backfill; pre-existing enabled repos need an explicit bulk enqueue before cutover |
-| Production flag default `true` | Ops cutover after ready coverage |
-| Index-path facade regression tests | Recommended before flipping default |
-| Delete GitHub list cache from reads | Only required after flag is permanently on; legacy path still uses it when flag is off |
+| Spec area                               | Gap                                                                                    |
+| --------------------------------------- | -------------------------------------------------------------------------------------- |
+| Reconcile ~15 minutes                   | Landed in `833c8e5`; worker runs bounded sequential GitHub ↔ index rounds              |
+| Bulk backfill for already-enabled repos | Landed in `c4771a5`; operations command exists but has not been run on production      |
+| Production flag default `true`          | Ops cutover after ready coverage                                                       |
+| Index-path facade regression tests      | Landed in `2268291`; flag-on path proves zero Octokit creation and ready-only reads    |
+| Delete GitHub list cache from reads     | Only required after flag is permanently on; legacy path still uses it when flag is off |
 
 ### Cutover (summary)
 
