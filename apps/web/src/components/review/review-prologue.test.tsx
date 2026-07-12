@@ -48,7 +48,7 @@ describe("ReviewPrologue", () => {
     expect(markup).toContain("설명");
     expect(markup).toContain("댓글 0");
     expect(markup).toContain("한눈에 보기");
-    expect(markup).toContain("비개발자용");
+    expect(markup).not.toContain("비개발자용");
     expect(markup).toContain(prologue.plainSummary);
     expect(markup).toContain("bg-warning/20");
     expect(markup).toContain("왜 이 PR인가?");

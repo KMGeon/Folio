@@ -174,11 +174,6 @@ function PlainSummaryBanner({ text }: { text: string | null }) {
         >
           한눈에 보기
         </span>
-        {text ? (
-          <span className="rounded-full border border-warning/40 bg-warning/25 px-2 py-0.5 font-medium text-[10px] text-warning">
-            비개발자용
-          </span>
-        ) : null}
       </div>
       <p
         className={cn(
@@ -187,7 +182,7 @@ function PlainSummaryBanner({ text }: { text: string | null }) {
         )}
       >
         {text ??
-          "이 PR이 무엇을 처리하는지는 아직 요약되지 않았습니다. 재분석 후 비개발자용 한 줄 설명이 여기에 표시됩니다."}
+          "이 PR이 무엇을 처리하는지는 아직 요약되지 않았습니다. 재분석 후 한 줄 설명이 여기에 표시됩니다."}
       </p>
     </div>
   );
