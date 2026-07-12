@@ -16,6 +16,7 @@ import { GlobalStatusGuard } from "../../interfaces/api/authorization/global-sta
 import { SystemAdminGuard } from "../../interfaces/api/authorization/system-admin.guard.js";
 import { WorkspaceRoleGuard } from "../../interfaces/api/authorization/workspace-role.guard.js";
 import { AdminAuditController } from "../../interfaces/api/admin/admin-audit.controller.js";
+import { AdminJobsController } from "../../interfaces/api/admin/admin-jobs.controller.js";
 import { AdminOverviewController } from "../../interfaces/api/admin/admin-overview.controller.js";
 import { AdminUsersController } from "../../interfaces/api/admin/admin-users.controller.js";
 import { WorkspaceMembersController } from "../../interfaces/api/workspaces/workspace-members.controller.js";
@@ -23,6 +24,7 @@ import { WorkspaceController } from "../../interfaces/api/workspaces/workspace.c
 import { AuthModule } from "../auth/auth.module.js";
 import { AuthorizationModule } from "./authorization.module.js";
 import { AdminAuditFacade } from "./admin-audit.facade.js";
+import { AdminJobsFacade } from "./admin-jobs.facade.js";
 import { AdminOverviewFacade } from "./admin-overview.facade.js";
 import { AdminUsersFacade } from "./admin-users.facade.js";
 import { GlobalUsersFacade } from "./global-users.facade.js";
@@ -37,6 +39,7 @@ const services = [
   AdminUsersFacade,
   AdminAuditFacade,
   AdminOverviewFacade,
+  AdminJobsFacade,
   WorkspaceMembersFacade,
   WorkspaceClaimFacade,
   EntitlementService,
@@ -66,6 +69,7 @@ describe("AuthorizationModule", () => {
         AdminUsersFacade,
         AdminAuditFacade,
         AdminOverviewFacade,
+        AdminJobsFacade,
         WorkspaceMembersFacade,
         WorkspaceClaimFacade,
         { provide: EntitlementService, useClass: AlwaysEntitledService },
@@ -76,7 +80,12 @@ describe("AuthorizationModule", () => {
     expect(exported).toEqual(expect.arrayContaining([...services, ...guards]));
     expect(controllers).toContain(WorkspaceMembersController);
     expect(controllers).toEqual(
-      expect.arrayContaining([AdminUsersController, AdminAuditController, AdminOverviewController]),
+      expect.arrayContaining([
+        AdminUsersController,
+        AdminAuditController,
+        AdminOverviewController,
+        AdminJobsController,
+      ]),
     );
     expect(controllers).toContain(WorkspaceController);
   });
@@ -93,6 +102,7 @@ describe("AuthorizationModule", () => {
       AdminUsersFacade,
       AdminAuditFacade,
       AdminOverviewFacade,
+      AdminJobsFacade,
       WorkspaceMembersFacade,
       WorkspaceClaimFacade,
       ...guards,
@@ -102,6 +112,7 @@ describe("AuthorizationModule", () => {
     expect(moduleRef.get(AdminUsersController)).toBeInstanceOf(AdminUsersController);
     expect(moduleRef.get(AdminAuditController)).toBeInstanceOf(AdminAuditController);
     expect(moduleRef.get(AdminOverviewController)).toBeInstanceOf(AdminOverviewController);
+    expect(moduleRef.get(AdminJobsController)).toBeInstanceOf(AdminJobsController);
     expect(moduleRef.get(WorkspaceController)).toBeInstanceOf(WorkspaceController);
 
     await moduleRef.close();
