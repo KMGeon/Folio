@@ -34,6 +34,7 @@ vi.mock("@folio/db", () => ({
   reviewStateRepo: { progressForRevision },
 }));
 vi.mock("@folio/github", () => ({ createInstallationOctokit: vi.fn() }));
+vi.mock("../../config.js", () => ({ config: { DASHBOARD_READ_FROM_INDEX: false } }));
 vi.mock("../../infrastructure/github/github-contributions.js", () => ({
   fetchPublicContributions: vi.fn(async () => []),
 }));

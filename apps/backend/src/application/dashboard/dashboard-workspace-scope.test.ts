@@ -240,6 +240,7 @@ describe("dashboard workspace scope", () => {
           name: "folio",
           fullName: "acme/folio",
           folioEnabled: true,
+          prIndexStatus: "ready",
         } as never,
       ]);
       const getResolvedRepositoryPermissionLevels = vi.fn().mockResolvedValue(["none"]);
