@@ -3,6 +3,9 @@ import type {
   AdminOverviewPayload,
   AdminUserPage,
   AdminUserStatusFilter,
+  AdminWorkspaceDetail,
+  AdminWorkspaceInstallationState,
+  AdminWorkspacePage,
   AuditAction,
 } from "@folio/types";
 
@@ -23,6 +26,13 @@ export interface AdminAuditFilters {
   targetId?: string;
   from?: string;
   to?: string;
+  limit?: number;
+  cursor?: string;
+}
+
+export interface AdminWorkspaceFilters {
+  q?: string;
+  installationState?: AdminWorkspaceInstallationState;
   limit?: number;
   cursor?: string;
 }
@@ -49,6 +59,23 @@ export function fetchAdminOverview(
   options: ServerCookieOptions = {},
 ): Promise<AdminOverviewPayload> {
   return adminRequest<AdminOverviewPayload>("/api/v1/admin/overview", options.cookie);
+}
+
+export function fetchAdminWorkspaces(
+  options: AdminWorkspaceFilters & ServerCookieOptions = {},
+): Promise<AdminWorkspacePage> {
+  const { cookie, ...filters } = options;
+  return adminRequest<AdminWorkspacePage>(withQuery("/api/v1/admin/workspaces", filters), cookie);
+}
+
+export function fetchAdminWorkspace(
+  workspaceId: string,
+  options: ServerCookieOptions = {},
+): Promise<AdminWorkspaceDetail> {
+  return adminRequest<AdminWorkspaceDetail>(
+    `/api/v1/admin/workspaces/${encodeURIComponent(workspaceId)}`,
+    options.cookie,
+  );
 }
 
 export function approveAdminUser(id: string): Promise<{ ok: true }> {

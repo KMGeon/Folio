@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 const adminRoot = resolve(__dirname);
 
 describe("admin routes", () => {
-  it("exposes only the Phase 1 information architecture", () => {
+  it("exposes the ready Phase 2 workspace routes but not Operations", () => {
     const shell = readFileSync(
       resolve(adminRoot, "../../components/admin/admin-shell.tsx"),
       "utf8",
@@ -14,10 +14,9 @@ describe("admin routes", () => {
     expect(shell).toContain('href: "/admin/overview"');
     expect(shell).toContain('href: "/admin/users"');
     expect(shell).toContain('href: "/admin/audit"');
-    for (const route of ["workspaces", "operations"]) {
-      expect(existsSync(resolve(adminRoot, route, "page.tsx"))).toBe(false);
-    }
-    expect(shell).not.toContain("/admin/workspaces");
+    expect(existsSync(resolve(adminRoot, "workspaces", "page.tsx"))).toBe(true);
+    expect(existsSync(resolve(adminRoot, "operations", "page.tsx"))).toBe(false);
+    expect(shell).toContain("/admin/workspaces");
     expect(shell).not.toContain("/admin/operations");
 
     expect(readFileSync(resolve(adminRoot, "page.tsx"), "utf8")).toContain(
