@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  ChevronLeft,
-  ChevronRight,
-  ChevronsDown,
-  ChevronsUp,
-  FileText,
-  Search,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronsDown, ChevronsUp } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ChapterCards } from "@/components/review/chapter-cards";
@@ -15,7 +8,6 @@ import { getChapterNavigationShortcut } from "@/components/review/chapter-naviga
 import { aggregateChangedFiles } from "@/components/review/changed-file-summary";
 import { buildFileScopedChapter } from "@/components/review/chapter-file-diff";
 import { ChapterPanel } from "@/components/review/chapter-panel";
-import { FileStatusMarker, FileTree } from "@/components/review/changed-file-tree";
 import { CommitGraph } from "@/components/review/commit-graph";
 import { DiffViewModeSwitch, type DiffViewMode } from "@/components/review/diff-view-mode-switch";
 import { DiffViewer } from "@/components/review/diff-viewer";
@@ -25,6 +17,8 @@ import {
   setFilePathsCollapsed,
   viewedFileCollapseState,
 } from "@/components/review/review-file-state";
+import { ReviewFilesTab } from "@/components/review/review-files-tab";
+import { chapterMilestoneProgress } from "@/components/review/review-progress";
 import { ReviewPrologue } from "@/components/review/review-prologue";
 import { PanelTabButton, type ReviewTab, ReviewTopBar } from "@/components/review/review-top-bar";
 import { Button } from "@/components/ui/button";
@@ -92,6 +86,7 @@ export function ReviewView({
 
   const files = aggregateChangedFiles(reviewChapters);
   const fileProgressValue = fileProgress(files);
+  const chapterProgressValue = chapterMilestoneProgress(reviewChapters);
   const selectedFile = useMemo(
     () => files.find((file) => file.path === selectedFilePath) ?? files[0] ?? null,
     [files, selectedFilePath],
@@ -200,6 +195,12 @@ export function ReviewView({
     );
   }
 
+  function updateChapterViewed(chapterIndex: number, viewed: boolean) {
+    setReviewChapters((prev) =>
+      prev.map((chapter) => (chapter.index === chapterIndex ? { ...chapter, viewed } : chapter)),
+    );
+  }
+
   return (
     <div
       className={cn(
@@ -213,6 +214,8 @@ export function ReviewView({
         onTabChange={setTab}
         chapterCount={reviewChapters.length}
         fileCount={files.length}
+        viewedChapters={chapterProgressValue.done}
+        totalChapters={chapterProgressValue.total}
         viewedFiles={fileProgressValue.viewed}
         totalFiles={fileProgressValue.total}
         totalAdditions={totalAdditions}
@@ -297,6 +300,7 @@ export function ReviewView({
                 number={pr.number}
                 showReviewFocus={preferences.showReviewFocus}
                 onKeyChangeViewedChange={updateKeyChangeViewed}
+                onChapterViewedChange={updateChapterViewed}
                 onJumpToKeyChange={handleJumpToKeyChange}
                 jumpNotice={jumpNotice}
               />
@@ -338,82 +342,20 @@ export function ReviewView({
           </div>
         )
       ) : (
-        <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[24rem_minmax(0,1fr)]">
-          <aside className="flex min-h-72 flex-col overflow-hidden border-b bg-card/35 lg:min-h-0 lg:border-r lg:border-b-0">
-            <div className="flex h-12 items-center justify-between border-b px-3">
-              <div className="flex items-center gap-2 font-medium">
-                <FileText className="size-4 text-muted-foreground" />
-                파일
-                <span className="text-muted-foreground">({files.length})</span>
-              </div>
-            </div>
-            <div className="border-b p-3">
-              <div className="relative">
-                <Search className="-translate-y-1/2 absolute top-1/2 left-2.5 size-3.5 text-muted-foreground" />
-                <input
-                  type="text"
-                  value={filesTabQuery}
-                  onChange={(event) => setFilesTabQuery(event.target.value)}
-                  placeholder="파일 필터링..."
-                  aria-label="파일 필터링"
-                  className="h-9 w-full rounded-md border bg-background/55 pr-2 pl-8 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30"
-                />
-              </div>
-            </div>
-            <FileTree
-              files={files}
-              query={filesTabQuery}
-              selectedPath={selectedFile?.path ?? ""}
-              onSelect={setSelectedFilePath}
-            />
-          </aside>
-          <main className="min-w-0 overflow-y-auto p-4">
-            {selectedFile && selectedFileScopedChapter ? (
-              <section className="overflow-hidden rounded-lg border bg-card">
-                <div className="flex items-center gap-2 border-b px-3 py-2">
-                  <FileStatusMarker status={selectedFile.status} active />
-                  <span className="min-w-0 flex-1 truncate font-mono text-sm">
-                    {selectedFile.path}
-                  </span>
-                  <span className="font-mono text-diff-add-fg text-sm">
-                    +{selectedFile.additions}
-                  </span>
-                  {selectedFile.deletions > 0 ? (
-                    <span className="font-mono text-diff-del-fg text-sm">
-                      -{selectedFile.deletions}
-                    </span>
-                  ) : null}
-                  <DiffViewModeSwitch value={diffViewMode} onChange={setDiffViewMode} />
-                </div>
-                <div className="border-b bg-muted/20 px-3 py-2">
-                  <div className="text-muted-foreground text-xs">
-                    제{selectedFile.chapterIndex}장
-                  </div>
-                  <div className="mt-1 font-medium">{selectedFile.chapterTitle}</div>
-                </div>
-                <DiffViewer
-                  chapter={selectedFileScopedChapter}
-                  compact
-                  collapsedFiles={collapsedFiles}
-                  viewMode={diffViewMode}
-                  onFileViewedChange={updateFileViewed}
-                  onFileCollapseChange={updateFileCollapsed}
-                  commentContext={{
-                    org: pr.org,
-                    repo: pr.repo,
-                    number: pr.number,
-                    chapterIndex: selectedFileScopedChapter.index,
-                    path: selectedFile.path,
-                  }}
-                />
-              </section>
-            ) : (
-              <div className="flex min-h-60 items-center justify-center rounded-lg border bg-card text-muted-foreground text-sm">
-                변경된 파일이 없습니다.
-              </div>
-            )}
-          </main>
-        </div>
+        <ReviewFilesTab
+          pr={pr}
+          files={files}
+          filesTabQuery={filesTabQuery}
+          onFilesTabQueryChange={setFilesTabQuery}
+          selectedFile={selectedFile}
+          selectedFileScopedChapter={selectedFileScopedChapter}
+          collapsedFiles={collapsedFiles}
+          diffViewMode={diffViewMode}
+          onDiffViewModeChange={setDiffViewMode}
+          onSelectFile={setSelectedFilePath}
+          onFileViewedChange={updateFileViewed}
+          onFileCollapseChange={updateFileCollapsed}
+        />
       )}
     </div>
   );

@@ -38,6 +38,8 @@ export function ReviewTopBar({
   onTabChange,
   chapterCount,
   fileCount,
+  viewedChapters,
+  totalChapters,
   viewedFiles,
   totalFiles,
   totalAdditions,
@@ -48,6 +50,9 @@ export function ReviewTopBar({
   onTabChange: (tab: ReviewTab) => void;
   chapterCount: number;
   fileCount: number;
+  /** Chapter milestone progress — primary product signal. */
+  viewedChapters: number;
+  totalChapters: number;
   viewedFiles: number;
   totalFiles: number;
   totalAdditions: number;
@@ -135,8 +140,14 @@ export function ReviewTopBar({
           />
         </nav>
         <span className="flex shrink-0 items-center gap-2 font-mono text-xs tabular-nums">
-          <span className="text-muted-foreground">
-            {viewedFiles}/{totalFiles} 읽음
+          <span className="font-medium text-foreground" title="완료한 챕터 / 전체 챕터">
+            챕터 {viewedChapters}/{totalChapters}
+          </span>
+          <span className="text-border" aria-hidden>
+            ·
+          </span>
+          <span className="text-muted-foreground" title="읽은 파일 / 전체 파일">
+            파일 {viewedFiles}/{totalFiles}
           </span>
           <span className="text-diff-add-fg">+{totalAdditions}</span>
           <span className="text-diff-del-fg">-{totalDeletions}</span>

@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const source = readFileSync(resolve(__dirname, "review-view.tsx"), "utf8");
+const filesTabSource = readFileSync(resolve(__dirname, "review-files-tab.tsx"), "utf8");
 const keyChangeJumpSource = readFileSync(resolve(__dirname, "use-key-change-jump.ts"), "utf8");
 const chapterPanelSource = readFileSync(resolve(__dirname, "chapter-panel.tsx"), "utf8");
 const changedFileTreeSource = readFileSync(resolve(__dirname, "changed-file-tree.tsx"), "utf8");
@@ -75,7 +76,8 @@ describe("ReviewView source", () => {
   });
 
   it("keeps the files tab file list independently scrollable", () => {
-    expect(source).toContain(
+    expect(source).toContain("<ReviewFilesTab");
+    expect(filesTabSource).toContain(
       "flex min-h-72 flex-col overflow-hidden border-b bg-card/35 lg:min-h-0 lg:border-r lg:border-b-0",
     );
     expect(changedFileTreeSource).toContain("min-h-0 flex-1 overflow-y-auto p-3");
@@ -87,6 +89,15 @@ describe("ReviewView source", () => {
     expect(chapterCardsSource).toContain("이어서 리뷰");
     expect(chapterCardsSource).not.toContain("Start reviewing");
     expect(chapterCardsSource).not.toContain("Low risk");
+  });
+
+  it("surfaces chapter-first progress in the top bar", () => {
+    expect(source).toContain("chapterMilestoneProgress");
+    expect(source).toContain("viewedChapters={chapterProgressValue.done}");
+    expect(source).toContain("totalChapters={chapterProgressValue.total}");
+    expect(source).toContain("onChapterViewedChange={updateChapterViewed}");
+    expect(topBarSource).toContain("챕터 {viewedChapters}/{totalChapters}");
+    expect(topBarSource).toContain("파일 {viewedFiles}/{totalFiles}");
   });
 
   it("supports chapter-panel tree filtering and file activation", () => {
@@ -129,8 +140,9 @@ describe("ReviewView source", () => {
 
   it("filters the Files tab tree with a real input", () => {
     expect(source).toContain("filesTabQuery");
-    expect(source).toContain('aria-label="파일 필터링"');
-    expect(source).toContain("query={filesTabQuery}");
-    expect(source).not.toContain("<span>Filter files...</span>");
+    expect(source).toContain("onFilesTabQueryChange={setFilesTabQuery}");
+    expect(filesTabSource).toContain('aria-label="파일 필터링"');
+    expect(filesTabSource).toContain("query={filesTabQuery}");
+    expect(filesTabSource).not.toContain("<span>Filter files...</span>");
   });
 });

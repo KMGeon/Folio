@@ -1,67 +1,86 @@
 "use client";
 
-import { CheckCircle2, Circle, Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { setChapterViewed } from "@/lib/review-api";
 import { cn } from "@/lib/utils";
 
-/** Click-to-toggle "viewed" mark for one chapter; persists to the backend. */
+/**
+ * Chapter milestone control — primary progress unit for Folio reviews.
+ * Not a generic "viewed" chip; completing a chapter is the story-unit done signal.
+ */
 export function ChapterViewedToggle({
   org,
   repo,
   number,
   index,
   initialViewed,
+  focusComplete = false,
+  onViewedChange,
 }: {
   org: string;
   repo: string;
   number: number;
   index: number;
   initialViewed: boolean;
+  /** When all focus items are judged, emphasize the complete CTA. */
+  focusComplete?: boolean;
+  onViewedChange?: (index: number, viewed: boolean) => void;
 }) {
   const router = useRouter();
   const [viewed, setViewed] = useState(initialViewed);
   const [pending, setPending] = useState(false);
+
+  useEffect(() => {
+    setViewed(initialViewed);
+  }, [initialViewed]);
 
   const onClick = async () => {
     if (pending) {
       return;
     }
     const next = !viewed;
-    setViewed(next); // optimistic
+    setViewed(next);
+    onViewedChange?.(index, next);
     setPending(true);
     try {
       await setChapterViewed(org, repo, number, index, next);
-      // Refresh server components so progress (dashboard, list) reflects the change.
       router.refresh();
     } catch {
-      setViewed(!next); // revert on failure
+      setViewed(!next);
+      onViewedChange?.(index, !next);
     } finally {
       setPending(false);
     }
   };
+
+  const label = viewed ? "챕터 완료" : "이 챕터 마치기";
+  const readyToComplete = !viewed && focusComplete;
 
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={viewed}
-      aria-label={viewed ? "읽음 해제" : "읽음으로 표시"}
-      title={viewed ? "읽음 — 클릭해서 해제" : "읽음으로 표시"}
+      aria-label={viewed ? "챕터 완료 해제" : "이 챕터 마치기"}
+      title={viewed ? "완료됨 — 클릭해서 해제" : "이 챕터를 마칩니다"}
       className={cn(
-        "flex size-6 shrink-0 items-center justify-center rounded-full transition-colors",
-        viewed ? "text-primary" : "text-muted-foreground hover:text-foreground",
+        "inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md border px-2 font-medium text-xs transition-colors",
+        viewed
+          ? "border-primary/40 bg-primary/10 text-primary"
+          : readyToComplete
+            ? "border-primary bg-primary text-primary-foreground hover:bg-primary/90"
+            : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground",
       )}
     >
       {pending ? (
-        <Loader2 className="size-4 animate-spin" />
-      ) : viewed ? (
-        <CheckCircle2 className="size-4" />
+        <Loader2 className="size-3.5 animate-spin" />
       ) : (
-        <Circle className="size-4" />
+        <CheckCircle2 className={cn("size-3.5", !viewed && !readyToComplete && "opacity-70")} />
       )}
+      {label}
     </button>
   );
 }

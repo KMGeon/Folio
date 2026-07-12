@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { FileTree } from "@/components/review/changed-file-tree";
 import { ChapterSwitcher } from "@/components/review/chapter-switcher";
 import { ChapterViewedToggle } from "@/components/review/chapter-viewed-toggle";
+import { chapterLocalProgress } from "@/components/review/review-progress";
 import { setKeyChangeViewed, type ReviewChapter } from "@/lib/review-api";
 import { cn } from "@/lib/utils";
 
@@ -23,6 +24,7 @@ export function ChapterPanel({
   number,
   showReviewFocus = true,
   onKeyChangeViewedChange,
+  onChapterViewedChange,
   onJumpToKeyChange,
   jumpNotice,
 }: {
@@ -35,6 +37,7 @@ export function ChapterPanel({
   number: number;
   showReviewFocus?: boolean;
   onKeyChangeViewedChange?: (chapterIndex: number, keyChangeId: string, viewed: boolean) => void;
+  onChapterViewedChange?: (chapterIndex: number, viewed: boolean) => void;
   /** Request scroll/highlight for a key-change's lineRef (wired by parent). */
   onJumpToKeyChange?: (keyChangeId: string) => void;
   /** Shown under 검토할 사항 when a jump target cannot be resolved. */
@@ -53,6 +56,9 @@ export function ChapterPanel({
   }
 
   const additions = chapter.files.reduce((sum, file) => sum + file.additions, 0);
+  const deletions = chapter.files.reduce((sum, file) => sum + file.deletions, 0);
+  // Live focus counts follow local keyChanges; file coverage follows chapter.files.
+  const localProgress = chapterLocalProgress({ ...chapter, keyChanges });
   const chapterFiles = chapter.files.map((file) => ({
     ...file,
     chapterIndex: chapter.index,
@@ -61,13 +67,15 @@ export function ChapterPanel({
 
   return (
     <aside className="flex w-full shrink-0 flex-col border-b lg:h-auto lg:w-[460px] lg:overflow-y-auto lg:border-b-0 lg:border-l">
-      <div className="flex items-center gap-1 px-3 pt-3">
+      <div className="flex items-center gap-1.5 px-3 pt-3">
         <ChapterViewedToggle
           org={org}
           repo={repo}
           number={number}
           index={chapter.index}
           initialViewed={chapter.viewed}
+          focusComplete={localProgress.focusComplete}
+          onViewedChange={onChapterViewedChange}
         />
         <ChapterSwitcher chapters={chapters} activeIndex={chapter.index} prPath={prPath} />
       </div>
@@ -76,8 +84,28 @@ export function ChapterPanel({
         <h2 className="font-sans text-lg font-medium leading-snug tracking-tight">
           {chapter.title}
         </h2>
-        <div className="mt-2 flex items-center gap-2">
-          <span className="font-mono text-xs text-diff-add-fg">+ {additions}</span>
+        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-xs tabular-nums">
+          {localProgress.focusTotal > 0 ? (
+            <span
+              className={cn(localProgress.focusComplete ? "text-primary" : "text-muted-foreground")}
+              title="판단한 검토 사항 / 전체"
+            >
+              검토 {localProgress.focusDone}/{localProgress.focusTotal}
+            </span>
+          ) : null}
+          {localProgress.focusTotal > 0 ? (
+            <span className="text-border" aria-hidden>
+              ·
+            </span>
+          ) : null}
+          <span className="text-muted-foreground" title="읽은 파일 / 이 챕터 파일">
+            파일 {localProgress.filesDone}/{localProgress.filesTotal}
+          </span>
+          <span className="text-border" aria-hidden>
+            ·
+          </span>
+          <span className="text-diff-add-fg">+{additions}</span>
+          {deletions > 0 ? <span className="text-diff-del-fg">-{deletions}</span> : null}
         </div>
 
         {/* Approach A: summary is primary reading surface — use foreground, not muted. */}
@@ -89,6 +117,11 @@ export function ChapterPanel({
           <h3 className="flex items-center gap-1.5 font-semibold text-primary text-xs">
             <ListChecks className="size-3.5 shrink-0 text-primary" aria-hidden />
             검토할 사항
+            {localProgress.focusTotal > 0 ? (
+              <span className="font-mono font-normal text-muted-foreground tabular-nums">
+                {localProgress.focusDone}/{localProgress.focusTotal}
+              </span>
+            ) : null}
           </h3>
           {jumpNotice ? (
             <p className="mt-2 rounded-md border border-border bg-card px-2.5 py-2 text-muted-foreground text-xs">
