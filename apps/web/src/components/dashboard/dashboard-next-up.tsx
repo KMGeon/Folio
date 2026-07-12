@@ -105,40 +105,18 @@ export function DashboardNextUp({
   );
 }
 
+/** Empty queue for one enabled project (or All with projects still loading none). */
 export function DashboardProjectEmpty({
   scopeName,
   focus,
   repositoryFullName,
-  noEnabledRepos = false,
 }: {
   scopeName: string;
   focus: DashboardQueueFocus;
   repositoryFullName?: string;
-  /** Workspace has zero Settings-enabled repositories. */
-  noEnabledRepos?: boolean;
 }) {
-  if (noEnabledRepos) {
-    return (
-      <div className="rounded-xl border border-border bg-card/50 p-5">
-        <p className="font-mono text-[0.65rem] uppercase tracking-[0.16em] text-muted-foreground">
-          Projects
-        </p>
-        <h3 className="mt-3 text-base font-medium text-foreground">활성화된 레포가 없습니다</h3>
-        <p className="mt-1.5 max-w-md text-sm leading-relaxed text-muted-foreground">
-          Settings → Repositories에서 Folio를 켠 레포만 이 데스크에 표시됩니다. 리뷰할 프로젝트를 켜
-          주세요.
-        </p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Button asChild size="sm">
-            <Link href="/settings/repositories">Repository settings</Link>
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="rounded-xl border border-border bg-card/50 p-5">
+    <div className="rounded-xl border border-border bg-card/50 p-5 sm:p-6">
       <p className="font-mono text-[0.65rem] uppercase tracking-[0.16em] text-muted-foreground">
         Project queue
       </p>
