@@ -66,7 +66,8 @@ export function ChapterPanel({
   }));
 
   return (
-    <aside className="flex w-full shrink-0 flex-col border-b lg:h-auto lg:w-[460px] lg:overflow-y-auto lg:border-b-0 lg:border-l">
+    // 380px keeps the chapter panel dense so the diff remains the main stage.
+    <aside className="flex w-full shrink-0 flex-col border-b lg:h-auto lg:w-[380px] lg:overflow-y-auto lg:border-b-0 lg:border-l">
       <div className="flex items-center gap-1.5 px-3 pt-3">
         <ChapterViewedToggle
           org={org}
@@ -80,11 +81,9 @@ export function ChapterPanel({
         <ChapterSwitcher chapters={chapters} activeIndex={chapter.index} prPath={prPath} />
       </div>
 
-      <div className="px-3 pt-2.5">
-        <h2 className="font-sans text-lg font-medium leading-snug tracking-tight">
-          {chapter.title}
-        </h2>
-        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-xs tabular-nums">
+      <div className="px-3 pt-2">
+        {/* Title lives in the chapter tool strip — avoid a third copy of the same heading. */}
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-xs tabular-nums">
           {localProgress.focusTotal > 0 ? (
             <span
               className={cn(localProgress.focusComplete ? "text-primary" : "text-muted-foreground")}
@@ -109,7 +108,7 @@ export function ChapterPanel({
         </div>
 
         {/* Approach A: summary is primary reading surface — use foreground, not muted. */}
-        <p className="mt-3 text-sm leading-6 text-foreground">{chapter.summary}</p>
+        <p className="mt-2.5 text-sm leading-6 text-foreground">{chapter.summary}</p>
       </div>
 
       {showReviewFocus ? (

@@ -28,7 +28,7 @@ export function DiffViewModeSwitch({
           )}
           aria-pressed={value === mode}
         >
-          {mode === "unified" ? "Unified" : "Split"}
+          {mode === "unified" ? "통합" : "분할"}
         </button>
       ))}
     </div>

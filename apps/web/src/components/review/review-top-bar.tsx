@@ -62,27 +62,51 @@ export function ReviewTopBar({
   const StatusIcon = status.icon;
 
   return (
-    <div className="shrink-0 px-4 pt-3 md:px-6">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex min-w-0 flex-col gap-2.5">
-          <div className="flex flex-wrap items-center gap-2.5">
+    <div className="shrink-0 px-4 pt-2.5 md:px-6">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <div className="flex flex-wrap items-center gap-2">
             <span
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 font-medium text-xs",
+                "inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 font-medium text-xs",
                 status.className,
               )}
             >
               <StatusIcon className="size-3.5" />
               {status.label}
             </span>
-            <span className="font-mono text-[0.7rem] uppercase tracking-[0.2em] text-muted-foreground">
-              Pull Request
+            <span className="font-mono text-[0.65rem] uppercase tracking-[0.16em] text-muted-foreground">
+              풀 리퀘스트
             </span>
           </div>
-          <h1 className="min-w-0 font-sans text-2xl font-medium leading-tight tracking-tight">
+          <h1 className="min-w-0 font-sans text-xl font-medium leading-snug tracking-tight">
             {pr.title}
-            <span className="ml-2 font-mono text-sm text-muted-foreground">#{pr.number}</span>
+            <span className="ml-1.5 font-mono text-sm text-muted-foreground">#{pr.number}</span>
           </h1>
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-muted-foreground text-xs">
+            <span className="flex items-center gap-1.5">
+              <GitMerge className="size-3.5 shrink-0" />
+              <code className="rounded border border-info/30 bg-info/15 px-1.5 py-px font-mono text-info text-[11px]">
+                {pr.headBranch}
+              </code>
+              <span className="text-muted-foreground/60">→</span>
+              <code className="rounded border border-primary/30 bg-primary/15 px-1.5 py-px font-mono text-primary text-[11px]">
+                {pr.baseBranch}
+              </code>
+            </span>
+            <span className="font-mono text-[11px]">{pr.headSha.slice(0, 12)}</span>
+            <span className="flex items-center gap-1.5">
+              <img
+                src={`https://github.com/${pr.author}.png?size=40`}
+                alt={pr.author}
+                width={16}
+                height={16}
+                referrerPolicy="no-referrer"
+                className="size-4 rounded-full border"
+              />
+              <span className="text-foreground/80">{pr.author}</span>
+            </span>
+          </div>
         </div>
         <Button
           asChild
@@ -97,32 +121,7 @@ export function ReviewTopBar({
         </Button>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-muted-foreground text-xs">
-        <span className="flex items-center gap-1.5">
-          <GitMerge className="size-3.5" />
-          <code className="rounded border border-info/30 bg-info/15 px-1.5 py-0.5 font-mono text-info text-xs">
-            {pr.headBranch}
-          </code>
-          <span className="text-muted-foreground/60">→</span>
-          <code className="rounded border border-primary/30 bg-primary/15 px-1.5 py-0.5 font-mono text-primary text-xs">
-            {pr.baseBranch}
-          </code>
-        </span>
-        <span className="font-mono text-xs">{pr.headSha.slice(0, 12)}</span>
-        <span className="flex items-center gap-1.5">
-          <img
-            src={`https://github.com/${pr.author}.png?size=40`}
-            alt={pr.author}
-            width={20}
-            height={20}
-            referrerPolicy="no-referrer"
-            className="size-5 rounded-full border"
-          />
-          <span className="text-foreground/80">{pr.author}</span>
-        </span>
-      </div>
-
-      <div className="mt-4 flex items-center justify-between gap-2 border-b">
+      <div className="mt-2.5 flex items-center justify-between gap-2 border-b">
         <nav className="flex items-center gap-1 overflow-x-auto">
           <TabButton
             active={activeTab === "chapters"}
@@ -175,13 +174,13 @@ function TabButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "-mb-px flex items-center gap-1.5 whitespace-nowrap border-b-2 px-2.5 py-2 text-xs transition-colors",
+        "-mb-px flex items-center gap-1.5 whitespace-nowrap border-b-2 px-2.5 py-1.5 text-xs transition-colors",
         active
           ? "border-primary font-medium text-foreground"
           : "border-transparent text-muted-foreground hover:text-foreground",
       )}
     >
-      <Icon className="size-4" />
+      <Icon className="size-3.5" />
       {label}
       <span
         className={cn(

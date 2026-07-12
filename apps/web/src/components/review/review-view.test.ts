@@ -9,6 +9,10 @@ const keyChangeJumpSource = readFileSync(resolve(__dirname, "use-key-change-jump
 const chapterPanelSource = readFileSync(resolve(__dirname, "chapter-panel.tsx"), "utf8");
 const changedFileTreeSource = readFileSync(resolve(__dirname, "changed-file-tree.tsx"), "utf8");
 const chapterCardsSource = readFileSync(resolve(__dirname, "chapter-cards.tsx"), "utf8");
+const chapterViewedToggleSource = readFileSync(
+  resolve(__dirname, "chapter-viewed-toggle.tsx"),
+  "utf8",
+);
 const topBarSource = readFileSync(resolve(__dirname, "review-top-bar.tsx"), "utf8");
 
 describe("ReviewView source", () => {
@@ -16,8 +20,8 @@ describe("ReviewView source", () => {
     expect(chapterCardsSource).toContain("gap-3 border-b p-3");
     expect(chapterCardsSource).toContain("font-sans text-sm");
     expect(chapterCardsSource).toContain("font-mono text-xs");
-    expect(topBarSource).toContain("font-sans text-2xl");
-    expect(topBarSource).toContain("px-4 pt-3 md:px-6");
+    expect(topBarSource).toContain("font-sans text-xl");
+    expect(topBarSource).toContain("px-4 pt-2.5 md:px-6");
     expect(source).toContain("overflow-y-auto px-4 py-3 md:px-6");
   });
 
@@ -68,11 +72,17 @@ describe("ReviewView source", () => {
     expect(source).toContain('<section className="min-w-0">\n                <div className="mb-3');
   });
 
-  it("keeps the chapter panel wide enough for review questions", () => {
-    expect(source).toContain("lg:grid-cols-[minmax(0,1fr)_460px]");
-    expect(chapterPanelSource).toContain("lg:w-[460px]");
-    expect(chapterPanelSource).toContain("px-3 py-2.5");
+  it("keeps the chapter panel dense so the diff stays primary", () => {
+    expect(source).toContain("lg:grid-cols-[minmax(0,1fr)_380px]");
+    expect(chapterPanelSource).toContain("lg:w-[380px]");
+    // Title lives on the chapter tool strip — panel does not repeat a large h2.
+    expect(chapterPanelSource).not.toContain("<h2");
+    expect(chapterPanelSource).not.toContain("text-lg font-medium leading-snug tracking-tight");
     expect(chapterPanelSource).toContain("leading-5");
+  });
+
+  it("uses the shipped Korean chapter-completion labels", () => {
+    expect(chapterViewedToggleSource).toContain('viewed ? "챕터 완료" : "이 챕터 마치기"');
   });
 
   it("keeps the files tab file list independently scrollable", () => {
