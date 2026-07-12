@@ -25,8 +25,8 @@ export function DashboardProjectBar({
 }) {
   const name = activeRepo ? dashboardProjectName(activeRepo.fullName) : "All projects";
   const detail = activeRepo
-    ? `${activeRepo.fullName} · ${activeRepo.folioEnabled ? "Folio enabled" : "not enabled"}`
-    : `${repoCount} repos · grouped by project`;
+    ? `${activeRepo.fullName} · Folio enabled`
+    : `${repoCount} enabled · grouped by project`;
   const ScopeIcon = activeRepo ? FolderGit2 : LayoutGrid;
 
   return (

@@ -20,6 +20,7 @@ describe("dashboard project controls", () => {
     );
 
     expect(html).toContain("All projects");
+    expect(html).toContain("enabled");
     expect(html).toContain("KMGeon/Folio");
     expect(html).toContain("KMGeon/docs");
     expect(html).toContain('aria-current="page"');
@@ -39,6 +40,8 @@ describe("dashboard project controls", () => {
 
     expect(html).toContain("Folio");
     expect(html).toContain("KMGeon/Folio");
+    expect(html).toContain("Folio enabled");
+    expect(html).not.toContain("not enabled");
     expect(html).toContain("Ready");
     expect(html).toContain("Yours");
     expect(html).toContain("Complete");
