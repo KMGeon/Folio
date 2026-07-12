@@ -15,16 +15,17 @@ import { cn } from "@/lib/utils";
 
 const complexityClasses: Record<ComplexityLevel, string> = {
   low: "border-primary/30 bg-primary/10 text-primary",
-  medium: "border-border bg-muted text-foreground",
-  high: "border-destructive/30 bg-destructive/10 text-destructive",
-  "very-high": "border-destructive/40 bg-destructive/15 text-destructive",
+  // Amber for mid-tier — grey medium chips read as “no signal” on dark cards.
+  medium: "border-warning/45 bg-warning/15 text-warning",
+  high: "border-destructive/35 bg-destructive/12 text-destructive",
+  "very-high": "border-destructive/45 bg-destructive/18 text-destructive",
 };
 
 const severityClasses: Record<FocusAreaSeverity, string> = {
-  critical: "border-destructive/40 bg-destructive/15 text-destructive",
-  high: "border-destructive/30 bg-destructive/10 text-destructive",
-  medium: "border-border bg-muted text-foreground",
-  info: "border-primary/30 bg-primary/10 text-primary",
+  critical: "border-destructive/45 bg-destructive/18 text-destructive",
+  high: "border-destructive/35 bg-destructive/12 text-destructive",
+  medium: "border-warning/45 bg-warning/15 text-warning",
+  info: "border-info/40 bg-info/15 text-info",
 };
 
 /** Prefer AI plainSummary; fall back to motivation/outcome for older prologues. */
@@ -64,17 +65,30 @@ export function ReviewSummary({ prologue }: { prologue: Prologue }) {
       </SummarySection>
       <SummarySection icon={ListChecks} title="핵심 변경" tone="emphasis">
         {prologue.keyChanges.length ? (
-          <div className="space-y-5">
-            {prologue.keyChanges.map((change) => (
-              <div
+          <ol className="space-y-5">
+            {prologue.keyChanges.map((change, index) => (
+              <li
                 key={`${change.summary}-${change.description}`}
-                className="border-l-2 border-syntax-emphasis/60 py-1 pl-5"
+                className="flex gap-3 border-l-2 border-syntax-emphasis/60 py-1 pl-4"
               >
-                <p className="font-medium text-sm leading-6">{change.summary}</p>
-                <p className="mt-2 text-muted-foreground text-sm leading-7">{change.description}</p>
-              </div>
+                <span
+                  className="mt-0.5 inline-flex size-6 shrink-0 items-center justify-center rounded-full border border-syntax-emphasis/40 bg-syntax-emphasis/15 font-mono font-medium text-syntax-emphasis text-xs tabular-nums"
+                  aria-hidden
+                >
+                  {index + 1}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-sm leading-6">
+                    <span className="sr-only">{index + 1}. </span>
+                    {change.summary}
+                  </p>
+                  <p className="mt-2 text-muted-foreground text-sm leading-7">
+                    {change.description}
+                  </p>
+                </div>
+              </li>
             ))}
-          </div>
+          </ol>
         ) : (
           <p className="text-muted-foreground text-sm leading-7">
             핵심 변경이 제공되지 않았습니다.

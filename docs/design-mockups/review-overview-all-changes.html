@@ -361,12 +361,30 @@
         color: var(--muted-fg);
       }
       .key-change {
+        display: flex;
+        gap: 12px;
         border-left: 2px solid oklch(0.58 0.13 145 / 0.5);
-        padding: 4px 0 4px 20px;
+        padding: 4px 0 4px 16px;
         margin-bottom: 16px;
       }
       .key-change.emphasis {
         border-left-color: oklch(0.738 0.17 305.3 / 0.6);
+      }
+      .key-change .num {
+        display: inline-flex;
+        width: 24px;
+        height: 24px;
+        flex-shrink: 0;
+        align-items: center;
+        justify-content: center;
+        margin-top: 2px;
+        border-radius: 999px;
+        border: 1px solid oklch(0.738 0.17 305.3 / 0.4);
+        background: oklch(0.738 0.17 305.3 / 0.15);
+        color: var(--emphasis);
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 12px;
+        font-weight: 500;
       }
       .key-change strong {
         display: block;
@@ -399,9 +417,9 @@
         color: var(--primary);
       }
       .chip.medium {
-        border-color: var(--border);
-        background: var(--muted);
-        color: var(--fg);
+        border-color: oklch(0.854 0.157 84.1 / 0.45);
+        background: oklch(0.854 0.157 84.1 / 0.15);
+        color: var(--warning);
       }
       .chip.high {
         border-color: oklch(0.68 0.18 25 / 0.35);
@@ -710,22 +728,31 @@
                     핵심 변경
                   </h3>
                   <div class="key-change emphasis">
-                    <strong>진행 상태를 분리된 칩으로 표시</strong>
-                    <p class="body-text muted">
-                      검토, 파일, 증감 정보를 붙은 텍스트 대신 독립 칩으로 보여줍니다.
-                    </p>
+                    <span class="num">1</span>
+                    <div>
+                      <strong>진행 상태를 분리된 칩으로 표시</strong>
+                      <p class="body-text muted">
+                        검토, 파일, 증감 정보를 붙은 텍스트 대신 독립 칩으로 보여줍니다.
+                      </p>
+                    </div>
                   </div>
                   <div class="key-change emphasis">
-                    <strong>검토 영역의 읽기 여백 확대</strong>
-                    <p class="body-text muted">
-                      검토 제목, 알림, 빈 상태, 카드 주변 간격을 더 넓혔습니다.
-                    </p>
+                    <span class="num">2</span>
+                    <div>
+                      <strong>검토 영역의 읽기 여백 확대</strong>
+                      <p class="body-text muted">
+                        검토 제목, 알림, 빈 상태, 카드 주변 간격을 더 넓혔습니다.
+                      </p>
+                    </div>
                   </div>
                   <div class="key-change emphasis">
-                    <strong>파일과 챕터 탐색 행 조정</strong>
-                    <p class="body-text muted">
-                      필터 입력과 챕터 버튼 높이를 키워 클릭과 스캔을 개선했습니다.
-                    </p>
+                    <span class="num">3</span>
+                    <div>
+                      <strong>파일과 챕터 탐색 행 조정</strong>
+                      <p class="body-text muted">
+                        필터 입력과 챕터 버튼 높이를 키워 클릭과 스캔을 개선했습니다.
+                      </p>
+                    </div>
                   </div>
                 </div>
 

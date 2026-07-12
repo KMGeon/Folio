@@ -29,13 +29,13 @@ const prologue: Prologue = {
   focusAreas: [
     {
       type: "architecture",
-      severity: "high",
+      severity: "medium",
       title: "렌더링 경계",
       description: "렌더링 실패가 격리되는지 확인하세요.",
       locations: ["apps/web/src/components/review/mermaid-diagram.tsx"],
     },
   ],
-  complexity: { level: "high", reasoning: "API와 브라우저 렌더링이 함께 바뀝니다." },
+  complexity: { level: "medium", reasoning: "API와 브라우저 렌더링이 함께 바뀝니다." },
 };
 
 describe("ReviewPrologue", () => {
@@ -64,6 +64,9 @@ describe("ReviewPrologue", () => {
     expect(markup).toContain("border-primary/35 bg-primary/15");
     expect(markup).toContain("border-syntax-emphasis/40 bg-syntax-emphasis/15");
     expect(markup).toContain("border-warning/40 bg-warning/15");
+    // Numbered key changes (1.) and semantic medium severity chips (amber, not grey).
+    expect(markup).toContain("tabular-nums");
+    expect(markup).toContain("border-warning/45 bg-warning/15 text-warning");
     expect(markup).toContain(prologue.motivation);
     expect(markup).toContain("space-y-7 rounded-lg border bg-card p-6");
     expect(markup).toContain("text-sm leading-7");
