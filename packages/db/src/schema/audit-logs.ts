@@ -21,6 +21,7 @@ export const auditLogs = pgTable("audit_logs", {
       AUDIT_ACTION.SYSTEM_ADMIN_TRANSFER,
       AUDIT_ACTION.WORKSPACE_CLAIM,
       AUDIT_ACTION.REPO_ACTIVATION_CHANGE,
+      AUDIT_ACTION.REPO_SETTINGS_CHANGE,
     ],
   }).notNull(),
   targetType: text("target_type").notNull(),

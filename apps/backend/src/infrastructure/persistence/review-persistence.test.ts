@@ -55,6 +55,8 @@ describe("persistReview", () => {
       defaultBranch: "main",
       folioEnabled: true,
       githubAccessActive: true,
+      aiReplyEnabled: true,
+      priority: "normal",
       prIndexStatus: "idle" as const,
       prIndexBackfilledAt: null,
       createdAt: new Date(),

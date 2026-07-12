@@ -20,9 +20,18 @@ import {
 
 /** Settings-enabled repositories only, sorted for stable sidebar order. */
 export function selectEnabledDashboardRepos(repos: DashboardRepo[]): DashboardRepo[] {
+  const priorityRank: Record<DashboardRepo["priority"], number> = {
+    high: 0,
+    normal: 1,
+    low: 2,
+  };
   return [...repos]
     .filter((repo) => repo.folioEnabled)
-    .sort((a, b) => a.fullName.localeCompare(b.fullName));
+    .sort(
+      (left, right) =>
+        priorityRank[left.priority] - priorityRank[right.priority] ||
+        left.fullName.localeCompare(right.fullName),
+    );
 }
 
 export function appendDashboardProjectPullPage<T extends DashboardPull | DashboardCompletedPull>(

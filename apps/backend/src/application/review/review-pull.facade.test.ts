@@ -102,6 +102,7 @@ describe("ReviewPullFacade", () => {
     const facade = new ReviewPullFacade({
       octokitFactory: () => octokit as never,
       persist: persistReview,
+      getRepositoryPreference: async () => ({ aiReplyEnabled: true }),
       decomposeDeps: {
         clientFactory: () => ({
           model: "stub",
@@ -130,6 +131,27 @@ describe("ReviewPullFacade", () => {
     expect(result.commentError).toBeNull();
   });
 
+  it("persists a review without publishing the automatic chapter comment when replies are disabled", async () => {
+    const octokit = fakeOctokit();
+    const persistReview = vi.fn(async () => ({
+      prId: "pr1",
+      revisionId: "rev1",
+      revisionIndex: 0,
+    }));
+    const facade = new ReviewPullFacade({
+      octokitFactory: () => octokit as never,
+      persist: persistReview,
+      decomposeDeps: decompositionDeps(),
+      ...({ getRepositoryPreference: async () => ({ aiReplyEnabled: false }) } as object),
+    } as never);
+
+    const result = await facade.run({ owner: "acme", repo: "widget", number: 7 });
+
+    expect(persistReview).toHaveBeenCalledOnce();
+    expect(octokit.rest.issues.createComment).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ commentUrl: null, commentError: null });
+  });
+
   it("treats a comment failure as non-fatal", async () => {
     const octokit = fakeOctokit();
     octokit.rest.issues.createComment = vi.fn(async () => {
@@ -138,6 +160,7 @@ describe("ReviewPullFacade", () => {
     const facade = new ReviewPullFacade({
       octokitFactory: () => octokit as never,
       persist: vi.fn(async () => ({ prId: "pr1", revisionId: "rev1", revisionIndex: 0 })),
+      getRepositoryPreference: async () => ({ aiReplyEnabled: true }),
       // Stub decomposition so the test never depends on a real model client;
       // chapter content is irrelevant.
       decomposeDeps: {
@@ -174,6 +197,7 @@ describe("ReviewPullFacade", () => {
     const facade = new ReviewPullFacade({
       octokitFactory: () => octokit as never,
       persist: vi.fn(async () => ({ prId: "pr1", revisionId: "rev1", revisionIndex: 0 })),
+      getRepositoryPreference: async () => ({ aiReplyEnabled: true }),
       decomposeDeps: {
         clientFactory: () => ({
           model: "stub",
@@ -199,3 +223,23 @@ describe("ReviewPullFacade", () => {
     expect(seenUserPrompt).toContain("feat: do a thing");
   });
 });
+
+function decompositionDeps() {
+  return {
+    clientFactory: () => ({
+      model: "stub",
+      emitChapters: async () => ({
+        chapters: [
+          {
+            id: "chapter-1",
+            order: 1,
+            title: "All changes",
+            summary: "x",
+            hunkRefs: [{ filePath: "a.ts", oldStart: 1 }],
+            keyChanges: [],
+          },
+        ],
+      }),
+    }),
+  };
+}

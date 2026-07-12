@@ -217,6 +217,8 @@ function toRepository(row: {
   defaultBranch: string;
   folioEnabled: boolean;
   githubAccessActive: boolean;
+  aiReplyEnabled: boolean;
+  priority: "high" | "normal" | "low";
 }): Repository {
   return {
     id: row.id,
@@ -229,5 +231,7 @@ function toRepository(row: {
     defaultBranch: row.defaultBranch,
     folioEnabled: row.folioEnabled,
     githubAccessActive: row.githubAccessActive,
+    aiReplyEnabled: row.aiReplyEnabled,
+    priority: row.priority,
   };
 }

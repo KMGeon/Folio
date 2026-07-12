@@ -21,13 +21,15 @@ describe("RepositoriesController", () => {
           defaultBranch: "main",
           folioEnabled: false,
           githubAccessActive: true,
+          aiReplyEnabled: true,
+          priority: "normal",
         },
       ],
     };
     const facade = {
       listForUser: vi.fn().mockResolvedValue(payload),
     } as unknown as RepositoriesFacade;
-    const controller = new RepositoriesController(facade);
+    const controller = new RepositoriesController(facade, { setPreferences: vi.fn() } as never);
 
     await expect(
       controller.list({
@@ -44,7 +46,7 @@ describe("RepositoriesController", () => {
     const facade = {
       setEnabled: vi.fn().mockResolvedValue({ id: "repo-1", folioEnabled: true }),
     } as unknown as RepositoriesFacade;
-    const controller = new RepositoriesController(facade);
+    const controller = new RepositoriesController(facade, { setPreferences: vi.fn() } as never);
 
     await expect(
       controller.setEnabled(
@@ -65,6 +67,37 @@ describe("RepositoriesController", () => {
     });
   });
 
+  it("updates repository reply and priority preferences", async () => {
+    const facade = { listForUser: vi.fn(), setEnabled: vi.fn() } as unknown as RepositoriesFacade;
+    const preferences = {
+      setPreferences: vi.fn().mockResolvedValue({
+        id: "repo-1",
+        aiReplyEnabled: false,
+        priority: "high",
+      }),
+    };
+    const controller = new RepositoriesController(facade, preferences as never);
+
+    await expect(
+      controller.setPreferences(
+        {
+          id: "user-1",
+          login: "KMGeon",
+          avatarUrl: "https://avatars/KMGeon",
+          isSystemAdmin: false,
+        },
+        "repo-1",
+        { aiReplyEnabled: false, priority: "high" },
+      ),
+    ).resolves.toEqual({ id: "repo-1", aiReplyEnabled: false, priority: "high" });
+    expect(preferences.setPreferences).toHaveBeenCalledWith({
+      user: { id: "user-1", login: "KMGeon" },
+      repositoryId: "repo-1",
+      aiReplyEnabled: false,
+      priority: "high",
+    });
+  });
+
   it("requires the repository activation entitlement on mutations only", () => {
     const toggle = Object.getOwnPropertyDescriptor(
       RepositoriesController.prototype,
@@ -75,14 +108,41 @@ describe("RepositoriesController", () => {
     expect(Reflect.getMetadata(REQUIRE_ENTITLEMENT, toggle)).toBe(
       ENTITLEMENT_FEATURE.REPO_ACTIVATION,
     );
+    const preferences = Object.getOwnPropertyDescriptor(
+      RepositoriesController.prototype,
+      "setPreferences",
+    )?.value;
+    expect(Reflect.getMetadata(REQUIRE_ENTITLEMENT, preferences)).toBe(
+      ENTITLEMENT_FEATURE.REPO_ACTIVATION,
+    );
     expect(Reflect.getMetadata(REQUIRE_ENTITLEMENT, list)).toBeUndefined();
+  });
+
+  it("rejects an empty or invalid repository settings body", async () => {
+    const facade = { listForUser: vi.fn(), setEnabled: vi.fn() } as unknown as RepositoriesFacade;
+    const preferences = { setPreferences: vi.fn() };
+    const controller = new RepositoriesController(facade, preferences as never);
+    const user = {
+      id: "user-1",
+      login: "KMGeon",
+      avatarUrl: "https://avatars/KMGeon",
+      isSystemAdmin: false,
+    };
+
+    await expect(controller.setPreferences(user, "repo-1", {})).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    await expect(
+      controller.setPreferences(user, "repo-1", { priority: "urgent" }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(preferences.setPreferences).not.toHaveBeenCalled();
   });
 
   it("rejects invalid toggle bodies with a bad request", async () => {
     const facade = {
       setEnabled: vi.fn(),
     } as unknown as RepositoriesFacade;
-    const controller = new RepositoriesController(facade);
+    const controller = new RepositoriesController(facade, { setPreferences: vi.fn() } as never);
 
     await expect(
       controller.setEnabled(

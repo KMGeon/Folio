@@ -9,10 +9,12 @@ import { ApiError } from "@/lib/api-client";
 
 const mocks = vi.hoisted(() => ({
   setRepositoryEnabled: vi.fn(),
+  updateRepositorySettings: vi.fn(),
 }));
 
 vi.mock("@/lib/repositories-api", () => ({
   setRepositoryEnabled: mocks.setRepositoryEnabled,
+  updateRepositorySettings: mocks.updateRepositorySettings,
 }));
 
 import { RepositorySettingsTable } from "./repository-settings-table";
@@ -49,7 +51,7 @@ describe("RepositorySettingsTable", () => {
       [...container.querySelectorAll<HTMLTableCellElement>("thead th")].map((header) =>
         header.textContent?.trim(),
       ),
-    ).toEqual(["Repository", "Folio review"]);
+    ).toEqual(["Repository", "Folio review", "AI 답글", "우선순위"]);
 
     expect(rows(container).map((row) => row.dataset.repository)).toEqual([
       "acme/alpha",
@@ -127,6 +129,50 @@ describe("RepositorySettingsTable", () => {
 
     expect(mocks.setRepositoryEnabled).toHaveBeenCalledWith("repo-alpha", true);
     expect(switchButton.getAttribute("aria-checked")).toBe("true");
+  });
+
+  it("updates AI replies and priority from confirmed settings responses", async () => {
+    mocks.updateRepositorySettings
+      .mockResolvedValueOnce(
+        repository({
+          id: "repo-alpha",
+          fullName: "acme/alpha",
+          name: "alpha",
+          aiReplyEnabled: false,
+        }),
+      )
+      .mockResolvedValueOnce(
+        repository({
+          id: "repo-alpha",
+          fullName: "acme/alpha",
+          name: "alpha",
+          aiReplyEnabled: false,
+          priority: "high",
+        }),
+      );
+    const container = await mount();
+    const alpha = row(container, "acme/alpha");
+    const aiSwitch = alpha.querySelectorAll<HTMLButtonElement>('[role="switch"]')[1]!;
+    const priority = alpha.querySelector<HTMLSelectElement>(
+      'select[aria-label="acme/alpha 우선순위"]',
+    )!;
+
+    await act(async () => aiSwitch.click());
+    expect(mocks.updateRepositorySettings).toHaveBeenCalledWith("repo-alpha", {
+      aiReplyEnabled: false,
+    });
+    expect(aiSwitch.getAttribute("aria-checked")).toBe("false");
+
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set?.call(
+        priority,
+        "high",
+      );
+      priority.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    expect(mocks.updateRepositorySettings).toHaveBeenLastCalledWith("repo-alpha", {
+      priority: "high",
+    });
   });
 
   it("keeps the last confirmed state and shows a row alert when mutation fails", async () => {
@@ -248,6 +294,8 @@ function repository(overrides: Partial<RepositorySummary>): RepositorySummary {
     defaultBranch: "main",
     folioEnabled: false,
     githubAccessActive: true,
+    aiReplyEnabled: true,
+    priority: "normal",
     ...overrides,
   };
 }

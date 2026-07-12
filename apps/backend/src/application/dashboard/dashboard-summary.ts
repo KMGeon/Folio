@@ -17,6 +17,7 @@ export async function getDashboardSummaryForUser(
     fullName: repo.fullName,
     openPrCount: 0,
     folioEnabled: true,
+    priority: repo.priority,
   }));
 
   const activity = await fetchPublicContributions(user.login);

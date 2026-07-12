@@ -35,6 +35,7 @@ describe("authorization types", () => {
     expect(AUDIT_ACTION.WORKSPACE_CLAIM).toBe("workspace_claim");
     expect(AuditActionSchema.parse("system_admin_transfer")).toBe("system_admin_transfer");
     expect(AuditActionSchema.parse("workspace_claim")).toBe("workspace_claim");
+    expect(AuditActionSchema.parse("repo_settings_change")).toBe("repo_settings_change");
     expect(ENTITLEMENT_FEATURE.PR_ANALYSIS).toBe("pr_analysis");
   });
 

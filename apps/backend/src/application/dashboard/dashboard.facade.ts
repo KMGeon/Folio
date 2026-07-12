@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import type { RepositoryPriority } from "@folio/types";
 
 export type ActivityDay = { date: string; count: number };
 import { createInstallationOctokit } from "@folio/github";
@@ -83,6 +84,7 @@ export type DashboardCompletedPull = DashboardPullBase & {
 export type DashboardRepo = Record<"id" | "fullName", string> & {
   openPrCount: number;
   folioEnabled: boolean;
+  priority: RepositoryPriority;
 };
 
 export interface DashboardPayload {
@@ -301,10 +303,16 @@ export class DashboardFacade {
   }
 
   private repoPayload(
-    repo: { id: string; fullName: string },
+    repo: { id: string; fullName: string; priority: RepositoryPriority },
     openPrCount: number,
     folioEnabled: boolean,
   ): DashboardRepo {
-    return { id: repo.id, fullName: repo.fullName, openPrCount, folioEnabled };
+    return {
+      id: repo.id,
+      fullName: repo.fullName,
+      openPrCount,
+      folioEnabled,
+      priority: repo.priority,
+    };
   }
 }

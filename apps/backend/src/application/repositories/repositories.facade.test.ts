@@ -59,6 +59,8 @@ const repository = {
   defaultBranch: "main",
   folioEnabled: false,
   githubAccessActive: true,
+  aiReplyEnabled: true,
+  priority: "normal" as const,
   prIndexStatus: "idle" as const,
   prIndexBackfilledAt: null,
   createdAt: now,
