@@ -47,12 +47,12 @@ export function ReviewSummary({ prologue }: { prologue: Prologue }) {
       {/* Fluorescent callout — non-engineer TL;DR sits above code-level detail. */}
       <PlainSummaryBanner text={plainSummary} />
 
-      <SummarySection icon={GitPullRequestArrow} title="왜 이 PR인가?">
+      <SummarySection icon={GitPullRequestArrow} title="왜 이 PR인가?" tone="info">
         <p className={cn("text-sm leading-7", !prologue.motivation && "text-muted-foreground")}>
           {prologue.motivation ?? "변경 내용에서 명확히 확인되지 않았습니다."}
         </p>
       </SummarySection>
-      <SummarySection icon={Braces} title="무엇을 하는가">
+      <SummarySection icon={Braces} title="무엇을 하는가" tone="primary">
         <p className={cn("text-sm leading-7", !prologue.outcome && "text-muted-foreground")}>
           {prologue.outcome ?? "변경 내용에서 명확히 확인되지 않았습니다."}
         </p>
@@ -62,13 +62,13 @@ export function ReviewSummary({ prologue }: { prologue: Prologue }) {
           </div>
         ) : null}
       </SummarySection>
-      <SummarySection icon={ListChecks} title="핵심 변경">
+      <SummarySection icon={ListChecks} title="핵심 변경" tone="emphasis">
         {prologue.keyChanges.length ? (
           <div className="space-y-5">
             {prologue.keyChanges.map((change) => (
               <div
                 key={`${change.summary}-${change.description}`}
-                className="border-l-2 border-primary/50 py-1 pl-5"
+                className="border-l-2 border-syntax-emphasis/60 py-1 pl-5"
               >
                 <p className="font-medium text-sm leading-6">{change.summary}</p>
                 <p className="mt-2 text-muted-foreground text-sm leading-7">{change.description}</p>
@@ -81,7 +81,7 @@ export function ReviewSummary({ prologue }: { prologue: Prologue }) {
           </p>
         )}
       </SummarySection>
-      <SummarySection icon={ScanSearch} title="리뷰 포커스">
+      <SummarySection icon={ScanSearch} title="리뷰 포커스" tone="warning">
         <div className="mb-5 flex flex-wrap items-center gap-2.5">
           <span
             className={cn(
@@ -98,7 +98,7 @@ export function ReviewSummary({ prologue }: { prologue: Prologue }) {
             {prologue.focusAreas.map((area) => (
               <div
                 key={`${area.type}-${area.title}`}
-                className="rounded-md border bg-muted/20 px-4 py-4"
+                className="rounded-md border border-warning/25 bg-warning/5 px-4 py-4"
               >
                 <div className="flex flex-wrap items-center gap-2">
                   <span
@@ -179,19 +179,51 @@ function PlainSummaryBanner({ text }: { text: string | null }) {
   );
 }
 
+/** Distinct accent per prologue section so scanners can jump by color. */
+const sectionToneClasses = {
+  info: {
+    iconWrap: "border-info/35 bg-info/15 text-info",
+    title: "text-info",
+  },
+  primary: {
+    iconWrap: "border-primary/35 bg-primary/15 text-primary",
+    title: "text-primary",
+  },
+  emphasis: {
+    iconWrap: "border-syntax-emphasis/40 bg-syntax-emphasis/15 text-syntax-emphasis",
+    title: "text-syntax-emphasis",
+  },
+  warning: {
+    iconWrap: "border-warning/40 bg-warning/15 text-warning",
+    title: "text-warning",
+  },
+} as const;
+
+type SectionTone = keyof typeof sectionToneClasses;
+
 function SummarySection({
   icon: Icon,
   title,
+  tone,
   children,
 }: {
   icon: LucideIcon;
   title: string;
+  tone: SectionTone;
   children: React.ReactNode;
 }) {
+  const toneClass = sectionToneClasses[tone];
   return (
     <section>
-      <h3 className="mb-3.5 flex items-center gap-2.5 font-medium text-foreground text-sm">
-        <Icon className="size-4 shrink-0 text-muted-foreground" />
+      <h3 className={cn("mb-3.5 flex items-center gap-2.5 font-medium text-sm", toneClass.title)}>
+        <span
+          className={cn(
+            "inline-flex size-7 shrink-0 items-center justify-center rounded-md border",
+            toneClass.iconWrap,
+          )}
+        >
+          <Icon className="size-3.5" />
+        </span>
         {title}
       </h3>
       {children}
