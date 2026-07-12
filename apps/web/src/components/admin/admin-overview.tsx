@@ -1,8 +1,15 @@
-import type { AdminOverviewPayload } from "@folio/types";
+import type { AdminAnalyticsPayload, AdminOverviewPayload } from "@folio/types";
 import { ArrowRight, Clock3 } from "lucide-react";
 import Link from "next/link";
+import { AdminAnalyticsPanel } from "./analytics/admin-analytics-panel";
 
-export function AdminOverview({ payload }: { payload: AdminOverviewPayload }) {
+export function AdminOverview({
+  payload,
+  analytics,
+}: {
+  payload: AdminOverviewPayload;
+  analytics?: AdminAnalyticsPayload;
+}) {
   const pendingAttention = payload.attention.find((item) => item.kind === "pending_users");
   const suspendedAttention = payload.attention.find(
     (item) => item.kind === "suspended_installations",
@@ -19,6 +26,8 @@ export function AdminOverview({ payload }: { payload: AdminOverviewPayload }) {
         <Metric label="활성화된 저장소" value={payload.metrics.enabledRepositories} />
         <Metric label="문제 작업" value={payload.metrics.distressedJobs} />
       </div>
+
+      {analytics ? <AdminAnalyticsPanel analytics={analytics} section="overview" /> : null}
 
       {pendingAttention ? (
         <AttentionLink
@@ -74,24 +83,34 @@ export function AdminOverview({ payload }: { payload: AdminOverviewPayload }) {
           <h2 className="text-sm font-medium text-foreground">최근 감사 로그</h2>
         </div>
         {payload.recentAudit.length ? (
-          <ul className="divide-y divide-border">
-            {payload.recentAudit.slice(0, 5).map((item) => (
-              <li
-                key={item.id}
-                data-overview-audit-row
-                className="flex min-h-11 items-center gap-3 px-3 py-2 text-xs"
-              >
-                <span className="font-medium text-foreground">{item.actor.login}</span>
-                <span className="font-mono text-primary">{item.action}</span>
-                <span className="min-w-0 flex-1 truncate text-muted-foreground">
-                  {item.target.label}
-                </span>
-                <time dateTime={item.createdAt} className="shrink-0 text-muted-foreground">
-                  {new Date(item.createdAt).toLocaleString()}
-                </time>
-              </li>
-            ))}
-          </ul>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[38rem] text-left text-xs">
+              <thead className="border-b bg-muted/30 text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 font-medium">행위자</th>
+                  <th className="px-3 py-2 font-medium">작업</th>
+                  <th className="px-3 py-2 font-medium">대상</th>
+                  <th className="px-3 py-2 text-right font-medium">시각</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {payload.recentAudit.slice(0, 5).map((item) => (
+                  <tr key={item.id} data-overview-audit-row className="hover:bg-muted/30">
+                    <td className="px-3 py-2 font-medium text-foreground">{item.actor.login}</td>
+                    <td className="px-3 py-2 font-mono text-primary">{item.action}</td>
+                    <td className="max-w-64 truncate px-3 py-2 text-muted-foreground">
+                      {item.target.label}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2 text-right text-muted-foreground">
+                      <time dateTime={item.createdAt}>
+                        {new Date(item.createdAt).toLocaleString()}
+                      </time>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         ) : (
           <p className="px-3 py-8 text-center text-xs text-muted-foreground">
             최근 감사 로그가 없습니다

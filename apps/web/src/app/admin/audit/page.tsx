@@ -1,12 +1,16 @@
 import type { AuditAction } from "@folio/types";
 
 import {
+  AdminAnalyticsPanel,
+  AdminAnalyticsRange,
+} from "@/components/admin/analytics/admin-analytics-panel";
+import {
   AdminAuditClient,
   type AdminAuditFormFilters,
   type AdminAuditRequestFilters,
 } from "@/components/admin/admin-audit-client";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
-import { fetchAdminAudit } from "@/lib/admin-api";
+import { fetchAdminAnalytics, fetchAdminAudit } from "@/lib/admin-api";
 import { getAdminServerAccess, readAdminServerData } from "../admin-server-access";
 
 const AUDIT_ACTIONS = new Set<AuditAction>([
@@ -38,24 +42,37 @@ export default async function AdminAuditPage({
     from: dateOnlyValue(raw.from),
     to: dateOnlyValue(raw.to),
   };
-  const access = await getAdminServerAccess();
   // Keep one validated request object shared by the initial fetch and every cursor request.
   const requestFilters: AdminAuditRequestFilters = {
     ...formFilters,
     from: dateBoundary(formFilters.from, "start"),
     to: dateBoundary(formFilters.to, "end"),
   };
-  const initialPage = await readAdminServerData(access, (cookie) =>
-    fetchAdminAudit({
-      ...requestFilters,
-      limit: 25,
-      cookie,
-    }),
-  );
+  const range = value(raw.range) === "30d" ? "30d" : "7d";
+  const access = await getAdminServerAccess();
+  const [initialPage, analytics] = await Promise.all([
+    readAdminServerData(access, (cookie) =>
+      fetchAdminAudit({
+        ...requestFilters,
+        limit: 25,
+        cookie,
+      }),
+    ),
+    readAdminServerData(access, (cookie) => fetchAdminAnalytics({ range, cookie })),
+  ]);
 
   return (
     <section className="mx-auto max-w-6xl">
-      <AdminPageHeader title="Audit log" description="관리 작업과 권한 변경 이력을 확인합니다." />
+      <AdminPageHeader
+        title="Audit log"
+        description="관리 작업과 권한 변경 이력을 추세와 상세 기록으로 확인합니다."
+        actions={
+          <AdminAnalyticsRange range={range} pathname="/admin/audit" query={{ ...formFilters }} />
+        }
+      />
+      <div className="mb-3">
+        <AdminAnalyticsPanel analytics={analytics} section="audit" />
+      </div>
       <AdminAuditClient
         initialPage={initialPage}
         formFilters={formFilters}

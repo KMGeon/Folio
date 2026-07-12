@@ -1,20 +1,35 @@
 import type { AdminHealthPayload } from "@folio/types";
 import Link from "next/link";
+import {
+  AdminAnalyticsPanel,
+  AdminAnalyticsRange,
+} from "@/components/admin/analytics/admin-analytics-panel";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
-import { fetchAdminHealth } from "@/lib/admin-api";
+import { fetchAdminAnalytics, fetchAdminHealth } from "@/lib/admin-api";
 import { getAdminServerAccess, readAdminServerData } from "../admin-server-access";
 
-export default async function AdminHealthPage() {
+export default async function AdminHealthPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ range?: string | string[] }>;
+}) {
+  const params = await searchParams;
+  const range = value(params.range);
   const access = await getAdminServerAccess();
-  const health = await readAdminServerData(access, (cookie) => fetchAdminHealth({ cookie }));
+  const [health, analytics] = await Promise.all([
+    readAdminServerData(access, (cookie) => fetchAdminHealth({ cookie })),
+    readAdminServerData(access, (cookie) => fetchAdminAnalytics({ range, cookie })),
+  ]);
 
   return (
     <section className="mx-auto max-w-5xl space-y-4">
       <AdminPageHeader
         title="Health"
         description="Worker heartbeat와 review_pull 성공 증거, 큐 상태입니다. Codex live probe는 하지 않습니다."
+        actions={<AdminAnalyticsRange range={range} pathname="/admin/health" />}
       />
 
+      <AdminAnalyticsPanel analytics={analytics} section="health" />
       <WorkerCard worker={health.worker} />
       <CodexCard codexPath={health.codexPath} />
       <QueueCard queue={health.queue} />
@@ -25,6 +40,10 @@ export default async function AdminHealthPage() {
       </p>
     </section>
   );
+}
+
+function value(input: string | string[] | undefined) {
+  return (Array.isArray(input) ? input[0] : input) === "30d" ? "30d" : "7d";
 }
 
 function WorkerCard({ worker }: { worker: AdminHealthPayload["worker"] }) {
@@ -40,20 +59,34 @@ function WorkerCard({ worker }: { worker: AdminHealthPayload["worker"] }) {
       {worker.workers.length === 0 ? (
         <p className="px-3 pb-4 text-xs text-muted-foreground">아직 heartbeat가 없습니다.</p>
       ) : (
-        <ul className="divide-y divide-border border-t">
-          {worker.workers.map((item) => (
-            <li key={item.workerId} className="flex min-h-11 items-center gap-3 px-3 py-2 text-xs">
-              <span className="font-mono text-foreground">{item.workerId}</span>
-              <span className="text-muted-foreground">{item.status}</span>
-              <span className="min-w-0 flex-1 truncate text-muted-foreground">
-                age {item.ageSeconds}s
-              </span>
-              <time dateTime={item.lastSeenAt} className="shrink-0 text-muted-foreground">
-                {new Date(item.lastSeenAt).toLocaleString()}
-              </time>
-            </li>
-          ))}
-        </ul>
+        <div className="overflow-x-auto border-t">
+          <table className="w-full min-w-[36rem] text-left text-xs">
+            <thead className="border-b bg-muted/30 text-muted-foreground">
+              <tr>
+                <th className="px-3 py-2 font-medium">Worker</th>
+                <th className="px-3 py-2 font-medium">상태</th>
+                <th className="px-3 py-2 text-right font-medium">Heartbeat age</th>
+                <th className="px-3 py-2 text-right font-medium">마지막 확인</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {worker.workers.map((item) => (
+                <tr key={item.workerId} className="hover:bg-muted/30">
+                  <td className="px-3 py-2 font-mono text-foreground">{item.workerId}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{item.status}</td>
+                  <td className="px-3 py-2 text-right font-mono text-foreground">
+                    {item.ageSeconds}s
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2 text-right text-muted-foreground">
+                    <time dateTime={item.lastSeenAt}>
+                      {new Date(item.lastSeenAt).toLocaleString()}
+                    </time>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   );

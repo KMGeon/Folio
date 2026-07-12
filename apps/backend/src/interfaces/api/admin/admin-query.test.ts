@@ -3,6 +3,7 @@ import { BadRequestException } from "@nestjs/common";
 import { describe, expect, it } from "vitest";
 import {
   parseAdminAuditQuery,
+  parseAdminAnalyticsQuery,
   parseAdminJobsQuery,
   parseAdminUsersQuery,
   parseAdminWorkspacesQuery,
@@ -68,6 +69,11 @@ describe("admin query parsing", () => {
     expect(parseAdminJobsQuery({ q: "not-a-uuid" })).toEqual({ limit: 25 });
   });
 
+  it("defaults analytics to seven days and accepts thirty days", () => {
+    expect(parseAdminAnalyticsQuery({})).toEqual({ range: "7d" });
+    expect(parseAdminAnalyticsQuery({ range: "30d" })).toEqual({ range: "30d" });
+  });
+
   it.each([
     [parseAdminUsersQuery, { limit: 0 }],
     [parseAdminUsersQuery, { limit: 101 }],
@@ -81,6 +87,7 @@ describe("admin query parsing", () => {
     [parseAdminWorkspacesQuery, { installationState: "unknown" }],
     [parseAdminJobsQuery, { status: "unknown" }],
     [parseAdminJobsQuery, { kind: "unknown" }],
+    [parseAdminAnalyticsQuery, { range: "90d" }],
   ] as const)("turns invalid input into BadRequestException", (parse, value) => {
     expect(() => parse(value)).toThrow(BadRequestException);
   });

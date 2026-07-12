@@ -1,5 +1,7 @@
 import type {
   AdminAuditPage,
+  AdminAnalyticsPayload,
+  AdminAnalyticsRange,
   AdminHealthPayload,
   AdminJobDetail,
   AdminJobKind,
@@ -55,6 +57,10 @@ interface ServerCookieOptions {
   cookie?: string;
 }
 
+export interface AdminAnalyticsOptions extends ServerCookieOptions {
+  range?: AdminAnalyticsRange;
+}
+
 export function fetchAdminUsers(
   options: AdminUserFilters & ServerCookieOptions = {},
 ): Promise<AdminUserPage> {
@@ -73,6 +79,16 @@ export function fetchAdminOverview(
   options: ServerCookieOptions = {},
 ): Promise<AdminOverviewPayload> {
   return adminRequest<AdminOverviewPayload>("/api/v1/admin/overview", options.cookie);
+}
+
+export function fetchAdminAnalytics(
+  options: AdminAnalyticsOptions = {},
+): Promise<AdminAnalyticsPayload> {
+  const { cookie, range = "7d" } = options;
+  return adminRequest<AdminAnalyticsPayload>(
+    withQuery("/api/v1/admin/analytics", { range }),
+    cookie,
+  );
 }
 
 export function fetchAdminHealth(options: ServerCookieOptions = {}): Promise<AdminHealthPayload> {

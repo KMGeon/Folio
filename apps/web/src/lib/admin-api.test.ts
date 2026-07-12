@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   approveAdminUser,
+  fetchAdminAnalytics,
   fetchAdminAudit,
   fetchAdminOverview,
   fetchAdminUsers,
@@ -88,6 +89,21 @@ describe("admin API", () => {
 
     expect(fetchMock.mock.calls[0]?.[0]).toEqual(
       new URL("http://localhost:8080/api/v1/admin/overview"),
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toEqual(
+      expect.objectContaining({ headers: expect.objectContaining({ cookie: "folio_session=x" }) }),
+    );
+  });
+
+  it("fetches the selected analytics range with a forwarded server cookie", async () => {
+    fetchMock.mockResolvedValueOnce(
+      response({ success: true, data: { range: "30d", days: [], distributions: {} } }),
+    );
+
+    await fetchAdminAnalytics({ range: "30d", cookie: "folio_session=x" });
+
+    expect(fetchMock.mock.calls[0]?.[0]).toEqual(
+      new URL("http://localhost:8080/api/v1/admin/analytics?range=30d"),
     );
     expect(fetchMock.mock.calls[0]?.[1]).toEqual(
       expect.objectContaining({ headers: expect.objectContaining({ cookie: "folio_session=x" }) }),
