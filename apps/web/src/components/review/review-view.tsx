@@ -322,17 +322,17 @@ export function ReviewView({
             </div>
           </div>
         ) : (
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 md:px-6">
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.35fr)]">
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 md:px-8 md:py-6">
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:gap-8">
               <section className="min-w-0">
                 <ReviewPrologue pr={pr} prologue={prologue} comments={comments} />
               </section>
               <section className="min-w-0">
-                <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="mb-4 flex items-center justify-between gap-3">
                   <h2 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
                     리뷰
                   </h2>
-                  <div className="flex rounded-md bg-muted/60 p-0.5">
+                  <div className="flex rounded-lg bg-muted/60 p-1">
                     <PanelTabButton
                       active={chapterPanelTab === "chapters"}
                       label={`챕터 ${reviewChapters.length}`}
@@ -346,12 +346,12 @@ export function ReviewView({
                   </div>
                 </div>
                 {chapterPanelTab === "chapters" ? (
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {continueChapter ? (
                       <button
                         type="button"
                         onClick={() => setOpenIndex(continueChapter.index)}
-                        className="flex w-full items-center gap-3 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2.5 text-left transition-colors hover:bg-primary/15"
+                        className="flex w-full items-center gap-3 rounded-lg border border-primary/30 bg-primary/10 px-4 py-3 text-left transition-colors hover:bg-primary/15"
                       >
                         <div className="min-w-0 flex-1">
                           <div className="font-medium text-primary text-xs">이어서 리뷰</div>

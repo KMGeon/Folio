@@ -51,8 +51,9 @@ describe("ReviewPrologue", () => {
     expect(markup).toContain("핵심 변경");
     expect(markup).toContain("리뷰 포커스");
     expect(markup).toContain(prologue.motivation);
-    expect(markup).toContain("space-y-4 rounded-lg border bg-card p-4");
-    expect(markup).toContain("text-sm leading-6");
+    expect(markup).toContain("space-y-6 rounded-lg border bg-card p-5");
+    expect(markup).toContain("text-sm leading-7");
+
     expect(markup).not.toContain(pr.body);
     expect(markup).not.toContain("MoreHorizontal");
   });

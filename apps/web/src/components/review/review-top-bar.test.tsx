@@ -50,6 +50,7 @@ describe("ReviewTopBar", () => {
     expect(markup).toContain("shrink-0 px-4 pt-2.5 md:px-6");
     expect(markup).toContain("font-sans text-xl");
     expect(markup).toContain("flex min-w-0 flex-col gap-1.5");
-    expect(markup).toContain("mt-2.5 flex items-center justify-between");
+    expect(markup).toContain("mt-3 flex items-center justify-between");
+    expect(markup).toContain("px-3.5 py-2.5 text-sm");
   });
 });

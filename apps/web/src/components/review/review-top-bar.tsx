@@ -121,8 +121,8 @@ export function ReviewTopBar({
         </Button>
       </div>
 
-      <div className="mt-2.5 flex items-center justify-between gap-2 border-b">
-        <nav className="flex items-center gap-1 overflow-x-auto">
+      <div className="mt-3 flex items-center justify-between gap-3 border-b border-border/80 pb-px">
+        <nav className="flex items-center gap-1.5 overflow-x-auto pb-0">
           <TabButton
             active={activeTab === "chapters"}
             onClick={() => onTabChange("chapters")}
@@ -174,17 +174,18 @@ function TabButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "-mb-px flex items-center gap-1.5 whitespace-nowrap border-b-2 px-2.5 py-1.5 text-xs transition-colors",
+        // Larger padded tabs (reference: Chapters / Activity / Files chips).
+        "-mb-px flex items-center gap-2 whitespace-nowrap rounded-t-md border border-b-0 px-3.5 py-2.5 text-sm transition-colors",
         active
-          ? "border-primary font-medium text-foreground"
-          : "border-transparent text-muted-foreground hover:text-foreground",
+          ? "border-border bg-card font-medium text-foreground shadow-[inset_0_-2px_0_0] shadow-primary"
+          : "border-transparent text-muted-foreground hover:bg-muted/40 hover:text-foreground",
       )}
     >
-      <Icon className="size-3.5" />
+      <Icon className="size-4 shrink-0" />
       {label}
       <span
         className={cn(
-          "rounded-full px-1.5 py-px text-[11px] tabular-nums",
+          "rounded-full px-2 py-0.5 font-mono text-xs tabular-nums",
           active ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground",
         )}
       >
@@ -208,8 +209,10 @@ export function PanelTabButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "rounded px-2.5 py-1 font-medium text-xs transition-colors",
-        active ? "bg-card text-foreground" : "text-muted-foreground hover:text-foreground",
+        "rounded-md px-3.5 py-2 font-medium text-sm transition-colors",
+        active
+          ? "bg-card text-foreground shadow-xs"
+          : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
       )}
     >
       {label}
