@@ -5,6 +5,9 @@ import type { ReviewChapter, ReviewDiffLine, ReviewLineRef } from "@/lib/review-
 import {
   collectFocusLineMarkers,
   diffLineElementId,
+  isJumpLine,
+  jumpTargetFromKeyChange,
+  resolveAllLinesForRef,
   resolveLineRef,
   selectFirstResolvableLineRef,
 } from "./resolve-line-ref";
@@ -100,8 +103,54 @@ describe("selectFirstResolvableLineRef", () => {
   });
 });
 
+describe("resolveAllLinesForRef", () => {
+  it("returns every row in the startLine..endLine range", () => {
+    const ch = chapter([
+      line({ path: "a.ts", kind: "add", n: 3, newLineNumber: 3 }),
+      line({ path: "a.ts", kind: "add", n: 4, newLineNumber: 4 }),
+      line({ path: "a.ts", kind: "add", n: 5, newLineNumber: 5 }),
+    ]);
+    const lines = resolveAllLinesForRef(ch, {
+      filePath: "a.ts",
+      side: "additions",
+      startLine: 3,
+      endLine: 5,
+    });
+    expect(lines.map((entry) => entry.n)).toEqual([3, 4, 5]);
+  });
+});
+
+describe("jumpTargetFromKeyChange / isJumpLine", () => {
+  it("highlights the full range, not only the first row", () => {
+    const ch: ReviewChapter = {
+      ...chapter([
+        line({ path: "a.ts", kind: "add", n: 10, newLineNumber: 10 }),
+        line({ path: "a.ts", kind: "add", n: 11, newLineNumber: 11 }),
+        line({ path: "a.ts", kind: "add", n: 12, newLineNumber: 12 }),
+      ]),
+      keyChanges: [
+        {
+          id: "k1",
+          content: "q1",
+          lineRefs: [{ filePath: "a.ts", side: "additions", startLine: 10, endLine: 12 }],
+          viewed: false,
+        },
+      ],
+    };
+    const target = jumpTargetFromKeyChange(ch, ch.keyChanges[0], 1);
+    expect(target).not.toBeNull();
+    expect(target?.ranges).toEqual([
+      { path: "a.ts", side: "additions", startLine: 10, endLine: 12 },
+    ]);
+    expect(target?.anchor.lineNumber).toBe(10);
+    expect(isJumpLine(target, ch.diffLines[0], 1)).toBe(true);
+    expect(isJumpLine(target, ch.diffLines[1], 1)).toBe(true);
+    expect(isJumpLine(target, ch.diffLines[2], 1)).toBe(true);
+  });
+});
+
 describe("collectFocusLineMarkers", () => {
-  it("collects unique resolvable focus lines for a chapter", () => {
+  it("collects every row inside each focus range", () => {
     const ch: ReviewChapter = {
       ...chapter([
         line({ path: "a.ts", kind: "add", n: 11, newLineNumber: 11 }),
@@ -111,16 +160,7 @@ describe("collectFocusLineMarkers", () => {
         {
           id: "k1",
           content: "q1",
-          lineRefs: [{ filePath: "a.ts", side: "additions", startLine: 11, endLine: 11 }],
-          viewed: false,
-        },
-        {
-          id: "k2",
-          content: "q2",
-          lineRefs: [
-            { filePath: "a.ts", side: "additions", startLine: 11, endLine: 11 },
-            { filePath: "a.ts", side: "additions", startLine: 12, endLine: 12 },
-          ],
+          lineRefs: [{ filePath: "a.ts", side: "additions", startLine: 11, endLine: 12 }],
           viewed: false,
         },
       ],
@@ -128,7 +168,7 @@ describe("collectFocusLineMarkers", () => {
     const markers = collectFocusLineMarkers(ch);
     expect(markers).toEqual([
       { path: "a.ts", lineNumber: 11, kind: "add", keyChangeId: "k1" },
-      { path: "a.ts", lineNumber: 12, kind: "add", keyChangeId: "k2" },
+      { path: "a.ts", lineNumber: 12, kind: "add", keyChangeId: "k1" },
     ]);
   });
 });

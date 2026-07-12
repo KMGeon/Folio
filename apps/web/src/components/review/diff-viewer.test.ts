@@ -48,8 +48,8 @@ describe("DiffViewer source", () => {
     const focusStyleSource = readFileSync(resolve(__dirname, "focus-line-styles.ts"), "utf8");
     expect(filePanelSource).toContain("diffLineElementId");
     expect(filePanelSource).toContain("focusRowClass");
-    expect(focusStyleSource).toContain("bg-primary/20");
-    expect(focusStyleSource).toContain("ring-1 ring-inset ring-primary/50");
-    expect(focusStyleSource).toContain("border-warning/70 bg-warning/10");
+    expect(focusStyleSource).toContain("border-info bg-info/20");
+    expect(focusStyleSource).toContain("ring-1 ring-inset ring-info/60");
+    expect(focusStyleSource).toContain("border-warning bg-warning/15");
   });
 });
