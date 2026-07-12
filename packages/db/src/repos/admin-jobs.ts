@@ -89,25 +89,27 @@ export const adminJobsRepo = {
   },
 
   async countOverview(db: Db = getDb(), now: Date = new Date()): Promise<AdminQueueCounts> {
-    const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    // postgres.js rejects raw Date params in drizzle sql fragments; bind ISO strings.
+    const nowIso = now.toISOString();
+    const dayAgoIso = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
     const [row] = await db
       .select({
         distressedJobs: sql<number>`count(*) filter (
           where ${jobs.status} = 'dead'
-             or (${jobs.status} = 'failed' and ${jobs.runAfter} < ${now})
+             or (${jobs.status} = 'failed' and ${jobs.runAfter} < ${nowIso})
         )::int`,
         pending: sql<number>`count(*) filter (where ${jobs.status} = 'pending')::int`,
         running: sql<number>`count(*) filter (
           where ${jobs.status} in ('claimed', 'running')
         )::int`,
         retrying: sql<number>`count(*) filter (
-          where ${jobs.status} = 'failed' and ${jobs.runAfter} > ${now}
+          where ${jobs.status} = 'failed' and ${jobs.runAfter} > ${nowIso}
         )::int`,
         succeededLast24h: sql<number>`count(*) filter (
-          where ${jobs.status} = 'succeeded' and ${jobs.updatedAt} >= ${dayAgo}
+          where ${jobs.status} = 'succeeded' and ${jobs.updatedAt} >= ${dayAgoIso}
         )::int`,
         deadLast24h: sql<number>`count(*) filter (
-          where ${jobs.status} = 'dead' and ${jobs.updatedAt} >= ${dayAgo}
+          where ${jobs.status} = 'dead' and ${jobs.updatedAt} >= ${dayAgoIso}
         )::int`,
       })
       .from(jobs);
