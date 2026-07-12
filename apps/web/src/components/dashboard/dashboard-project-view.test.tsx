@@ -38,7 +38,10 @@ describe("DashboardProjectView", () => {
     expect(render("repo-folio", "ready")).toContain("Start review");
     expect(render("repo-folio", "reviewing")).toContain("Continue");
     expect(render("repo-folio", "processing")).toContain("Preparing");
-    expect(render("repo-folio", "complete")).toContain("Completed Folio");
+    const completed = render("repo-folio", "complete");
+    expect(completed).toContain("Completed Folio");
+    expect(completed).toContain("Showing 1 of 1 completed");
+    expect(completed).toContain("End of complete history.");
   });
 
   it("renders the dedicated no-enabled-repos panel when the list is empty", () => {
@@ -50,6 +53,8 @@ describe("DashboardProjectView", () => {
         onFocusChange={vi.fn()}
         visibleProperties={[]}
         onRetryReview={vi.fn()}
+        completedLoadingMore={{}}
+        onLoadMoreCompleted={vi.fn()}
       />,
     );
 
@@ -69,6 +74,8 @@ describe("DashboardProjectView", () => {
         onFocusChange={vi.fn()}
         visibleProperties={["Repository", "ID", "Author", "Lines changed", "Chapters"]}
         onRetryReview={vi.fn()}
+        completedLoadingMore={{}}
+        onLoadMoreCompleted={vi.fn()}
       />,
     );
   }

@@ -1,17 +1,11 @@
-import {
-  ArrowRight,
-  CheckCircle2,
-  ChevronRight,
-  CircleAlert,
-  Clock3,
-  GitMerge,
-  RefreshCw,
-  X,
-} from "lucide-react";
+"use client";
+
+import { ArrowRight, CheckCircle2, CircleAlert, Clock3, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { ReadingSpine, SizePill, sizeMeta } from "@/components/dashboard/dashboard-card-meta";
+import { DashboardCompletedPullHistory } from "@/components/dashboard/dashboard-completed-pull-history";
 import {
   dashboardCockpitStates,
   dashboardProjectCounts,
@@ -44,12 +38,16 @@ export function DashboardProjectCockpit({
   onFocusChange,
   visibleProperties,
   onRetryReview,
+  completedLoadingMore,
+  onLoadMoreCompleted,
 }: {
   project: DashboardProjectData;
   focus: DashboardCockpitState;
   onFocusChange: (focus: DashboardCockpitState) => void;
   visibleProperties: DashboardCardProperty[];
   onRetryReview: (pull: DashboardPull) => void;
+  completedLoadingMore: boolean;
+  onLoadMoreCompleted: () => void;
 }) {
   const name = dashboardProjectName(project.repo.fullName);
   const counts = dashboardProjectCounts(project);
@@ -84,6 +82,10 @@ export function DashboardProjectCockpit({
             pulls={pulls}
             visibleProperties={visibleProperties}
             onRetryReview={onRetryReview}
+            completedCount={project.pages.completed.count}
+            hasMoreCompleted={project.pages.completed.nextCursor !== null}
+            completedLoadingMore={completedLoadingMore}
+            onLoadMoreCompleted={onLoadMoreCompleted}
           />
         ) : null}
       </div>
@@ -152,11 +154,19 @@ function DashboardCockpitPullList({
   pulls,
   visibleProperties,
   onRetryReview,
+  completedCount,
+  hasMoreCompleted,
+  completedLoadingMore,
+  onLoadMoreCompleted,
 }: {
   focus: DashboardCockpitState;
   pulls: (DashboardPull | DashboardCompletedPull)[];
   visibleProperties: DashboardCardProperty[];
   onRetryReview: (pull: DashboardPull) => void;
+  completedCount: number;
+  hasMoreCompleted: boolean;
+  completedLoadingMore: boolean;
+  onLoadMoreCompleted: () => void;
 }) {
   if (pulls.length === 0) {
     return (
@@ -167,11 +177,14 @@ function DashboardCockpitPullList({
   }
   if (focus === "complete") {
     return (
-      <div className="grid gap-2">
-        {(pulls as DashboardCompletedPull[]).map((pull) => (
-          <CompletedPullRow key={pull.id} pull={pull} visibleProperties={visibleProperties} />
-        ))}
-      </div>
+      <DashboardCompletedPullHistory
+        pulls={pulls as DashboardCompletedPull[]}
+        total={completedCount}
+        hasMore={hasMoreCompleted}
+        isLoadingMore={completedLoadingMore}
+        onLoadMore={onLoadMoreCompleted}
+        visibleProperties={visibleProperties}
+      />
     );
   }
   return (
@@ -280,42 +293,5 @@ function CockpitActionLink({
         {icon}
       </Link>
     </Button>
-  );
-}
-
-function CompletedPullRow({
-  pull,
-  visibleProperties,
-}: {
-  pull: DashboardCompletedPull;
-  visibleProperties: DashboardCardProperty[];
-}) {
-  const size = sizeMeta(pull.changedFiles, pull.additions + pull.deletions);
-  const StateIcon = pull.githubStatus === "merged" ? GitMerge : X;
-  return (
-    <Link
-      href={`/${pull.org}/${pull.repo}/pull/${pull.number}`}
-      className="group flex items-center justify-between gap-3 rounded-lg border border-border bg-background/35 p-3 transition-colors hover:border-primary/35"
-    >
-      <div className="min-w-0">
-        <p className="flex items-center gap-1.5 font-mono text-[0.65rem] text-muted-foreground">
-          <StateIcon className="size-3.5 text-syntax-emphasis" />
-          {visibleProperties.includes("Repository") ? pull.repo : ""}
-          {visibleProperties.includes("ID") ? `#${pull.number}` : ""}
-          {pull.completedAt}
-        </p>
-        <h3 className="mt-1 truncate text-sm font-medium text-foreground group-hover:text-primary">
-          {pull.title}
-        </h3>
-        {visibleProperties.includes("Lines changed") ? (
-          <div className="mt-2 flex items-center gap-2">
-            <SizePill meta={size} />
-            <span className="font-mono text-xs text-primary">+{pull.additions}</span>
-            <span className="font-mono text-xs text-destructive">-{pull.deletions}</span>
-          </div>
-        ) : null}
-      </div>
-      <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
-    </Link>
   );
 }
