@@ -35,6 +35,7 @@ const sessionActor: AuthedUser = {
   id: "user-1",
   login: "octocat",
   avatarUrl: "https://avatars.example/octocat",
+  isSystemAdmin: false,
 };
 
 function userRow(overrides: Partial<UserRow> = {}): UserRow {

@@ -1,9 +1,22 @@
 export { workspacesRepo } from "./workspaces.js";
 export { workspaceMembersRepo } from "./workspace-members.js";
 export { auditLogsRepo } from "./audit-logs.js";
+export {
+  adminAuditRepo,
+  type AdminAuditCursor,
+  type AdminAuditListInput,
+  type AdminAuditPageRow,
+  type AdminAuditRow,
+} from "./admin-audit.js";
 export { installationsRepo } from "./installations.js";
 export { repositoriesRepo } from "./repositories.js";
 export { usersRepo } from "./users.js";
+export {
+  adminUsersRepo,
+  type AdminUserCursor,
+  type AdminUserListInput,
+  type AdminUserPageRow,
+} from "./admin-users.js";
 export { sessionsRepo } from "./sessions.js";
 export { pullRequestsRepo } from "./pull-requests.js";
 export { pullRequestIndexRepo } from "./pull-request-index.js";

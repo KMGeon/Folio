@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SessionService } from "../../../domain/auth/session.service.js";
 import type { CoreException } from "../../../support/error/core-exception.js";
 import { ErrorType } from "../../../support/error/error-type.js";
-import { SessionAuthGuard } from "./session-auth.guard.js";
+import { type AuthedUser, SessionAuthGuard } from "./session-auth.guard.js";
 
 type FolioDbModule = { usersRepo: typeof DbUsersRepo } & Record<string, unknown>;
 
@@ -44,7 +44,9 @@ function userRow(overrides: Partial<UserRow> = {}): UserRow {
 }
 
 function contextWithCookie(token = "cookie-token") {
-  const request = { cookies: { folio_session: token } };
+  const request: { cookies: { folio_session: string }; user?: AuthedUser } = {
+    cookies: { folio_session: token },
+  };
   return {
     context: {
       switchToHttp: () => ({ getRequest: () => request }),
@@ -62,9 +64,16 @@ describe("SessionAuthGuard", () => {
     vi.mocked(sessions.resolve).mockResolvedValue({ userId: "u1" });
   });
 
-  it("authenticates an active user even while the legacy status is pending", async () => {
+  it("projects the exact safe fields for an active system admin", async () => {
     vi.mocked(usersRepo.getById).mockResolvedValue(
-      userRow({ status: USER_STATUS.PENDING, globalStatus: GLOBAL_STATUS.ACTIVE }),
+      userRow({
+        id: "user-1",
+        login: "root",
+        avatarUrl: "https://avatars/root",
+        status: USER_STATUS.PENDING,
+        globalStatus: GLOBAL_STATUS.ACTIVE,
+        isSystemAdmin: true,
+      }),
     );
     const { context, request } = contextWithCookie();
 
@@ -72,8 +81,11 @@ describe("SessionAuthGuard", () => {
 
     expect(sessions.resolve).toHaveBeenCalledWith("cookie-token");
     expect(usersRepo.getById).toHaveBeenCalledWith("u1");
-    expect(request).toMatchObject({
-      user: { id: "u1", login: "octocat", avatarUrl: "https://avatars.example/octocat" },
+    expect(request.user).toEqual({
+      id: "user-1",
+      login: "root",
+      avatarUrl: "https://avatars/root",
+      isSystemAdmin: true,
     });
   });
 

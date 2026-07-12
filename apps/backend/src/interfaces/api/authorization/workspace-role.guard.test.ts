@@ -46,6 +46,7 @@ const actor: AuthedUser = {
   id: "user-1",
   login: "octocat",
   avatarUrl: "https://avatars.example/octocat",
+  isSystemAdmin: false,
 };
 
 function workspaceRow(overrides: Partial<WorkspaceRow> = {}): WorkspaceRow {

@@ -30,7 +30,12 @@ describe("RepositoriesController", () => {
     const controller = new RepositoriesController(facade);
 
     await expect(
-      controller.list({ id: "user-1", login: "KMGeon", avatarUrl: "https://avatars/KMGeon" }),
+      controller.list({
+        id: "user-1",
+        login: "KMGeon",
+        avatarUrl: "https://avatars/KMGeon",
+        isSystemAdmin: false,
+      }),
     ).resolves.toEqual(payload);
     expect(facade.listForUser).toHaveBeenCalledWith({ userId: "user-1", login: "KMGeon" });
   });
@@ -43,7 +48,12 @@ describe("RepositoriesController", () => {
 
     await expect(
       controller.setEnabled(
-        { id: "user-1", login: "KMGeon", avatarUrl: "https://avatars/KMGeon" },
+        {
+          id: "user-1",
+          login: "KMGeon",
+          avatarUrl: "https://avatars/KMGeon",
+          isSystemAdmin: false,
+        },
         "repo-1",
         { enabled: true },
       ),
@@ -76,7 +86,12 @@ describe("RepositoriesController", () => {
 
     await expect(
       controller.setEnabled(
-        { id: "user-1", login: "KMGeon", avatarUrl: "https://avatars/KMGeon" },
+        {
+          id: "user-1",
+          login: "KMGeon",
+          avatarUrl: "https://avatars/KMGeon",
+          isSystemAdmin: false,
+        },
         "repo-1",
         { enabled: "true" },
       ),

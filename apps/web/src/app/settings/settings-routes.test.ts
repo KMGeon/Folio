@@ -74,12 +74,17 @@ describe("settings routes", () => {
     expect(workspacesPage).toContain('title="Workspace members"');
   });
 
-  it("fetches and renders global users only for active system administrators", () => {
+  it("keeps global user governance out of customer Workspace settings", () => {
     const workspacesPage = readFileSync(resolve(settingsRoot, "workspaces/page.tsx"), "utf8");
 
-    expect(workspacesPage).toContain("canSeeSystemUsers(workspaceContext)");
-    expect(workspacesPage).toContain("listGlobalUsers(cookieHeader)");
-    expect(workspacesPage).toContain("<SystemUsersAdmin");
-    expect(workspacesPage).toContain('title="System users"');
+    expect(workspacesPage).not.toContain("listGlobalUsers");
+    expect(workspacesPage).not.toContain("SystemUsersAdmin");
+    expect(workspacesPage).not.toContain("System users");
+
+    const adminUsersPage = readFileSync(
+      resolve(settingsRoot, "../../app/admin/users/page.tsx"),
+      "utf8",
+    );
+    expect(adminUsersPage).toContain("AdminUsersClient");
   });
 });

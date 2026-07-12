@@ -30,6 +30,7 @@ const actor: AuthedUser = {
   id: "user-1",
   login: "octocat",
   avatarUrl: "https://avatars.example/octocat",
+  isSystemAdmin: true,
 };
 
 function userRow(overrides: Partial<UserRow> = {}): UserRow {

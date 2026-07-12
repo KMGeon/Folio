@@ -1,6 +1,8 @@
 import { type AuditLogRow, type UserRow, auditLogsRepo, usersRepo } from "@folio/db";
 import { AUDIT_ACTION, GLOBAL_STATUS, type GlobalStatus } from "@folio/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { ExecutionContext } from "@nestjs/common";
+import { SystemAdminGuard } from "../../interfaces/api/authorization/system-admin.guard.js";
 import { CoreException } from "../../support/error/core-exception.js";
 import { ErrorType } from "../../support/error/error-type.js";
 import { GlobalUsersFacade } from "./global-users.facade.js";
@@ -11,6 +13,7 @@ vi.mock("@folio/db", () => ({
   auditLogsRepo: { record: vi.fn() },
   getDb: () => ({ transaction: dbDouble.transaction }),
   usersRepo: {
+    getById: vi.fn(),
     getByIdsForUpdate: vi.fn(),
     listAll: vi.fn(),
     setGlobalStatusIfCurrent: vi.fn(),
@@ -71,6 +74,21 @@ describe("GlobalUsersFacade", () => {
     facade = new GlobalUsersFacade();
   });
 
+  it("keeps route-entry system-admin rejection as Forbidden before facade execution", async () => {
+    vi.mocked(usersRepo.getById).mockResolvedValue(user("admin-1", GLOBAL_STATUS.ACTIVE, false));
+    const context = {
+      switchToHttp: () => ({ getRequest: () => ({ user: { id: "admin-1" } }) }),
+    } as unknown as ExecutionContext;
+
+    const error = await new SystemAdminGuard()
+      .canActivate(context)
+      .catch((caught: unknown) => caught);
+
+    expectCoreError(error, ErrorType.Forbidden);
+    expect(ErrorType.Forbidden.statusCode).toBe(403);
+    expect(dbDouble.transaction).not.toHaveBeenCalled();
+  });
+
   it("lists every global user", async () => {
     const rows = [user("admin-1", GLOBAL_STATUS.ACTIVE, true)];
     vi.mocked(usersRepo.listAll).mockResolvedValue(rows);
@@ -98,7 +116,7 @@ describe("GlobalUsersFacade", () => {
         ["user-a", "user-z"],
         transactionHandle,
       );
-      expectCoreError(error, ErrorType.Forbidden);
+      expectCoreError(error, ErrorType.GlobalUserConflict);
       expect(usersRepo.setGlobalStatusIfCurrent).not.toHaveBeenCalled();
       expect(auditLogsRepo.record).not.toHaveBeenCalled();
     });
@@ -175,7 +193,7 @@ describe("GlobalUsersFacade", () => {
         targetUserId: "user-1",
       }).catch((caught: unknown) => caught);
 
-      expectCoreError(error, ErrorType.Forbidden);
+      expectCoreError(error, ErrorType.GlobalUserConflict);
       expect(usersRepo.setGlobalStatusIfCurrent).not.toHaveBeenCalled();
       expect(auditLogsRepo.record).not.toHaveBeenCalled();
     });
@@ -189,7 +207,7 @@ describe("GlobalUsersFacade", () => {
         targetUserId: "user-1",
       }).catch((caught: unknown) => caught);
 
-      expectCoreError(error, ErrorType.Forbidden);
+      expectCoreError(error, ErrorType.GlobalUserConflict);
       expect(auditLogsRepo.record).not.toHaveBeenCalled();
     });
   });
@@ -201,7 +219,7 @@ describe("GlobalUsersFacade", () => {
       .suspend({ actorUserId: "admin-1", targetUserId: "admin-1" })
       .catch((caught: unknown) => caught);
 
-    expectCoreError(error, ErrorType.Forbidden);
+    expectCoreError(error, ErrorType.GlobalUserConflict);
     expect(usersRepo.setGlobalStatusIfCurrent).not.toHaveBeenCalled();
     expect(auditLogsRepo.record).not.toHaveBeenCalled();
   });
@@ -225,7 +243,7 @@ describe("GlobalUsersFacade", () => {
       .suspend({ actorUserId: "admin-1", targetUserId: "user-1" })
       .catch((caught: unknown) => caught);
 
-    expectCoreError(error, ErrorType.Forbidden);
+    expectCoreError(error, ErrorType.GlobalUserConflict);
     expect(usersRepo.setGlobalStatusIfCurrent).toHaveBeenCalledWith(
       "user-1",
       GLOBAL_STATUS.ACTIVE,
@@ -250,7 +268,7 @@ describe("GlobalUsersFacade", () => {
         ["user-a", "user-z"],
         transactionHandle,
       );
-      expectCoreError(error, ErrorType.Forbidden);
+      expectCoreError(error, ErrorType.GlobalUserConflict);
       expect(usersRepo.setSystemAdminIfCurrent).not.toHaveBeenCalled();
       expect(auditLogsRepo.record).not.toHaveBeenCalled();
     });
@@ -320,17 +338,34 @@ describe("GlobalUsersFacade", () => {
       expect(dbDouble.transaction).not.toHaveBeenCalled();
     });
 
-    it.each([
-      ["actor", null, user("user-1", GLOBAL_STATUS.ACTIVE)],
-      ["target", user("admin-1", GLOBAL_STATUS.ACTIVE, true), null],
-    ] as const)("throws UserNotFound when the %s is missing", async (_label, actor, target) => {
-      arrangeLockedUsers(...([actor, target].filter(Boolean) as UserRow[]));
+    it("throws GlobalUserConflict when the authorized actor disappears before locking", async () => {
+      arrangeLockedUsers(user("user-1", GLOBAL_STATUS.ACTIVE));
+
+      const error = await facade
+        .transferSystemAdmin({ actorUserId: "admin-1", targetUserId: "user-1" })
+        .catch((caught: unknown) => caught);
+
+      expectCoreError(error, ErrorType.GlobalUserConflict);
+      expect(usersRepo.getByIdsForUpdate).toHaveBeenCalledWith(
+        ["admin-1", "user-1"],
+        transactionHandle,
+      );
+      expect(usersRepo.setSystemAdminIfCurrent).not.toHaveBeenCalled();
+      expect(auditLogsRepo.record).not.toHaveBeenCalled();
+    });
+
+    it("throws UserNotFound when the transfer target is missing", async () => {
+      arrangeLockedUsers(user("admin-1", GLOBAL_STATUS.ACTIVE, true));
 
       const error = await facade
         .transferSystemAdmin({ actorUserId: "admin-1", targetUserId: "user-1" })
         .catch((caught: unknown) => caught);
 
       expectCoreError(error, ErrorType.UserNotFound);
+      expect(usersRepo.getByIdsForUpdate).toHaveBeenCalledWith(
+        ["admin-1", "user-1"],
+        transactionHandle,
+      );
       expect(usersRepo.setSystemAdminIfCurrent).not.toHaveBeenCalled();
       expect(auditLogsRepo.record).not.toHaveBeenCalled();
     });
@@ -368,7 +403,7 @@ describe("GlobalUsersFacade", () => {
         .transferSystemAdmin({ actorUserId: "admin-1", targetUserId: "user-1" })
         .catch((caught: unknown) => caught);
 
-      expectCoreError(error, ErrorType.Forbidden);
+      expectCoreError(error, ErrorType.GlobalUserConflict);
       expect(usersRepo.setSystemAdminIfCurrent).not.toHaveBeenCalled();
       expect(auditLogsRepo.record).not.toHaveBeenCalled();
     });
@@ -390,7 +425,7 @@ describe("GlobalUsersFacade", () => {
           .transferSystemAdmin({ actorUserId: "admin-1", targetUserId: "user-1" })
           .catch((caught: unknown) => caught);
 
-        expectCoreError(error, ErrorType.Forbidden);
+        expectCoreError(error, ErrorType.GlobalUserConflict);
         expect(auditLogsRepo.record).not.toHaveBeenCalled();
       },
     );

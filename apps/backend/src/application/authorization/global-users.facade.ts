@@ -41,8 +41,11 @@ export class GlobalUsersFacade {
 
     await getDb().transaction(async (transaction) => {
       const { actor, target } = await this.lockCommandUsers(command, transaction);
-      if (!actor || !target) {
+      if (!target) {
         this.userNotFound();
+      }
+      if (!actor) {
+        this.conflict();
       }
       if (
         actor.globalStatus !== GLOBAL_STATUS.ACTIVE ||
@@ -50,7 +53,7 @@ export class GlobalUsersFacade {
         target.globalStatus !== GLOBAL_STATUS.ACTIVE ||
         target.isSystemAdmin
       ) {
-        this.forbid();
+        this.conflict();
       }
 
       // CAS predicates keep guard snapshots from authorizing a stale transfer.
@@ -62,7 +65,7 @@ export class GlobalUsersFacade {
         transaction,
       );
       if (!demoted) {
-        this.forbid();
+        this.conflict();
       }
       const promoted = await usersRepo.setSystemAdminIfCurrent(
         target.id,
@@ -72,7 +75,7 @@ export class GlobalUsersFacade {
         transaction,
       );
       if (!promoted) {
-        this.forbid();
+        this.conflict();
       }
 
       await auditLogsRepo.record(
@@ -109,7 +112,7 @@ export class GlobalUsersFacade {
         target.globalStatus !== expectedStatus ||
         (nextStatus === GLOBAL_STATUS.SUSPENDED && target.isSystemAdmin)
       ) {
-        this.forbid();
+        this.conflict();
       }
 
       // User-only revocations preserve the workspace → memberships → users → repositories order.
@@ -128,7 +131,7 @@ export class GlobalUsersFacade {
             transaction,
           );
       if (!updated) {
-        this.forbid();
+        this.conflict();
       }
 
       await this.recordGlobalStatusAudit(command, expectedStatus, nextStatus, action, transaction);
@@ -175,5 +178,9 @@ export class GlobalUsersFacade {
 
   private forbid(): never {
     throw new CoreException(ErrorType.Forbidden);
+  }
+
+  private conflict(): never {
+    throw new CoreException(ErrorType.GlobalUserConflict);
   }
 }

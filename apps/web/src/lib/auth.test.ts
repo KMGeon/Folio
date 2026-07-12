@@ -1,17 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   AuthorizationApiError,
-  approveGlobalUser,
   changeMemberRole,
+  getMe,
   installationUrl,
-  listGlobalUsers,
   listWorkspaceMembers,
   removeMember,
   restoreMember,
-  suspendGlobalUser,
   suspendMember,
   transferOwnership,
-  transferSystemAdmin,
 } from "./auth";
 
 const fetchMock = vi.fn<typeof fetch>();
@@ -49,6 +46,46 @@ describe("authorization API clients", () => {
     expect(installationUrl()).toBe("http://localhost:8080/api/v1/auth/github/install");
   });
 
+  it("returns the current user's system-admin flag", async () => {
+    const user = {
+      id: "user-1",
+      login: "root",
+      avatarUrl: "https://avatars/root",
+      isSystemAdmin: true,
+    };
+    fetchMock.mockResolvedValueOnce(success({ user }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(getMe()).resolves.toEqual(user);
+  });
+
+  it("returns null only when the current-user endpoint returns 401", async () => {
+    fetchMock.mockResolvedValueOnce(failure(401, "unauthorized", "로그인이 필요합니다."));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(getMe()).resolves.toBeNull();
+  });
+
+  it.each([
+    [
+      failure(503, "backend_unavailable", "인증 서비스를 사용할 수 없습니다."),
+      503,
+      "backend_unavailable",
+    ],
+    [response(null, 200), 200, "invalid_response"],
+  ] as const)(
+    "throws a typed current-user failure instead of treating it as logout",
+    async (reply, status, code) => {
+      fetchMock.mockResolvedValueOnce(reply);
+      vi.stubGlobal("fetch", fetchMock);
+
+      const error = await getMe().catch((caught) => caught);
+
+      expect(error).toBeInstanceOf(AuthorizationApiError);
+      expect(error).toMatchObject({ status, code });
+    },
+  );
+
   it("lists exact workspace member fields and forwards a server cookie", async () => {
     const members = [
       {
@@ -72,27 +109,6 @@ describe("authorization API clients", () => {
         credentials: "include",
         headers: { accept: "application/json", cookie: "folio_session=abc" },
       }),
-    );
-  });
-
-  it("lists global users through the current admin route", async () => {
-    const users = [
-      {
-        id: "user-1",
-        login: "octocat",
-        avatarUrl: "https://avatars.example/octocat",
-        email: null,
-        globalStatus: "pending" as const,
-        isSystemAdmin: false,
-        createdAt: "2026-07-11T00:00:00.000Z",
-      },
-    ];
-    fetchMock.mockResolvedValueOnce(success({ users }));
-    vi.stubGlobal("fetch", fetchMock);
-
-    await expect(listGlobalUsers()).resolves.toEqual(users);
-    expect(fetchMock.mock.calls[0]?.[0]).toEqual(
-      new URL("http://localhost:8080/api/v1/admin/users"),
     );
   });
 
@@ -151,28 +167,6 @@ describe("authorization API clients", () => {
     );
   });
 
-  it.each([
-    ["approve", approveGlobalUser, "/api/v1/admin/users/user-1/approve"],
-    ["suspend", suspendGlobalUser, "/api/v1/admin/users/user-1/suspend"],
-  ] as const)("returns the typed result for global user %s", async (_name, action, path) => {
-    fetchMock.mockResolvedValueOnce(success({ ok: true }));
-    vi.stubGlobal("fetch", fetchMock);
-
-    await expect(action("user-1")).resolves.toEqual({ ok: true });
-    expect(fetchMock.mock.calls[0]?.[0]).toEqual(new URL(`http://localhost:8080${path}`));
-  });
-
-  it("transfers system admin through the current admin route", async () => {
-    fetchMock.mockResolvedValueOnce(success({ ok: true }));
-    vi.stubGlobal("fetch", fetchMock);
-
-    await expect(transferSystemAdmin("user-1")).resolves.toEqual({ ok: true });
-    expect(fetchMock).toHaveBeenCalledWith(
-      new URL("http://localhost:8080/api/v1/admin/system-admin/transfer"),
-      expect.objectContaining({ method: "POST", body: JSON.stringify({ userId: "user-1" }) }),
-    );
-  });
-
   it("propagates a 403 API message and status", async () => {
     fetchMock.mockResolvedValueOnce(failure(403, "forbidden", "관리자 권한이 필요합니다."));
     vi.stubGlobal("fetch", fetchMock);
@@ -209,11 +203,11 @@ describe("authorization API clients", () => {
     fetchMock.mockResolvedValueOnce(response(null));
     vi.stubGlobal("fetch", fetchMock);
 
-    const error = await listGlobalUsers().catch((caught) => caught);
+    const error = await listWorkspaceMembers("workspace-1").catch((caught) => caught);
 
     expect(error).toBeInstanceOf(AuthorizationApiError);
     expect(error).toMatchObject({
-      message: "사용자 목록을 불러오지 못했습니다.",
+      message: "워크스페이스 멤버를 불러오지 못했습니다.",
       status: 200,
       code: "invalid_response",
       shouldRefresh: false,
