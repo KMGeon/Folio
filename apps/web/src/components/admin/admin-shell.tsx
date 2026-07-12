@@ -1,6 +1,6 @@
 "use client";
 
-import { ClipboardList, LayoutDashboard, Users } from "lucide-react";
+import { ClipboardList, LayoutDashboard, Users, Workflow } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 const adminItems = [
   { href: "/admin/overview", label: "Overview", icon: LayoutDashboard },
   { href: "/admin/users", label: "Users", icon: Users },
+  { href: "/admin/workspaces", label: "Workspaces", icon: Workflow },
   { href: "/admin/audit", label: "Audit log", icon: ClipboardList },
 ];
 
@@ -23,7 +24,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         </p>
         <nav className="mt-2 grid gap-0.5" aria-label="Admin sections">
           {adminItems.map(({ href, label, icon: Icon }) => {
-            const active = pathname === href;
+            const active = pathname === href || pathname.startsWith(`${href}/`);
             return (
               <Link
                 key={href}

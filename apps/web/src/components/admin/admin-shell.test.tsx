@@ -20,24 +20,24 @@ afterEach(async () => {
 });
 
 describe("AdminShell", () => {
-  it("renders only the Phase 1 navigation in the dense responsive shell", async () => {
+  it("renders ready Phase 2 navigation in the dense responsive shell", async () => {
     const container = await mount();
 
     expect(
       container.firstElementChild?.classList.contains("lg:grid-cols-[266px_minmax(0,1fr)]"),
     ).toBe(true);
-    expect(linkLabels(container)).toEqual(["Overview", "Users", "Audit log"]);
-    expect(container.textContent).not.toContain("Workspaces");
+    expect(linkLabels(container)).toEqual(["Overview", "Users", "Workspaces", "Audit log"]);
+    expect(container.textContent).toContain("Workspaces");
     expect(container.textContent).not.toContain("Operations");
   });
 
   it("marks the current admin section active", async () => {
-    navigation.pathname = "/admin/audit";
+    navigation.pathname = "/admin/workspaces/00000000-0000-4000-8000-000000000001";
     const container = await mount();
 
-    expect(container.querySelector('a[href="/admin/audit"]')?.getAttribute("aria-current")).toBe(
-      "page",
-    );
+    expect(
+      container.querySelector('a[href="/admin/workspaces"]')?.getAttribute("aria-current"),
+    ).toBe("page");
   });
 });
 

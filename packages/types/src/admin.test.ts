@@ -4,6 +4,7 @@ import {
   AdminOverviewPayloadSchema,
   AdminUserPageSchema,
   AdminUserStatusFilterSchema,
+  AdminWorkspacePageSchema,
 } from "./admin.js";
 
 const validAuditItem = {
@@ -61,7 +62,7 @@ describe("Admin Phase 1 contracts", () => {
     ).toThrow();
     expect(() =>
       AdminOverviewPayloadSchema.parse({
-        metrics: { pendingUsers: -1 },
+        metrics: { pendingUsers: -1, workspaces: 0, enabledRepositories: 0 },
         attention: [],
         recentAudit: [],
       }),
@@ -102,7 +103,7 @@ describe("Admin Phase 1 contracts", () => {
 
   it("limits recent audit entries to five", () => {
     const overview = {
-      metrics: { pendingUsers: 0 },
+      metrics: { pendingUsers: 0, workspaces: 0, enabledRepositories: 0 },
       attention: [],
       recentAudit: Array.from({ length: 5 }, () => validAuditItem),
     };
@@ -118,7 +119,7 @@ describe("Admin Phase 1 contracts", () => {
 
   it("requires positive attention counts", () => {
     const overview = {
-      metrics: { pendingUsers: 1 },
+      metrics: { pendingUsers: 1, workspaces: 0, enabledRepositories: 0 },
       attention: [{ kind: "pending_users", count: 1 }],
       recentAudit: [],
     } as const;
@@ -128,6 +129,36 @@ describe("Admin Phase 1 contracts", () => {
       AdminOverviewPayloadSchema.parse({
         ...overview,
         attention: [{ kind: "pending_users", count: 0 }],
+      }),
+    ).toThrow();
+  });
+});
+
+describe("Admin Phase 2 workspace contracts", () => {
+  it("allows only metadata-safe workspace fields", () => {
+    const page = {
+      items: [
+        {
+          id: "00000000-0000-4000-8000-000000000010",
+          accountLogin: "octo-org",
+          accountType: "Organization",
+          createdAt: "2026-07-12T00:00:00.000Z",
+          owner: null,
+          memberCount: 2,
+          repositoryCount: 3,
+          enabledRepositoryCount: 1,
+          installationState: "mixed",
+          recentActivityAt: null,
+        },
+      ],
+      nextCursor: null,
+    };
+
+    expect(AdminWorkspacePageSchema.parse(page).items[0]?.installationState).toBe("mixed");
+    expect(() =>
+      AdminWorkspacePageSchema.parse({
+        ...page,
+        items: [{ ...page.items[0], reviewContent: "private diff" }],
       }),
     ).toThrow();
   });

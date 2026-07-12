@@ -23,7 +23,7 @@ afterEach(async () => {
 describe("AdminOverview", () => {
   it("renders the zero pending-user metric without an attention row", async () => {
     const container = await mount({
-      metrics: { pendingUsers: 0 },
+      metrics: { pendingUsers: 0, workspaces: 0, enabledRepositories: 0 },
       attention: [],
       recentAudit: [],
     });
@@ -36,7 +36,7 @@ describe("AdminOverview", () => {
 
   it("links a positive pending-user attention row to the filtered users page", async () => {
     const container = await mount({
-      metrics: { pendingUsers: 3 },
+      metrics: { pendingUsers: 3, workspaces: 0, enabledRepositories: 0 },
       attention: [{ kind: "pending_users", count: 3 }],
       recentAudit: [],
     });
@@ -49,7 +49,7 @@ describe("AdminOverview", () => {
   it("renders at most five recent audit rows and no future Phase 1 placeholders", async () => {
     const recentAudit = Array.from({ length: 6 }, (_, index) => auditItem(index));
     const container = await mount({
-      metrics: { pendingUsers: 0 },
+      metrics: { pendingUsers: 0, workspaces: 0, enabledRepositories: 0 },
       attention: [],
       recentAudit,
     });
