@@ -34,6 +34,7 @@ export const AUDIT_ACTION = {
   SYSTEM_ADMIN_TRANSFER: "system_admin_transfer",
   WORKSPACE_CLAIM: "workspace_claim",
   REPO_ACTIVATION_CHANGE: "repo_activation_change",
+  REPO_SETTINGS_CHANGE: "repo_settings_change",
 } as const;
 export type AuditAction = (typeof AUDIT_ACTION)[keyof typeof AUDIT_ACTION];
 export const AuditActionSchema = enumFromConst(AUDIT_ACTION);

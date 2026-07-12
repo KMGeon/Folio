@@ -1,4 +1,5 @@
 import { and, eq, inArray, notInArray } from "drizzle-orm";
+import { type RepositoryPriority } from "@folio/types";
 import { type Db, getDb } from "../client.js";
 import {
   PR_INDEX_STATUS,
@@ -206,6 +207,22 @@ export const repositoriesRepo = {
       .returning();
     if (!row) {
       throw new Error("repositoriesRepo.setFolioEnabled: repository not found or ineligible");
+    }
+    return row;
+  },
+
+  async updatePreferences(
+    id: string,
+    input: { aiReplyEnabled?: boolean; priority?: RepositoryPriority },
+    db: Db = getDb(),
+  ): Promise<RepositoryRow> {
+    const [row] = await db
+      .update(repositories)
+      .set({ ...input, updatedAt: new Date() })
+      .where(eq(repositories.id, id))
+      .returning();
+    if (!row) {
+      throw new Error("repositoriesRepo.updatePreferences: repository not found");
     }
     return row;
   },

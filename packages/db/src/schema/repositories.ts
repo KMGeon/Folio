@@ -26,6 +26,10 @@ export const repositories = pgTable("repositories", {
   defaultBranch: text("default_branch").notNull(),
   githubAccessActive: boolean("github_access_active").notNull().default(true),
   folioEnabled: boolean("folio_enabled").notNull().default(false),
+  aiReplyEnabled: boolean("ai_reply_enabled").notNull().default(true),
+  priority: text("priority", { enum: ["high", "normal", "low"] })
+    .notNull()
+    .default("normal"),
   // Dashboard open-board projection readiness (webhook/backfill).
   prIndexStatus: text("pr_index_status", {
     enum: [
