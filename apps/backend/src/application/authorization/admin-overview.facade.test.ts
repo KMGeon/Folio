@@ -1,4 +1,4 @@
-import { type AdminAuditRow, adminAuditRepo, adminUsersRepo } from "@folio/db";
+import { type AdminAuditRow, adminAuditRepo, adminUsersRepo, adminWorkspacesRepo } from "@folio/db";
 import { AUDIT_ACTION } from "@folio/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminOverviewFacade } from "./admin-overview.facade.js";
@@ -6,6 +6,7 @@ import { AdminOverviewFacade } from "./admin-overview.facade.js";
 vi.mock("@folio/db", () => ({
   adminAuditRepo: { list: vi.fn() },
   adminUsersRepo: { countPending: vi.fn() },
+  adminWorkspacesRepo: { countOverview: vi.fn() },
 }));
 
 function auditRow(): AdminAuditRow {
@@ -37,9 +38,14 @@ describe("AdminOverviewFacade", () => {
   it("returns no attention item when there are no pending users", async () => {
     vi.mocked(adminUsersRepo.countPending).mockResolvedValue(0);
     vi.mocked(adminAuditRepo.list).mockResolvedValue({ items: [], hasMore: false });
+    vi.mocked(adminWorkspacesRepo.countOverview).mockResolvedValue({
+      workspaces: 0,
+      enabledRepositories: 0,
+      suspendedInstallations: 0,
+    });
 
     await expect(facade.get()).resolves.toEqual({
-      metrics: { pendingUsers: 0 },
+      metrics: { pendingUsers: 0, workspaces: 0, enabledRepositories: 0 },
       attention: [],
       recentAudit: [],
     });
@@ -48,6 +54,11 @@ describe("AdminOverviewFacade", () => {
 
   it("returns one pending-users attention item and caps recent audit at five", async () => {
     vi.mocked(adminUsersRepo.countPending).mockResolvedValue(3);
+    vi.mocked(adminWorkspacesRepo.countOverview).mockResolvedValue({
+      workspaces: 2,
+      enabledRepositories: 4,
+      suspendedInstallations: 1,
+    });
     vi.mocked(adminAuditRepo.list).mockResolvedValue({
       items: Array.from({ length: 6 }, () => auditRow()),
       hasMore: true,
@@ -55,7 +66,10 @@ describe("AdminOverviewFacade", () => {
 
     const result = await facade.get();
 
-    expect(result.attention).toEqual([{ kind: "pending_users", count: 3 }]);
+    expect(result.attention).toEqual([
+      { kind: "pending_users", count: 3 },
+      { kind: "suspended_installations", count: 1 },
+    ]);
     expect(result.recentAudit).toHaveLength(5);
     expect(result.recentAudit[0]?.createdAt).toBe("2026-07-11T03:04:05.000Z");
   });

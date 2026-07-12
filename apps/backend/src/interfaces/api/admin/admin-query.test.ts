@@ -1,7 +1,11 @@
 import { AUDIT_ACTION } from "@folio/types";
 import { BadRequestException } from "@nestjs/common";
 import { describe, expect, it } from "vitest";
-import { parseAdminAuditQuery, parseAdminUsersQuery } from "./admin-query.js";
+import {
+  parseAdminAuditQuery,
+  parseAdminUsersQuery,
+  parseAdminWorkspacesQuery,
+} from "./admin-query.js";
 
 describe("admin query parsing", () => {
   it("defaults and trims a user list query", () => {
@@ -36,6 +40,14 @@ describe("admin query parsing", () => {
     expect(parseAdminAuditQuery(query)).toEqual({ ...query, limit: 5, q: "owner" });
   });
 
+  it("trims workspace search and accepts the installation-state filter", () => {
+    expect(parseAdminWorkspacesQuery({ q: "  octo  ", installationState: "suspended" })).toEqual({
+      limit: 25,
+      q: "octo",
+      installationState: "suspended",
+    });
+  });
+
   it.each([
     [parseAdminUsersQuery, { limit: 0 }],
     [parseAdminUsersQuery, { limit: 101 }],
@@ -46,6 +58,7 @@ describe("admin query parsing", () => {
     [parseAdminAuditQuery, { to: "not-a-time" }],
     [parseAdminAuditQuery, { action: "unknown" }],
     [parseAdminAuditQuery, { workspaceId: "not-a-uuid" }],
+    [parseAdminWorkspacesQuery, { installationState: "unknown" }],
   ] as const)("turns invalid input into BadRequestException", (parse, value) => {
     expect(() => parse(value)).toThrow(BadRequestException);
   });

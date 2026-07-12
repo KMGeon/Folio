@@ -1,4 +1,8 @@
-import { AdminUserStatusFilterSchema, AuditActionSchema } from "@folio/types";
+import {
+  AdminUserStatusFilterSchema,
+  AdminWorkspaceInstallationStateSchema,
+  AuditActionSchema,
+} from "@folio/types";
 import { BadRequestException } from "@nestjs/common";
 import { z } from "zod";
 
@@ -23,8 +27,14 @@ const AdminAuditQuerySchema = z.object({
   to: z.string().datetime({ offset: true }).optional(),
 });
 
+const AdminWorkspacesQuerySchema = z.object({
+  ...ListQueryFields,
+  installationState: AdminWorkspaceInstallationStateSchema.optional(),
+});
+
 export type AdminUsersQuery = z.infer<typeof AdminUsersQuerySchema>;
 export type AdminAuditQuery = z.infer<typeof AdminAuditQuerySchema>;
+export type AdminWorkspacesQuery = z.infer<typeof AdminWorkspacesQuerySchema>;
 
 export function parseAdminUsersQuery(value: unknown): AdminUsersQuery {
   return parseQuery(AdminUsersQuerySchema, value);
@@ -32,6 +42,10 @@ export function parseAdminUsersQuery(value: unknown): AdminUsersQuery {
 
 export function parseAdminAuditQuery(value: unknown): AdminAuditQuery {
   return parseQuery(AdminAuditQuerySchema, value);
+}
+
+export function parseAdminWorkspacesQuery(value: unknown): AdminWorkspacesQuery {
+  return parseQuery(AdminWorkspacesQuerySchema, value);
 }
 
 function parseQuery<TSchema extends z.ZodTypeAny>(
