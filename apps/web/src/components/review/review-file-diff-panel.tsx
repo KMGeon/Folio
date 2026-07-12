@@ -120,16 +120,17 @@ export function FileDiffPanel({
           onClick={async () => {
             await onFileViewedChange?.(file.path, !file.viewed);
           }}
+          // File coverage is secondary to chapter completion — keep this check muted, not primary green fill.
           className={cn(
-            "flex size-5 items-center justify-center rounded-full border transition-colors",
+            "flex size-4 items-center justify-center rounded-full border transition-colors",
             file.viewed
-              ? "border-primary bg-primary text-primary-foreground"
-              : "border-muted-foreground/60 text-muted-foreground hover:border-primary hover:text-primary",
+              ? "border-muted-foreground/50 bg-muted/50 text-muted-foreground"
+              : "border-muted-foreground/40 text-muted-foreground/70 hover:border-muted-foreground hover:text-foreground",
           )}
           aria-pressed={file.viewed}
           aria-label={file.viewed ? `${file.path} 파일 읽음 해제` : `${file.path} 파일 읽음`}
         >
-          {file.viewed ? <Check className="size-3.5" /> : null}
+          {file.viewed ? <Check className="size-3" /> : null}
         </button>
       </div>
       {collapsed ? null : (

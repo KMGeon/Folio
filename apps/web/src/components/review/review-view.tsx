@@ -272,9 +272,9 @@ export function ReviewView({
             </div>
             <div
               className={cn(
-                "grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_460px]",
+                "grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_380px]",
                 preferences.chapterPanel === "left" &&
-                  "lg:grid-cols-[460px_minmax(0,1fr)] lg:[&>aside]:order-first",
+                  "lg:grid-cols-[380px_minmax(0,1fr)] lg:[&>aside]:order-first",
               )}
             >
               <DiffViewer
