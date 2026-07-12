@@ -1,17 +1,12 @@
-import { Github, Settings2, ShieldCheck, Users } from "lucide-react";
+import { Github, Settings2, Users } from "lucide-react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { SettingsCard, SettingsPageHeader } from "@/components/settings/settings-card";
-import { SystemUsersAdmin } from "@/components/settings/system-users-admin";
 import { WorkspaceMembersAdmin } from "@/components/settings/workspace-members-admin";
 import { Button } from "@/components/ui/button";
-import { getMe, listGlobalUsers, listWorkspaceMembers } from "@/lib/auth";
-import {
-  canManageMembers,
-  canSeeSystemUsers,
-  getWorkspaceContext,
-} from "@/lib/workspace-permission";
+import { getMe, listWorkspaceMembers } from "@/lib/auth";
+import { canManageMembers, getWorkspaceContext } from "@/lib/workspace-permission";
 
 export default async function WorkspacesPage() {
   const cookieHeader = (await cookies())
@@ -28,10 +23,6 @@ export default async function WorkspacesPage() {
     workspaceContext?.workspace && canManageMembers(workspaceContext)
       ? await listWorkspaceMembers(workspaceContext.workspace.id, cookieHeader)
       : null;
-  const globalUsers = canSeeSystemUsers(workspaceContext)
-    ? await listGlobalUsers(cookieHeader)
-    : null;
-
   return (
     <div className="mx-auto w-full max-w-4xl">
       <SettingsPageHeader
@@ -62,15 +53,6 @@ export default async function WorkspacesPage() {
             icon={<Users className="size-4" />}
           >
             <WorkspaceMembersAdmin initialMembers={members} workspaceContext={workspaceContext} />
-          </SettingsCard>
-        ) : null}
-        {globalUsers ? (
-          <SettingsCard
-            title="System users"
-            description="Folio 사용자 상태와 시스템 관리자 권한을 관리합니다."
-            icon={<ShieldCheck className="size-4" />}
-          >
-            <SystemUsersAdmin initialUsers={globalUsers} />
           </SettingsCard>
         ) : null}
         <SettingsCard

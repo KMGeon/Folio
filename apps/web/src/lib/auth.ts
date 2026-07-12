@@ -1,4 +1,4 @@
-import type { GlobalStatus, MembershipStatus, WorkspaceRole } from "@folio/types";
+import type { MembershipStatus, WorkspaceRole } from "@folio/types";
 import { webEnv } from "./env";
 
 interface ApiSuccessEnvelope<T> {
@@ -42,14 +42,6 @@ export interface SessionUser {
   isSystemAdmin: boolean;
 }
 
-export interface PendingUser {
-  id: string;
-  login: string;
-  avatarUrl: string;
-  email: string | null;
-  createdAt: string;
-}
-
 export interface WorkspaceMember {
   userId: string;
   login: string;
@@ -57,16 +49,6 @@ export interface WorkspaceMember {
   email: string | null;
   role: WorkspaceRole;
   status: MembershipStatus;
-}
-
-export interface GlobalUser {
-  id: string;
-  login: string;
-  avatarUrl: string;
-  email: string | null;
-  globalStatus: GlobalStatus;
-  isSystemAdmin: boolean;
-  createdAt: string;
 }
 
 export interface MutationResult {
@@ -139,48 +121,6 @@ export const changeMemberRole = (workspaceId: string, userId: string, role: Work
 export const transferOwnership = (workspaceId: string, userId: string) =>
   memberAction(workspaceId, "transfer-ownership", "POST", { userId });
 
-export async function listGlobalUsers(cookie?: string): Promise<GlobalUser[]> {
-  const response = await fetch(new URL("/api/v1/admin/users", webEnv.apiBaseUrl), {
-    credentials: "include",
-    headers: requestHeaders(cookie),
-  });
-  const data = await readApiPayload<{ users: GlobalUser[] }>(
-    response,
-    "사용자 목록을 불러오지 못했습니다.",
-  );
-  return data.users;
-}
-
-export function approveGlobalUser(id: string): Promise<MutationResult> {
-  return globalUserAction(`/users/${encodeURIComponent(id)}/approve`);
-}
-
-export function suspendGlobalUser(id: string): Promise<MutationResult> {
-  return globalUserAction(`/users/${encodeURIComponent(id)}/suspend`);
-}
-
-export function transferSystemAdmin(userId: string): Promise<MutationResult> {
-  return globalUserAction("/system-admin/transfer", { userId });
-}
-
-// Keep the pending-only UI functional while it is replaced, without calling removed routes.
-export async function getPendingUsers(cookie?: string): Promise<PendingUser[]> {
-  const users = await listGlobalUsers(cookie);
-  return users
-    .filter((user) => user.globalStatus === "pending")
-    .map(({ id, login, avatarUrl, email, createdAt }) => ({
-      id,
-      login,
-      avatarUrl,
-      email,
-      createdAt,
-    }));
-}
-
-export function approvePendingUser(id: string): Promise<MutationResult> {
-  return approveGlobalUser(id);
-}
-
 async function memberAction(
   workspaceId: string,
   path: string,
@@ -193,14 +133,6 @@ async function memberAction(
       webEnv.apiBaseUrl,
     ),
     mutationInit(method, body),
-  );
-  return readApiPayload<MutationResult>(response, "요청에 실패했습니다.");
-}
-
-async function globalUserAction(path: string, body?: unknown): Promise<MutationResult> {
-  const response = await fetch(
-    new URL(`/api/v1/admin${path}`, webEnv.apiBaseUrl),
-    mutationInit("POST", body),
   );
   return readApiPayload<MutationResult>(response, "요청에 실패했습니다.");
 }
