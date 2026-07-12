@@ -43,6 +43,8 @@ import {
 import { cn } from "@/lib/utils";
 import type { Prologue } from "@folio/types";
 
+import { useKeyChangeJump } from "./use-key-change-jump";
+
 type ChapterPanelTab = "chapters" | "activity";
 
 export function ReviewView({
@@ -103,7 +105,12 @@ export function ReviewView({
   const totalAdditions = files.reduce((sum, file) => sum + file.additions, 0);
   const totalDeletions = files.reduce((sum, file) => sum + file.deletions, 0);
 
-  const openChapter = openIndex === null ? null : reviewChapters.find((c) => c.index === openIndex);
+  const openChapter =
+    openIndex === null ? null : (reviewChapters.find((c) => c.index === openIndex) ?? null);
+  const { handleJumpToKeyChange, jumpNotice, jumpTarget } = useKeyChangeJump(
+    openChapter,
+    setCollapsedFiles,
+  );
   const openChapterPosition = openChapter
     ? reviewChapters.findIndex((chapter) => chapter.index === openChapter.index)
     : -1;
@@ -269,6 +276,7 @@ export function ReviewView({
               <DiffViewer
                 chapter={openChapter}
                 collapsedFiles={collapsedFiles}
+                jumpTarget={jumpTarget}
                 viewMode={diffViewMode}
                 onFileViewedChange={updateFileViewed}
                 onFileCollapseChange={updateFileCollapsed}
@@ -288,6 +296,8 @@ export function ReviewView({
                 number={pr.number}
                 showReviewFocus={preferences.showReviewFocus}
                 onKeyChangeViewedChange={updateKeyChangeViewed}
+                onJumpToKeyChange={handleJumpToKeyChange}
+                jumpNotice={jumpNotice}
               />
             </div>
           </div>
