@@ -22,10 +22,12 @@ import {
 } from "@/components/dashboard/dashboard-request-scope";
 import { DashboardSearchBar } from "@/components/dashboard/dashboard-search-bar";
 import {
+  columnLoadingStateForReset,
   connectDashboardBoardStream,
   hasActiveReviewJobs,
   initialColumns,
   type ColumnStateMap,
+  type DashboardReloadOptions,
 } from "@/components/dashboard/dashboard-board-stream";
 import {
   type DashboardBucket,
@@ -93,8 +95,10 @@ export function DashboardBoardClient({
       bucket: DashboardBucket,
       mode: DashboardLoadMode,
       version = requestEpochsRef.current[bucket === "completed" ? "completed" : "open"],
+      options?: DashboardReloadOptions,
     ) => {
       const requestScope = bucket === "completed" ? "completed" : "open";
+      const soft = options?.soft === true;
       const current = columnsRef.current[bucket];
       if (mode === "append" && (!current.nextCursor || current.isLoadingMore)) {
         return;
@@ -107,13 +111,17 @@ export function DashboardBoardClient({
 
       setColumns((prev) => ({
         ...prev,
-        [bucket]: {
-          ...prev[bucket],
-          isInitialLoading: mode === "reset",
-          isLoadingMore: mode === "append",
-          error: null,
-          items: mode === "reset" ? [] : prev[bucket].items,
-        },
+        [bucket]:
+          mode === "reset"
+            ? {
+                ...prev[bucket],
+                ...columnLoadingStateForReset(prev[bucket], soft),
+              }
+            : {
+                ...prev[bucket],
+                isLoadingMore: true,
+                error: null,
+              },
       }));
 
       try {
@@ -162,7 +170,8 @@ export function DashboardBoardClient({
   );
 
   const loadOpenBuckets = useCallback(
-    async (version = requestEpochsRef.current.open) => {
+    async (version = requestEpochsRef.current.open, options?: DashboardReloadOptions) => {
+      const soft = options?.soft === true;
       const requestToken = beginDashboardRequest(inFlightRef.current, "open", "reset");
       if (!requestToken) {
         return;
@@ -173,10 +182,7 @@ export function DashboardBoardClient({
         for (const bucket of openBuckets) {
           next[bucket] = {
             ...prev[bucket],
-            items: [],
-            isInitialLoading: true,
-            isLoadingMore: false,
-            error: null,
+            ...columnLoadingStateForReset(prev[bucket], soft),
           };
         }
         return next;
@@ -297,8 +303,9 @@ export function DashboardBoardClient({
         requestEpochsRef.current,
         "completed",
       );
-      void loadOpenBuckets(openEpoch);
-      void loadBucket("completed", "reset", completedEpoch);
+      // Quiet poll while review jobs run — keep cards visible.
+      void loadOpenBuckets(openEpoch, { soft: true });
+      void loadBucket("completed", "reset", completedEpoch, { soft: true });
     }, 3000);
     return () => window.clearInterval(interval);
   }, [hasActiveReviews, loadBucket, loadOpenBuckets]);
