@@ -35,5 +35,6 @@ next-env.d.ts
 
 # agent scratch/spec output
 docs/superpowers/
+.superpowers/
 .codegraph
 .debug-journal.md
