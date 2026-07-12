@@ -1,0 +1,914 @@
+<!doctype html>
+<html lang="ko" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Folio — Overview 전체 수정사항 Mock</title>
+    <style>
+      :root {
+        --bg: oklch(0.145 0 0);
+        --fg: oklch(0.903 0.014 60.6);
+        --card: oklch(0.192 0.002 17.3);
+        --muted: oklch(0.22 0.002 17.3);
+        --muted-fg: oklch(0.726 0.004 67.8);
+        --border: oklch(1 0 0 / 0.08);
+        --primary: oklch(0.58 0.13 145);
+        --primary-fg: oklch(0.98 0 0);
+        --add: oklch(0.72 0.15 145);
+        --del: oklch(0.68 0.18 25);
+        --warning: oklch(0.854 0.157 84.1);
+        --info: oklch(0.745 0.141 245.2);
+        --emphasis: oklch(0.738 0.17 305.3);
+        --radius: 0.625rem;
+        font-family:
+          "Geist",
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font-size: 13px;
+        line-height: 1.45;
+      }
+      .shell {
+        display: grid;
+        grid-template-columns: 48px 1fr;
+        min-height: 100vh;
+      }
+      .rail {
+        border-right: 1px solid oklch(1 0 0 / 0.04);
+        background: oklch(0.13 0 0);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 0;
+      }
+      .rail-dot {
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        background: var(--muted);
+        border: 1px solid var(--border);
+      }
+      .rail-dot.active {
+        background: oklch(0.58 0.13 145 / 0.2);
+        border-color: oklch(0.58 0.13 145 / 0.4);
+      }
+      .main {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+      }
+      .topbar {
+        /* match code: px-6 md:px-10 */
+        padding: 12px 40px 0;
+      }
+      .status-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border: 1px solid oklch(0.58 0.13 145 / 0.3);
+        background: oklch(0.58 0.13 145 / 0.1);
+        color: var(--primary);
+        border-radius: 6px;
+        padding: 2px 8px;
+        font-size: 12px;
+        font-weight: 500;
+      }
+      .eyebrow {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 10px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--muted-fg);
+      }
+      h1 {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 500;
+        letter-spacing: -0.02em;
+      }
+      h1 span {
+        color: var(--muted-fg);
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 14px;
+        margin-left: 6px;
+      }
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 14px;
+        margin-top: 8px;
+        color: var(--muted-fg);
+        font-size: 12px;
+      }
+      .branch {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 11px;
+        border-radius: 4px;
+        padding: 1px 6px;
+        border: 1px solid;
+      }
+      .branch.head {
+        color: var(--info);
+        background: oklch(0.72 0.12 240 / 0.15);
+        border-color: oklch(0.72 0.12 240 / 0.3);
+      }
+      .branch.base {
+        color: var(--primary);
+        background: oklch(0.58 0.13 145 / 0.15);
+        border-color: oklch(0.58 0.13 145 / 0.3);
+      }
+
+      /* Pill tabs — Image #2 style */
+      .tab-row {
+        margin-top: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 12px;
+      }
+      .tabs {
+        display: flex;
+        gap: 8px;
+      }
+      .tab {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid transparent;
+        border-radius: 8px;
+        padding: 10px 16px;
+        font-size: 14px;
+        color: var(--muted-fg);
+        background: transparent;
+        cursor: default;
+      }
+      .tab.active {
+        border-color: var(--border);
+        background: var(--muted);
+        color: var(--fg);
+        font-weight: 500;
+      }
+      .tab .count {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 12px;
+        border-radius: 999px;
+        padding: 2px 8px;
+        background: var(--muted);
+        color: var(--muted-fg);
+      }
+      .tab.active .count {
+        background: oklch(0.58 0.13 145 / 0.15);
+        color: var(--primary);
+      }
+      .progress {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 12px;
+        color: var(--muted-fg);
+        white-space: nowrap;
+      }
+      .progress strong {
+        color: var(--fg);
+        font-weight: 500;
+      }
+      .add {
+        color: var(--add);
+      }
+      .del {
+        color: var(--del);
+      }
+
+      /* Overview body — wider gutters */
+      .body {
+        flex: 1;
+        padding: 32px 40px;
+        overflow: auto;
+      }
+      .grid {
+        display: grid;
+        gap: 40px;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+        align-items: start;
+      }
+      @media (max-width: 980px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+        .topbar,
+        .body {
+          padding-left: 24px;
+          padding-right: 24px;
+        }
+      }
+
+      .section-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 20px;
+      }
+      .section-head.left {
+        justify-content: flex-start;
+        gap: 12px;
+      }
+      .seg {
+        display: inline-flex;
+        background: oklch(0.22 0.002 17.3 / 0.6);
+        border-radius: 8px;
+        padding: 6px;
+        gap: 2px;
+      }
+      .seg button {
+        border: 0;
+        background: transparent;
+        color: var(--muted-fg);
+        border-radius: 6px;
+        padding: 10px 16px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: default;
+      }
+      .seg button.active {
+        background: var(--card);
+        color: var(--fg);
+        box-shadow: 0 1px 2px oklch(0 0 0 / 0.25);
+      }
+
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 32px;
+      }
+      .stack {
+        display: flex;
+        flex-direction: column;
+        gap: 28px;
+      }
+
+      /* Fluorescent plain summary */
+      .plain {
+        border: 1px solid oklch(0.854 0.157 84.1 / 0.55);
+        background: oklch(0.854 0.157 84.1 / 0.2);
+        box-shadow: inset 4px 0 0 0 var(--warning);
+        border-radius: 8px;
+        padding: 16px 20px;
+      }
+      .plain-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+      .plain-label .eyebrow {
+        color: var(--warning);
+        font-weight: 500;
+      }
+      .plain-badge {
+        border: 1px solid oklch(0.854 0.157 84.1 / 0.4);
+        background: oklch(0.854 0.157 84.1 / 0.25);
+        color: var(--warning);
+        border-radius: 999px;
+        padding: 2px 8px;
+        font-size: 10px;
+        font-weight: 500;
+      }
+      .plain p {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 500;
+        line-height: 1.7;
+      }
+
+      .h3 {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 0 0 14px;
+        font-size: 14px;
+        font-weight: 500;
+      }
+      .h3.tone-info {
+        color: var(--info);
+      }
+      .h3.tone-primary {
+        color: var(--primary);
+      }
+      .h3.tone-emphasis {
+        color: var(--emphasis);
+      }
+      .h3.tone-warning {
+        color: var(--warning);
+      }
+      .sec-icon {
+        display: inline-flex;
+        width: 28px;
+        height: 28px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        border: 1px solid;
+        font-size: 12px;
+        flex-shrink: 0;
+      }
+      .sec-icon.info {
+        color: var(--info);
+        border-color: oklch(0.745 0.141 245.2 / 0.35);
+        background: oklch(0.745 0.141 245.2 / 0.15);
+      }
+      .sec-icon.primary {
+        color: var(--primary);
+        border-color: oklch(0.58 0.13 145 / 0.35);
+        background: oklch(0.58 0.13 145 / 0.15);
+      }
+      .sec-icon.emphasis {
+        color: var(--emphasis);
+        border-color: oklch(0.738 0.17 305.3 / 0.4);
+        background: oklch(0.738 0.17 305.3 / 0.15);
+      }
+      .sec-icon.warning {
+        color: var(--warning);
+        border-color: oklch(0.854 0.157 84.1 / 0.4);
+        background: oklch(0.854 0.157 84.1 / 0.15);
+      }
+      .body-text {
+        margin: 0;
+        font-size: 14px;
+        line-height: 1.75;
+        color: var(--fg);
+      }
+      .muted {
+        color: var(--muted-fg);
+      }
+      .key-change {
+        display: flex;
+        gap: 12px;
+        border-left: 2px solid oklch(0.58 0.13 145 / 0.5);
+        padding: 4px 0 4px 16px;
+        margin-bottom: 16px;
+      }
+      .key-change.emphasis {
+        border-left-color: oklch(0.738 0.17 305.3 / 0.6);
+      }
+      .key-change .num {
+        display: inline-flex;
+        width: 24px;
+        height: 24px;
+        flex-shrink: 0;
+        align-items: center;
+        justify-content: center;
+        margin-top: 2px;
+        border-radius: 999px;
+        border: 1px solid oklch(0.738 0.17 305.3 / 0.4);
+        background: oklch(0.738 0.17 305.3 / 0.15);
+        color: var(--emphasis);
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 12px;
+        font-weight: 500;
+      }
+      .key-change strong {
+        display: block;
+        font-size: 14px;
+        font-weight: 500;
+        margin-bottom: 8px;
+      }
+      .focus-box {
+        border: 1px solid var(--border);
+        background: oklch(0.22 0.002 17.3 / 0.2);
+        border-radius: 6px;
+        padding: 16px;
+      }
+      .focus-box.warning {
+        border-color: oklch(0.854 0.157 84.1 / 0.25);
+        background: oklch(0.854 0.157 84.1 / 0.05);
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        border: 1px solid;
+        padding: 4px 10px;
+        font-size: 12px;
+        font-weight: 500;
+      }
+      .chip.low {
+        border-color: oklch(0.58 0.13 145 / 0.3);
+        background: oklch(0.58 0.13 145 / 0.1);
+        color: var(--primary);
+      }
+      .chip.medium {
+        border-color: oklch(0.854 0.157 84.1 / 0.45);
+        background: oklch(0.854 0.157 84.1 / 0.15);
+        color: var(--warning);
+      }
+      .chip.high {
+        border-color: oklch(0.68 0.18 25 / 0.35);
+        background: oklch(0.68 0.18 25 / 0.12);
+        color: var(--del);
+      }
+      .loc {
+        display: inline-block;
+        margin-top: 10px;
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 12px;
+        background: var(--muted);
+        color: var(--muted-fg);
+        border-radius: 6px;
+        padding: 4px 10px;
+      }
+
+      /* Right: chapter cards */
+      .continue {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        width: 100%;
+        border: 1px solid oklch(0.58 0.13 145 / 0.3);
+        background: oklch(0.58 0.13 145 / 0.1);
+        border-radius: 8px;
+        padding: 14px 20px;
+        text-align: left;
+        color: inherit;
+        margin-bottom: 20px;
+      }
+      .continue .label {
+        color: var(--primary);
+        font-size: 12px;
+        font-weight: 500;
+      }
+      .continue .title {
+        margin-top: 2px;
+        font-size: 14px;
+      }
+      .continue .cta {
+        margin-left: auto;
+        background: var(--primary);
+        color: var(--primary-fg);
+        border-radius: 6px;
+        padding: 8px 12px;
+        font-size: 12px;
+        font-weight: 500;
+        white-space: nowrap;
+      }
+
+      .chapter-card {
+        border: 1px solid var(--border);
+        background: var(--card);
+        border-radius: var(--radius);
+        padding: 16px 18px;
+      }
+      .chapter-top {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+      }
+      .radio {
+        width: 16px;
+        height: 16px;
+        border-radius: 999px;
+        border: 1.5px solid var(--primary);
+        margin-top: 3px;
+        flex-shrink: 0;
+      }
+      .chapter-title {
+        font-size: 14px;
+        font-weight: 500;
+        margin: 0 0 10px;
+      }
+      .meta-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-bottom: 12px;
+      }
+      .meta-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        border: 1px solid var(--border);
+        background: var(--muted);
+        border-radius: 999px;
+        padding: 3px 10px;
+        font-size: 11px;
+        color: var(--muted-fg);
+      }
+      .meta-chip.risk {
+        border-color: oklch(0.68 0.18 25 / 0.35);
+        background: oklch(0.68 0.18 25 / 0.12);
+        color: var(--del);
+      }
+      .meta-chip.ok {
+        border-color: oklch(0.58 0.13 145 / 0.3);
+        background: oklch(0.58 0.13 145 / 0.1);
+        color: var(--primary);
+      }
+      .chapter-summary {
+        margin: 0 0 14px;
+        color: var(--muted-fg);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      .focus-preview {
+        border: 1px solid var(--border);
+        background: oklch(0.22 0.002 17.3 / 0.25);
+        border-radius: 8px;
+        padding: 12px 14px;
+      }
+      .focus-preview-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 10px;
+        font-size: 12px;
+        font-weight: 500;
+      }
+      .focus-preview-head .n {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 11px;
+        color: var(--muted-fg);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 1px 7px;
+      }
+      .q {
+        display: flex;
+        gap: 8px;
+        align-items: flex-start;
+        padding: 6px 0;
+        font-size: 12.5px;
+        line-height: 1.45;
+        color: var(--fg);
+      }
+      .q .box {
+        width: 14px;
+        height: 14px;
+        border-radius: 3px;
+        border: 1px solid oklch(0.854 0.157 84.1 / 0.55);
+        background: oklch(0.854 0.157 84.1 / 0.12);
+        flex-shrink: 0;
+        margin-top: 1px;
+      }
+
+      /* Legend strip */
+      .legend {
+        border-top: 1px solid var(--border);
+        margin-top: 8px;
+        padding: 24px 40px 40px;
+        background: oklch(0.13 0 0);
+      }
+      .legend h2 {
+        margin: 0 0 6px;
+        font-size: 16px;
+        font-weight: 500;
+      }
+      .legend .lead {
+        margin: 0 0 18px;
+        color: var(--muted-fg);
+        max-width: 70ch;
+      }
+      .legend-grid {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      }
+      .legend-item {
+        border: 1px solid var(--border);
+        background: var(--card);
+        border-radius: 8px;
+        padding: 14px 16px;
+      }
+      .legend-item strong {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 13px;
+      }
+      .legend-item p {
+        margin: 0;
+        color: var(--muted-fg);
+        font-size: 12px;
+        line-height: 1.55;
+      }
+      .tag {
+        display: inline-block;
+        margin-bottom: 8px;
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 10px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--primary);
+      }
+      .icon {
+        width: 14px;
+        height: 14px;
+        display: inline-block;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="rail" aria-hidden="true">
+        <div class="rail-dot active"></div>
+        <div class="rail-dot"></div>
+        <div class="rail-dot"></div>
+        <div class="rail-dot"></div>
+      </aside>
+
+      <div class="main">
+        <header class="topbar">
+          <div class="status-row">
+            <span class="pill">● 열려 있는</span>
+            <span class="eyebrow">풀 리퀘스트</span>
+          </div>
+          <h1>
+            fix(web): chapter panel spacing and progress chips
+            <span>#117</span>
+          </h1>
+          <div class="meta">
+            <span>
+              <span class="branch head">KMGeon/chapter-panel-spacing</span>
+              →
+              <span class="branch base">main</span>
+            </span>
+            <span style="font-family: ui-monospace, Menlo, monospace">58f2c7908c57</span>
+            <span>KMGeon</span>
+          </div>
+
+          <div class="tab-row">
+            <div class="tabs">
+              <div class="tab active">
+                📖 챕터
+                <span class="count">1</span>
+              </div>
+              <div class="tab">
+                📄 파일
+                <span class="count">1</span>
+              </div>
+            </div>
+            <div class="progress">
+              <strong>챕터 1/1</strong>
+              · 파일 0/1
+              <span class="add">+42</span>
+              <span class="del">-37</span>
+            </div>
+          </div>
+        </header>
+
+        <div class="body">
+          <div class="grid">
+            <!-- LEFT: prologue -->
+            <section>
+              <div class="section-head left">
+                <span class="eyebrow">프롤로그</span>
+                <div class="seg">
+                  <button class="active" type="button">요약</button>
+                  <button type="button">설명</button>
+                  <button type="button">댓글 1</button>
+                </div>
+              </div>
+
+              <article class="card stack">
+                <!-- NEW: fluorescent non-dev summary -->
+                <div class="plain">
+                  <div class="plain-label">
+                    <span aria-hidden="true">✨</span>
+                    <span class="eyebrow">한눈에 보기</span>
+
+                  </div>
+                  <p>
+                    이 PR은 챕터 리뷰 화면을 덜 답답하게 보이게 정리해서, 검토자가 진행 상태와
+                    확인해야 할 항목을 더 빨리 파악할 수 있게 만듭니다.
+                  </p>
+                </div>
+
+                <div>
+                  <h3 class="h3 tone-info">
+                    <span class="sec-icon info">↗</span>
+                    왜 이 PR인가?
+                  </h3>
+                  <p class="body-text">
+                    챕터 패널의 정보들이 너무 붙어 보여 검토자가 진행 상태와 검토 항목을 빠르게
+                    읽기 어려웠습니다.
+                  </p>
+                </div>
+
+                <div>
+                  <h3 class="h3 tone-primary">
+                    <span class="sec-icon primary">{ }</span>
+                    무엇을 하는가
+                  </h3>
+                  <p class="body-text">
+                    진행 상태는 칩으로 분리되고 패널 섹션과 목록의 여백이 늘어나 더 읽기
+                    쉬워집니다.
+                  </p>
+                </div>
+
+                <div>
+                  <h3 class="h3 tone-emphasis">
+                    <span class="sec-icon emphasis">☰</span>
+                    핵심 변경
+                  </h3>
+                  <div class="key-change emphasis">
+                    <span class="num">1</span>
+                    <div>
+                      <strong>진행 상태를 분리된 칩으로 표시</strong>
+                      <p class="body-text muted">
+                        검토, 파일, 증감 정보를 붙은 텍스트 대신 독립 칩으로 보여줍니다.
+                      </p>
+                    </div>
+                  </div>
+                  <div class="key-change emphasis">
+                    <span class="num">2</span>
+                    <div>
+                      <strong>검토 영역의 읽기 여백 확대</strong>
+                      <p class="body-text muted">
+                        검토 제목, 알림, 빈 상태, 카드 주변 간격을 더 넓혔습니다.
+                      </p>
+                    </div>
+                  </div>
+                  <div class="key-change emphasis">
+                    <span class="num">3</span>
+                    <div>
+                      <strong>파일과 챕터 탐색 행 조정</strong>
+                      <p class="body-text muted">
+                        필터 입력과 챕터 버튼 높이를 키워 클릭과 스캔을 개선했습니다.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 class="h3 tone-warning">
+                    <span class="sec-icon warning">◎</span>
+                    리뷰 포커스
+                  </h3>
+                  <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px">
+                    <span class="chip low">low</span>
+                    <p class="body-text muted" style="margin: 0">
+                      단일 React 컴포넌트의 Tailwind 클래스 중심 UI 조정이며 상태나 데이터 흐름
+                      변경은 없습니다.
+                    </p>
+                  </div>
+                  <div class="focus-box warning">
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center">
+                      <span class="chip medium">medium</span>
+                      <strong style="font-size: 14px">시각 밀도 회귀 확인 필요</strong>
+                    </div>
+                    <p class="body-text muted" style="margin-top: 12px">
+                      여백 변경은 자동 테스트만으로 품질 판단이 어려우므로 실제 다중 검토 항목
+                      화면에서 확인하세요.
+                    </p>
+                    <span class="loc">apps/web/src/components/review/chapter-panel.tsx</span>
+                  </div>
+                </div>
+              </article>
+            </section>
+
+            <!-- RIGHT: review / chapters -->
+            <section>
+              <div class="section-head">
+                <span class="eyebrow">리뷰</span>
+                <div class="seg">
+                  <button class="active" type="button">챕터 1</button>
+                  <button type="button">활동 20+</button>
+                </div>
+              </div>
+
+              <button class="continue" type="button">
+                <div>
+                  <div class="label">이어서 리뷰</div>
+                  <div class="title">제1장 · 챕터 패널 여백과 진행 칩 개선</div>
+                </div>
+                <span class="cta">계속 →</span>
+              </button>
+
+              <div class="chapter-card">
+                <div class="chapter-top">
+                  <div class="radio" aria-hidden="true"></div>
+                  <div style="min-width: 0; flex: 1">
+                    <h3 class="chapter-title">챕터 패널 여백과 진행 칩 개선</h3>
+                    <div class="meta-chips">
+                      <span class="meta-chip risk">높은 위험</span>
+                      <span class="meta-chip ok">검토 3/3</span>
+                      <span class="meta-chip">파일 0/1</span>
+                      <span class="meta-chip"><span class="add">+42</span>&nbsp;<span class="del">-37</span></span>
+                    </div>
+                    <p class="chapter-summary">
+                      챕터 사이드 패널의 진행 상태, 요약, 검토 카드, 파일/챕터 목록 간격을 더
+                      여유 있게 조정했습니다. 진행 메타 정보를 개별 칩으로 나누고 섹션 패딩과 행
+                      높이를 키웠습니다.
+                    </p>
+                    <div class="focus-preview">
+                      <div class="focus-preview-head">
+                        <span>검토할 사항</span>
+                        <span class="n">3/3</span>
+                      </div>
+                      <div class="q">
+                        <span class="box"></span>
+                        <span>진행 칩이 좁은 패널에서도 줄바꿈될 때 읽기 흐름을 해치지 않나요?</span>
+                      </div>
+                      <div class="q">
+                        <span class="box"></span>
+                        <span>늘어난 섹션 패딩이 diff 영역 대비 패널 밀도를 과하게 낮추지는 않나요?</span>
+                      </div>
+                      <div class="q">
+                        <span class="box"></span>
+                        <span>파일 필터와 챕터 목록의 커진 행 높이가 긴 챕터에서 탐색 효율을 유지하나요?</span>
+                      </div>
+                    </div>
+                  </div>
+                  <span style="color: var(--muted-fg); margin-top: 2px">→</span>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <footer class="legend">
+          <h2>이 Mock에 포함된 수정사항</h2>
+          <p class="lead">
+            최근 리뷰 오버뷰 작업(여백·탭·한눈 요약·챕터 카드 포커스 프리뷰)을 한 화면에
+            모았습니다. 실제 코드 토큰(OKLCH dark)을 사용합니다.
+          </p>
+          <div class="legend-grid">
+            <div class="legend-item">
+              <span class="tag">1 · plain summary</span>
+              <strong>형광 「한눈에 보기」</strong>
+              <p>
+                1–2문장 제품 언어 요약. 앰버 하이라이터 배경 + 왼쪽 형광 바.
+                AI <code>plainSummary</code> 필드 (구 데이터는 motivation/outcome 폴백).
+              </p>
+            </div>
+            <div class="legend-item">
+              <span class="tag">1b · section colors</span>
+              <strong>섹션 제목 색 구분</strong>
+              <p>
+                왜 이 PR인가 = 파랑(info) · 무엇을 하는가 = 초록(primary) ·
+                핵심 변경 = 보라(emphasis) · 리뷰 포커스 = 앰버(warning).
+              </p>
+            </div>
+            <div class="legend-item">
+              <span class="tag">2 · gutters</span>
+              <strong>왼쪽 여백 확대</strong>
+              <p>
+                상단/본문 <code>px-6 / md:px-10</code>, 컬럼 간격 <code>gap-8 / lg:gap-10</code>,
+                요약 카드 <code>p-6 md:p-8</code>로 왼쪽 답답함 완화.
+              </p>
+            </div>
+            <div class="legend-item">
+              <span class="tag">3 · tabs</span>
+              <strong>큰 pill 탭</strong>
+              <p>
+                챕터/파일: <code>px-4 py-2.5</code> pill chip. 요약·설명·댓글 / 챕터·활동
+                세그먼트도 동일 패딩으로 명확하게.
+              </p>
+            </div>
+            <div class="legend-item">
+              <span class="tag">4 · chapter cards</span>
+              <strong>검토 사항 프리뷰</strong>
+              <p>
+                오버뷰 챕터 카드에 진행 칩 + 검토할 사항 최대 3개 미리보기.
+                클릭 전에 무엇을 볼지 바로 스캔.
+              </p>
+            </div>
+            <div class="legend-item">
+              <span class="tag">5 · progress</span>
+              <strong>챕터 우선 진행</strong>
+              <p>
+                상단 진행 신호: <strong>챕터 n/N</strong> 이 1순위, 파일 a/b 는 보조.
+                「viewed」 카피 제거.
+              </p>
+            </div>
+            <div class="legend-item">
+              <span class="tag">6 · focus colors</span>
+              <strong>포커스 하이라이트 (참고)</strong>
+              <p>
+                챕터 드릴인 시 검토 행 ↔ diff 라인 링크. 추가 초록이 아닌 앰버/info 블루로
+                구분 (이 오버뷰 mock에서는 체크박스 테두리로 암시).
+              </p>
+            </div>
+          </div>
+        </footer>
+      </div>
+    </div>
+  </body>
+</html>

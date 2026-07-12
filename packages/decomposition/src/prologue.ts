@@ -95,6 +95,10 @@ export function buildFallbackPrologue(
 ): Prologue {
   const title = input.prTitle?.trim();
   return {
+    // Deterministic path has no model — surface the title as a plain TL;DR when present.
+    plainSummary: title
+      ? `이 PR은 "${title}" 작업을 처리합니다. 세부 동작은 아래 요약과 Stage를 확인하세요.`
+      : null,
     motivation: title ? `PR 제목: ${title}` : null,
     outcome: null,
     diagram: null,

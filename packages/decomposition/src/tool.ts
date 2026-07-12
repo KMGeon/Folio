@@ -147,13 +147,29 @@ const prologueSchema = {
   additionalProperties: false,
   // Strict structured output: every property must be listed in `required`; optional
   // values (diagram) stay expressible via a nullable type rather than omission.
-  required: ["motivation", "outcome", "diagram", "keyChanges", "focusAreas", "complexity"],
+  required: [
+    "plainSummary",
+    "motivation",
+    "outcome",
+    "diagram",
+    "keyChanges",
+    "focusAreas",
+    "complexity",
+  ],
   properties: {
+    plainSummary: {
+      type: ["string", "null"],
+      description:
+        "1–2 Korean sentences a NON-engineer can read: what this PR handles and why it matters. No file paths, component names, or code jargon. Null only when the product intent is truly unclear.",
+    },
     motivation: {
       type: ["string", "null"],
-      description: "One non-engineer sentence, or null when not obvious.",
+      description: "One non-engineer sentence for why the PR exists, or null when not obvious.",
     },
-    outcome: { type: ["string", "null"] },
+    outcome: {
+      type: ["string", "null"],
+      description: "One non-engineer sentence for what becomes true after merge, or null.",
+    },
     diagram: {
       type: ["string", "null"],
       description: "Mermaid source (no fences) or null. Most changes: null.",
