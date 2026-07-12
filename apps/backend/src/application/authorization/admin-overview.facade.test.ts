@@ -1,6 +1,7 @@
 import {
   type AdminAuditRow,
   adminAuditRepo,
+  adminHealthRepo,
   adminJobsRepo,
   adminUsersRepo,
   adminWorkspacesRepo,
@@ -14,6 +15,7 @@ vi.mock("@folio/db", () => ({
   adminUsersRepo: { countPending: vi.fn() },
   adminWorkspacesRepo: { countOverview: vi.fn() },
   adminJobsRepo: { countOverview: vi.fn() },
+  adminHealthRepo: { getProjection: vi.fn() },
 }));
 
 const emptyQueue = {
@@ -23,6 +25,19 @@ const emptyQueue = {
   retrying: 0,
   succeededLast24h: 0,
   deadLast24h: 0,
+};
+
+const healthyWorkers = {
+  checkedAt: new Date("2026-07-12T12:00:00.000Z"),
+  worker: { status: "ok" as const, staleAfterSeconds: 45, workers: [] },
+  codexPath: {
+    status: "no_success" as const,
+    lastReviewPullSucceededAt: null,
+    reviewPullSucceededLast24h: 0,
+    reviewPullFailedLast24h: 0,
+    note: "note",
+  },
+  queue: { pending: 0, distressedJobs: 0 },
 };
 
 function auditRow(): AdminAuditRow {
@@ -60,6 +75,7 @@ describe("AdminOverviewFacade", () => {
       suspendedInstallations: 0,
     });
     vi.mocked(adminJobsRepo.countOverview).mockResolvedValue(emptyQueue);
+    vi.mocked(adminHealthRepo.getProjection).mockResolvedValue(healthyWorkers);
 
     await expect(facade.get()).resolves.toEqual({
       metrics: {
@@ -93,6 +109,22 @@ describe("AdminOverviewFacade", () => {
       distressedJobs: 2,
       pending: 1,
     });
+    vi.mocked(adminHealthRepo.getProjection).mockResolvedValue({
+      ...healthyWorkers,
+      worker: {
+        status: "stale",
+        staleAfterSeconds: 45,
+        workers: [
+          {
+            workerId: "worker-1",
+            lastSeenAt: new Date(),
+            startedAt: new Date(),
+            ageSeconds: 100,
+            status: "stale",
+          },
+        ],
+      },
+    });
     vi.mocked(adminAuditRepo.list).mockResolvedValue({
       items: Array.from({ length: 6 }, () => auditRow()),
       hasMore: true,
@@ -104,6 +136,7 @@ describe("AdminOverviewFacade", () => {
       { kind: "pending_users", count: 3 },
       { kind: "suspended_installations", count: 1 },
       { kind: "distressed_jobs", count: 2 },
+      { kind: "worker_stale", count: 1 },
     ]);
     expect(result.metrics.distressedJobs).toBe(2);
     expect(result.queueSnapshot.pending).toBe(1);

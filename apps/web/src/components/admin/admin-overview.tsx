@@ -8,6 +8,8 @@ export function AdminOverview({ payload }: { payload: AdminOverviewPayload }) {
     (item) => item.kind === "suspended_installations",
   );
   const distressedAttention = payload.attention.find((item) => item.kind === "distressed_jobs");
+  const workerStaleAttention = payload.attention.find((item) => item.kind === "worker_stale");
+  const workerUnknownAttention = payload.attention.find((item) => item.kind === "worker_unknown");
 
   return (
     <div className="space-y-4">
@@ -40,6 +42,18 @@ export function AdminOverview({ payload }: { payload: AdminOverviewPayload }) {
           tone="destructive"
           label={`문제 작업 ${distressedAttention.count}개`}
         />
+      ) : null}
+
+      {workerStaleAttention ? (
+        <AttentionLink
+          href="/admin/health"
+          tone="destructive"
+          label={`Worker heartbeat stale (${workerStaleAttention.count})`}
+        />
+      ) : null}
+
+      {workerUnknownAttention ? (
+        <AttentionLink href="/admin/health" tone="destructive" label="Worker heartbeat 없음" />
       ) : null}
 
       <section className="rounded-lg border bg-card">
