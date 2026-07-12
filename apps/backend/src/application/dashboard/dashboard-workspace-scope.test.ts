@@ -115,11 +115,42 @@ describe("dashboard workspace scope", () => {
     ).rejects.toBeInstanceOf(CoreException);
   });
 
-  it("allows an active reviewer and checks every repository with live GitHub read access", async () => {
+  it("checks only enabled repositories that can appear on a live dashboard board", async () => {
+    vi.mocked(repositoriesRepo.listByWorkspaceId).mockResolvedValue([
+      {
+        id: "repository-1",
+        installationId: "installation-1",
+        owner: "acme",
+        name: "folio",
+        fullName: "acme/folio",
+        folioEnabled: true,
+        prIndexStatus: "ready",
+      } as never,
+      {
+        id: "repository-2",
+        installationId: "installation-1",
+        owner: "acme",
+        name: "disabled",
+        fullName: "acme/disabled",
+        folioEnabled: false,
+        prIndexStatus: "ready",
+      } as never,
+      {
+        id: "repository-3",
+        installationId: "installation-1",
+        owner: "acme",
+        name: "idle",
+        fullName: "acme/idle",
+        folioEnabled: false,
+        prIndexStatus: "idle",
+      } as never,
+    ]);
+
     const scope = await loadDashboardWorkspaceScope(
       "user-1",
       "octocat",
       filterReadableResolvedRepositories,
+      { boardRead: true, indexRead: false },
     );
 
     expect(workspaceMembersRepo.listByUser).toHaveBeenCalledWith("user-1");
@@ -131,7 +162,42 @@ describe("dashboard workspace scope", () => {
       repositories: [expect.objectContaining({ id: "repository-1", name: "folio" })],
       username: "octocat",
     });
+    expect(scope?.repositories.map((repository) => repository.id)).toEqual(["repository-1"]);
     expect(scope?.installations.map((installation) => installation.id)).toEqual(["installation-1"]);
+  });
+
+  it("checks only enabled ready repositories for an index-backed dashboard board", async () => {
+    vi.mocked(repositoriesRepo.listByWorkspaceId).mockResolvedValue([
+      {
+        id: "ready-repo",
+        installationId: "installation-1",
+        owner: "acme",
+        name: "ready",
+        fullName: "acme/ready",
+        folioEnabled: true,
+        prIndexStatus: "ready",
+      } as never,
+      {
+        id: "idle-repo",
+        installationId: "installation-1",
+        owner: "acme",
+        name: "idle",
+        fullName: "acme/idle",
+        folioEnabled: true,
+        prIndexStatus: "idle",
+      } as never,
+    ]);
+
+    await loadDashboardWorkspaceScope("user-1", "octocat", filterReadableResolvedRepositories, {
+      boardRead: true,
+      indexRead: true,
+    });
+
+    expect(filterReadableResolvedRepositories).toHaveBeenCalledWith({
+      installations: [{ id: "installation-1", githubInstallationId: 111 }],
+      repositories: [expect.objectContaining({ id: "ready-repo", name: "ready" })],
+      username: "octocat",
+    });
   });
 
   it("filters repository metadata when live GitHub read permission is denied", async () => {

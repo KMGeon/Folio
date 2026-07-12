@@ -42,10 +42,8 @@ describe("dashboard index pull pages", () => {
       indexRow({ repoId: "idle-repo", number: 2, title: "Not ready" }),
     ]);
     const octokitFactory = vi.fn();
-    const facade = new DashboardFacade({
-      octokitFactory,
-      workspaceScopeLoader: async () => workspaceScope(),
-    });
+    const workspaceScopeLoader = vi.fn(async () => workspaceScope());
+    const facade = new DashboardFacade({ octokitFactory, workspaceScopeLoader });
 
     const pages = await facade.getOpenPullPagesForUser(
       { id: "user-1", login: "viewer" },
@@ -53,6 +51,10 @@ describe("dashboard index pull pages", () => {
     );
 
     expect(listOpenByRepoIds).toHaveBeenCalledWith(["ready-repo"]);
+    expect(workspaceScopeLoader).toHaveBeenCalledWith("user-1", "viewer", expect.any(Function), {
+      boardRead: true,
+      indexRead: true,
+    });
     expect(pages.other.items.map((pull) => pull.title)).toEqual(["Indexed PR"]);
     expect(octokitFactory).not.toHaveBeenCalled();
   });
