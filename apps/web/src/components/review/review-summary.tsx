@@ -23,12 +23,12 @@ const severityClasses: Record<FocusAreaSeverity, string> = {
 export function ReviewSummary({ prologue }: { prologue: Prologue }) {
   return (
     <article className="space-y-4 rounded-lg border bg-card p-4">
-      <SummarySection icon={GitPullRequestArrow} title="Why this PR?">
+      <SummarySection icon={GitPullRequestArrow} title="왜 이 PR인가?">
         <p className={cn("text-sm leading-6", !prologue.motivation && "text-muted-foreground")}>
           {prologue.motivation ?? "변경 내용에서 명확히 확인되지 않았습니다."}
         </p>
       </SummarySection>
-      <SummarySection icon={Braces} title="What it does">
+      <SummarySection icon={Braces} title="무엇을 하는가">
         <p className={cn("text-sm leading-6", !prologue.outcome && "text-muted-foreground")}>
           {prologue.outcome ?? "변경 내용에서 명확히 확인되지 않았습니다."}
         </p>
@@ -36,7 +36,7 @@ export function ReviewSummary({ prologue }: { prologue: Prologue }) {
           <MermaidDiagram source={prologue.diagram} label="PR 변경 흐름도" />
         ) : null}
       </SummarySection>
-      <SummarySection icon={ListChecks} title="Key changes">
+      <SummarySection icon={ListChecks} title="핵심 변경">
         {prologue.keyChanges.length ? (
           <div className="space-y-3">
             {prologue.keyChanges.map((change) => (
@@ -53,7 +53,7 @@ export function ReviewSummary({ prologue }: { prologue: Prologue }) {
           <p className="text-muted-foreground text-sm">핵심 변경이 제공되지 않았습니다.</p>
         )}
       </SummarySection>
-      <SummarySection icon={ScanSearch} title="Review focus">
+      <SummarySection icon={ScanSearch} title="리뷰 포커스">
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <span
             className={cn(

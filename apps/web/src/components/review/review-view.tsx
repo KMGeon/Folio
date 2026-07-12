@@ -343,7 +343,7 @@ export function ReviewView({
             <div className="flex h-12 items-center justify-between border-b px-3">
               <div className="flex items-center gap-2 font-medium">
                 <FileText className="size-4 text-muted-foreground" />
-                Files
+                파일
                 <span className="text-muted-foreground">({files.length})</span>
               </div>
             </div>

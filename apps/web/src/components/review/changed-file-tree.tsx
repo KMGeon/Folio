@@ -34,35 +34,35 @@ const FILE_STATUS_META: Record<
   }
 > = {
   added: {
-    label: "Added",
+    label: "추가",
     chip: "A",
     icon: FilePlus2,
     className: "text-diff-add-fg",
     chipClassName: "border-diff-add-fg/30 bg-diff-add-bg text-diff-add-fg",
   },
   modified: {
-    label: "Modified",
+    label: "수정",
     chip: "M",
     icon: FilePenLine,
     className: "text-muted-foreground",
     chipClassName: "border-border bg-muted/60 text-muted-foreground",
   },
   deleted: {
-    label: "Deleted",
+    label: "삭제",
     chip: "D",
     icon: FileMinus2,
     className: "text-diff-del-fg",
     chipClassName: "border-diff-del-fg/30 bg-diff-del-bg text-diff-del-fg",
   },
   renamed: {
-    label: "Renamed",
+    label: "이름 변경",
     chip: "R",
     icon: FileSymlink,
     className: "text-syntax-link",
     chipClassName: "border-syntax-link/30 bg-syntax-link/10 text-syntax-link",
   },
   moved: {
-    label: "Moved",
+    label: "이동",
     chip: "V",
     icon: FileSymlink,
     className: "text-syntax-link",

@@ -1,5 +1,6 @@
 import {
   type InstallationRow,
+  PR_INDEX_STATUS,
   type RepositoryRow,
   type WorkspaceRow,
   installationsRepo,
@@ -23,10 +24,16 @@ export type DashboardResolvedRepositoryBatchAuthorizer = (input: {
   username: string;
 }) => Promise<RepositoryRow[]>;
 
+export type DashboardWorkspaceScopeOptions = {
+  boardRead?: boolean;
+  indexRead?: boolean;
+};
+
 export async function loadDashboardWorkspaceScope(
   userId: string,
   userLogin: string,
   filterReadableRepositories: DashboardResolvedRepositoryBatchAuthorizer,
+  options: DashboardWorkspaceScopeOptions = {},
 ): Promise<DashboardWorkspaceScope | null> {
   const [membership] = await workspaceMembersRepo.listByUser(userId);
   if (!membership) {
@@ -44,9 +51,17 @@ export async function loadDashboardWorkspaceScope(
     installationsRepo.listByWorkspaceAccountId(workspace.githubAccountId),
     repositoriesRepo.listByWorkspaceId(workspace.id),
   ]);
+  const boardCandidates = options.boardRead
+    ? repositories.filter(
+        (repository) =>
+          repository.folioEnabled &&
+          (!options.indexRead || repository.prIndexStatus === PR_INDEX_STATUS.READY),
+      )
+    : repositories;
   const authorizedRepositories = await filterReadableRepositories({
     installations,
-    repositories,
+    // Board reads can never expose disabled or unindexed repositories, so avoid live checks for them.
+    repositories: boardCandidates,
     username: userLogin,
   });
   return { workspace, installations, repositories: authorizedRepositories };

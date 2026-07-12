@@ -130,13 +130,13 @@ export function ReviewTopBar({
             active={activeTab === "files"}
             onClick={() => onTabChange("files")}
             icon={FileText}
-            label="파일이 변경됨"
+            label="파일"
             count={fileCount}
           />
         </nav>
         <span className="flex shrink-0 items-center gap-2 font-mono text-xs tabular-nums">
           <span className="text-muted-foreground">
-            {viewedFiles}/{totalFiles} viewed
+            {viewedFiles}/{totalFiles} 읽음
           </span>
           <span className="text-diff-add-fg">+{totalAdditions}</span>
           <span className="text-diff-del-fg">-{totalDeletions}</span>

@@ -102,7 +102,7 @@ export function MissingReviewPrompt({
     <div className="flex flex-1 items-center justify-center px-6 py-16">
       <section className="w-full max-w-lg rounded-lg border bg-card p-6">
         <p className="font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground">
-          Missing review
+          리뷰 없음
         </p>
         <h1 className="mt-3 text-xl font-medium">Folio 리뷰가 없습니다</h1>
         <p className="mt-3 text-sm leading-relaxed text-muted-foreground">

@@ -30,6 +30,7 @@ import type {
 import type { ReviewAnalysisStatus } from "../review/review-lifecycle.js";
 import {
   type DashboardWorkspaceScope,
+  type DashboardWorkspaceScopeOptions,
   type DashboardResolvedRepositoryBatchAuthorizer,
   loadDashboardWorkspaceScope,
 } from "./dashboard-workspace-scope.js";
@@ -98,6 +99,7 @@ export interface DashboardDeps {
     userId: string,
     userLogin: string,
     filterReadableRepositories: DashboardResolvedRepositoryBatchAuthorizer,
+    options?: DashboardWorkspaceScopeOptions,
   ) => Promise<DashboardWorkspaceScope | null>;
 }
 
@@ -227,7 +229,10 @@ export class DashboardFacade {
   }
 
   async getPullPageForUser(user: { id: string; login: string }, input: DashboardPullPageQuery) {
-    const scope = await this.loadWorkspaceScope(user);
+    const scope = await this.loadWorkspaceScope(user, {
+      boardRead: true,
+      indexRead: config.DASHBOARD_READ_FROM_INDEX,
+    });
     if (config.DASHBOARD_READ_FROM_INDEX) {
       return getDashboardPullPageFromIndex(user, input, scope);
     }
@@ -247,7 +252,10 @@ export class DashboardFacade {
     user: { id: string; login: string },
     input: DashboardOpenPullPageQuery,
   ) {
-    const scope = await this.loadWorkspaceScope(user);
+    const scope = await this.loadWorkspaceScope(user, {
+      boardRead: true,
+      indexRead: config.DASHBOARD_READ_FROM_INDEX,
+    });
     if (config.DASHBOARD_READ_FROM_INDEX) {
       return getDashboardOpenPullPagesFromIndex(user, input, scope);
     }
@@ -263,16 +271,20 @@ export class DashboardFacade {
     );
   }
 
-  private loadWorkspaceScope(user: {
-    id: string;
-    login: string;
-  }): Promise<DashboardWorkspaceScope | null> {
+  private loadWorkspaceScope(
+    user: {
+      id: string;
+      login: string;
+    },
+    options?: DashboardWorkspaceScopeOptions,
+  ): Promise<DashboardWorkspaceScope | null> {
     const filterReadableRepositories: DashboardResolvedRepositoryBatchAuthorizer = (input) =>
       this.deps.repoAccess?.filterReadableResolvedRepositories(input) ?? Promise.resolve([]);
     return (this.deps.workspaceScopeLoader ?? loadDashboardWorkspaceScope)(
       user.id,
       user.login,
       filterReadableRepositories,
+      options,
     );
   }
 

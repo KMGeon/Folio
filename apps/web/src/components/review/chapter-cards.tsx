@@ -1,6 +1,7 @@
 import { ArrowRight, CheckCircle2, FileText } from "lucide-react";
 import Link from "next/link";
 
+import { RiskPill, type RiskLevel } from "@/components/status-pill";
 import type { ReviewChapter } from "@/lib/review-api";
 import { cn } from "@/lib/utils";
 
@@ -17,12 +18,17 @@ export function ChapterCards({
   prPath?: string;
   onSelect?: (index: number) => void;
 }) {
+  // Highlight the next chapter to open — first unviewed, else none once complete.
+  const continueIndex = chapters.find((chapter) => !chapter.viewed)?.index;
+  const hasStarted = chapters.some((chapter) => chapter.viewed);
+
   return (
     <div className="overflow-hidden rounded-lg border bg-card">
       {chapters.map((chapter) => {
         const additions = chapter.files.reduce((sum, file) => sum + file.additions, 0);
         const deletions = chapter.files.reduce((sum, file) => sum + file.deletions, 0);
         const risk = chapterRisk(chapter);
+        const isContinueTarget = chapter.index === continueIndex;
         const inner = (
           <>
             <span className="flex size-6 shrink-0 items-center justify-center rounded-full border font-mono text-muted-foreground text-xs">
@@ -49,9 +55,9 @@ export function ChapterCards({
                 ) : null}
               </div>
             </div>
-            {chapter.index === 1 ? (
+            {isContinueTarget ? (
               <span className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md bg-primary px-3 font-medium text-primary-foreground text-xs">
-                Start reviewing
+                {hasStarted ? "이어서 리뷰" : "리뷰 시작"}
                 <ArrowRight className="size-4" />
               </span>
             ) : (
@@ -85,9 +91,7 @@ export function ChapterCards({
   );
 }
 
-type ChapterRisk = "low" | "medium" | "high";
-
-function chapterRisk(chapter: ReviewChapter): ChapterRisk {
+function chapterRisk(chapter: ReviewChapter): RiskLevel {
   const additions = chapter.files.reduce((sum, file) => sum + file.additions, 0);
   const deletions = chapter.files.reduce((sum, file) => sum + file.deletions, 0);
   const changed = additions + deletions;
@@ -98,28 +102,4 @@ function chapterRisk(chapter: ReviewChapter): ChapterRisk {
     return "medium";
   }
   return "low";
-}
-
-function RiskPill({ risk }: { risk: ChapterRisk }) {
-  const meta = {
-    low: "border-primary/40 bg-primary/10 text-primary",
-    medium: "border-warning/40 bg-warning/10 text-warning",
-    high: "border-destructive/40 bg-destructive/10 text-destructive",
-  } satisfies Record<ChapterRisk, string>;
-  const label = {
-    low: "Low risk",
-    medium: "Medium risk",
-    high: "High risk",
-  } satisfies Record<ChapterRisk, string>;
-
-  return (
-    <span
-      className={cn(
-        "rounded-full border px-2 py-0.5 font-mono text-[0.65rem] uppercase tracking-wider",
-        meta[risk],
-      )}
-    >
-      {label[risk]}
-    </span>
-  );
 }
