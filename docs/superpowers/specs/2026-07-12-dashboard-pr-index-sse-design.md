@@ -461,19 +461,21 @@ benefit from the DB-backed open endpoint. No separate GitHub search path.
 
 ## Rollout
 
-Feature flag: `DASHBOARD_READ_FROM_INDEX` (name flexible).
+Feature flag: `DASHBOARD_READ_FROM_INDEX` (boolean env, default `false` until cutover).
 
-| Phase | Work |
-|-------|------|
-| P0 | Schema migration: `pull_request_index` + repo backfill metadata |
-| P1 | `PullRequestIndexWriter` + expanded webhook actions (reads still GitHub) |
-| P2 | Backfill job on enable/install; reconcile job |
-| P3 | Read cutover behind flag (open/completed/summary → DB) |
-| P4 | Batch review status join on list path |
-| P5 | SSE endpoint + `BoardEventHub` |
-| P6 | Frontend EventSource + patch + debounced refetch |
-| P7 | Delete dead GitHub list caching from dashboard reads |
-| P8 | Optional UI polish for open/new page after data plane is stable |
+| Phase | Work | Status |
+|-------|------|--------|
+| P0 | Schema migration: `pull_request_index` + repo backfill metadata | Done |
+| P1 | `PullRequestIndexWriter` + expanded webhook actions | Done |
+| P2a | Backfill job on folio enable | Done |
+| P2b | Reconcile job (~15m) | Remaining (plan Task 9) |
+| P3 | Read path behind flag (open/completed → DB) | Done (flag default off) |
+| P4 | Batch review status join on list path | Done |
+| P5 | SSE endpoint + `BoardEventHub` | Done |
+| P6 | Frontend EventSource + patch + debounced refetch | Done |
+| P7 | Delete dead GitHub list caching from dashboard reads | After permanent flag-on |
+| P8 | Optional UI polish of open/new page | Out of scope (separate design) |
+| Cutover | Bulk backfill already-enabled repos + set flag `true` | Remaining (plan Tasks 10–11) |
 
 Before enabling the flag in production:
 
@@ -550,3 +552,69 @@ v1 read policy while flag is on: **only repos with `pr_index_status = ready`**.
   response, still session-guarded.
 - Document non-obvious guards (stale webhook ordering, ready-only repos, 202
   best-effort side effects) with short “why” comments in code.
+
+## Implementation status
+
+**Plan:** [`docs/superpowers/plans/2026-07-12-dashboard-pr-index-sse.md`](../plans/2026-07-12-dashboard-pr-index-sse.md)
+
+### Landed (2026-07-12, commit `9b9157e`)
+
+| Spec area | Landed as |
+|-----------|-----------|
+| `pull_request_index` + repo backfill meta | Migration `0013_pull_request_index`, schema/repos under `@folio/db` |
+| Webhook-maintained index | `GitHubWebhookService` index actions + `PullRequestIndexWriter` |
+| Backfill on folio enable | Job kind `pr_index_backfill`, worker + `PullRequestIndexBackfill` |
+| DB-only board reads | `getDashboard*FromIndex` behind `DASHBOARD_READ_FROM_INDEX` |
+| Batch review status join | `resolveDashboardPullStatuses` |
+| SSE | `GET /api/v1/dashboard/stream` + `BoardEventHub` |
+| Client live updates | `connectDashboardBoardStream` (patch + ~400ms debounced open reload) |
+
+### Config
+
+| Variable | Default | Behavior |
+|----------|---------|----------|
+| `DASHBOARD_READ_FROM_INDEX` | `false` | When `true`, open/completed dashboard pages read only `pull_request_index` (ready repos). When `false`, legacy live GitHub list path remains. Index **writes** (webhook/backfill) always run regardless of this flag. |
+
+### Not yet landed (tracked in plan Tasks 9–12)
+
+| Spec area | Gap |
+|-----------|-----|
+| Reconcile ~15 minutes | No periodic GitHub ↔ index convergence yet; freshness depends on webhooks + backfill |
+| Bulk backfill for already-enabled repos | Enable toggle enqueues backfill; pre-existing enabled repos need an explicit bulk enqueue before cutover |
+| Production flag default `true` | Ops cutover after ready coverage |
+| Index-path facade regression tests | Recommended before flipping default |
+| Delete GitHub list cache from reads | Only required after flag is permanently on; legacy path still uses it when flag is off |
+
+### Cutover (summary)
+
+1. Apply migration `0013`.
+2. Run API + worker; bulk-enqueue `pr_index_backfill` for folio-enabled repos; wait until `pr_index_status = ready`.
+3. Set `DASHBOARD_READ_FROM_INDEX=true` and restart API.
+4. Smoke: fast board load, SSE update on PR open/edit, REST still works without SSE.
+5. Rollback: set flag `false` and restart API (index continues to update in background).
+
+### Related modules (code map)
+
+```text
+packages/db
+  schema/pull-request-index.ts
+  repos/pull-request-index.ts
+  drizzle/0013_pull_request_index.sql
+
+apps/backend
+  application/dashboard/
+    board-event-hub.ts
+    pull-request-index-writer.ts
+    pull-request-index-backfill.ts
+    dashboard-index-pull-page.ts
+    dashboard-index-pull-map.ts
+    dashboard-review-status-batch.ts
+  domain/github/github-webhook.service.ts
+  interfaces/api/dashboard/dashboard.controller.ts  # GET stream
+  worker.ts                                         # review_pull + pr_index_backfill
+
+apps/web
+  lib/dashboard-api.ts                              # BoardStreamEvent, stream URL
+  components/dashboard/dashboard-board-stream.ts
+  components/dashboard/dashboard-board-client.tsx
+```
