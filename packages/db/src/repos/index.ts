@@ -43,6 +43,7 @@ export { subscriptionsRepo } from "./subscriptions.js";
 export { foliantRepo } from "./foliant.js";
 export { workerHeartbeatsRepo } from "./worker-heartbeats.js";
 export { adminHealthRepo, type AdminHealthProjection } from "./admin-health.js";
+export { adminAnalyticsRepo, type AdminAnalyticsProjection } from "./admin-analytics.js";
 export {
   ADMIN_WORKER_HEARTBEAT_MS,
   ADMIN_WORKER_STALE_AFTER_MS,

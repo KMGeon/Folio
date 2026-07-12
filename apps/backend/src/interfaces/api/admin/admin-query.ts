@@ -1,6 +1,7 @@
 import {
   AdminJobKindSchema,
   AdminJobStatusSchema,
+  AdminAnalyticsRangeSchema,
   AdminUserStatusFilterSchema,
   AdminWorkspaceInstallationStateSchema,
   AuditActionSchema,
@@ -60,10 +61,15 @@ const AdminJobsQuerySchema = z
     };
   });
 
+const AdminAnalyticsQuerySchema = z.object({
+  range: AdminAnalyticsRangeSchema.default("7d"),
+});
+
 export type AdminUsersQuery = z.infer<typeof AdminUsersQuerySchema>;
 export type AdminAuditQuery = z.infer<typeof AdminAuditQuerySchema>;
 export type AdminWorkspacesQuery = z.infer<typeof AdminWorkspacesQuerySchema>;
 export type AdminJobsQuery = z.infer<typeof AdminJobsQuerySchema>;
+export type AdminAnalyticsQuery = z.infer<typeof AdminAnalyticsQuerySchema>;
 
 export function parseAdminUsersQuery(value: unknown): AdminUsersQuery {
   return parseQuery(AdminUsersQuerySchema, value);
@@ -79,6 +85,10 @@ export function parseAdminWorkspacesQuery(value: unknown): AdminWorkspacesQuery 
 
 export function parseAdminJobsQuery(value: unknown): AdminJobsQuery {
   return parseQuery(AdminJobsQuerySchema, value);
+}
+
+export function parseAdminAnalyticsQuery(value: unknown): AdminAnalyticsQuery {
+  return parseQuery(AdminAnalyticsQuerySchema, value);
 }
 
 function parseQuery<TSchema extends z.ZodTypeAny>(

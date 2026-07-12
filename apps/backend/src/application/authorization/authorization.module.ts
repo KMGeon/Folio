@@ -10,6 +10,7 @@ import { GlobalStatusGuard } from "../../interfaces/api/authorization/global-sta
 import { SystemAdminGuard } from "../../interfaces/api/authorization/system-admin.guard.js";
 import { WorkspaceRoleGuard } from "../../interfaces/api/authorization/workspace-role.guard.js";
 import { AdminAuditController } from "../../interfaces/api/admin/admin-audit.controller.js";
+import { AdminAnalyticsController } from "../../interfaces/api/admin/admin-analytics.controller.js";
 import { AdminOverviewController } from "../../interfaces/api/admin/admin-overview.controller.js";
 import { AdminUsersController } from "../../interfaces/api/admin/admin-users.controller.js";
 import { AdminHealthController } from "../../interfaces/api/admin/admin-health.controller.js";
@@ -19,6 +20,7 @@ import { WorkspaceMembersController } from "../../interfaces/api/workspaces/work
 import { WorkspaceController } from "../../interfaces/api/workspaces/workspace.controller.js";
 import { AuthModule } from "../auth/auth.module.js";
 import { AdminAuditFacade } from "./admin-audit.facade.js";
+import { AdminAnalyticsFacade } from "./admin-analytics.facade.js";
 import { AdminHealthFacade } from "./admin-health.facade.js";
 import { AdminJobsFacade } from "./admin-jobs.facade.js";
 import { AdminOverviewFacade } from "./admin-overview.facade.js";
@@ -38,6 +40,7 @@ import { WorkspaceClaimFacade } from "./workspace-claim.facade.js";
     GlobalUsersFacade,
     AdminUsersFacade,
     AdminAuditFacade,
+    AdminAnalyticsFacade,
     AdminOverviewFacade,
     AdminWorkspacesFacade,
     AdminJobsFacade,
@@ -55,6 +58,7 @@ import { WorkspaceClaimFacade } from "./workspace-claim.facade.js";
     WorkspaceController,
     AdminUsersController,
     AdminAuditController,
+    AdminAnalyticsController,
     AdminOverviewController,
     AdminWorkspacesController,
     AdminJobsController,
@@ -66,6 +70,7 @@ import { WorkspaceClaimFacade } from "./workspace-claim.facade.js";
     GlobalUsersFacade,
     AdminUsersFacade,
     AdminAuditFacade,
+    AdminAnalyticsFacade,
     AdminOverviewFacade,
     AdminWorkspacesFacade,
     AdminJobsFacade,

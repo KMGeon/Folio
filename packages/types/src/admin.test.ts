@@ -7,6 +7,7 @@ import {
   AdminUserStatusFilterSchema,
   AdminWorkspacePageSchema,
 } from "./admin.js";
+import { AdminAnalyticsPayloadSchema, AdminAnalyticsRangeSchema } from "./admin-analytics.js";
 
 const emptyQueueSnapshot = {
   pending: 0,
@@ -252,6 +253,58 @@ describe("Admin Phase 3 job contracts", () => {
         },
         attention: [],
         recentAudit: [],
+      }),
+    ).toThrow();
+  });
+});
+
+describe("Admin analytics contracts", () => {
+  const analytics = {
+    range: "7d",
+    days: [
+      {
+        date: "2026-07-06",
+        jobs: { succeeded: 4, failed: 1, dead: 0 },
+        users: { created: 2 },
+        workspaces: { created: 1, enabledRepositories: 3 },
+        audit: { events: 5 },
+      },
+    ],
+    distributions: {
+      jobs: [
+        { key: "pending", value: 1 },
+        { key: "running", value: 2 },
+        { key: "succeeded", value: 9 },
+        { key: "failed", value: 0 },
+        { key: "dead", value: 0 },
+      ],
+      users: [
+        { key: "pending", value: 1 },
+        { key: "active", value: 3 },
+        { key: "suspended", value: 0 },
+      ],
+      installations: [
+        { key: "active", value: 2 },
+        { key: "suspended", value: 0 },
+        { key: "none", value: 1 },
+        { key: "mixed", value: 0 },
+      ],
+      audit: [{ key: "user_approve", value: 2 }],
+      jobKinds: [{ key: "review_pull", value: 5 }],
+    },
+  } as const;
+
+  it("accepts daily metadata aggregates and supported ranges", () => {
+    expect(AdminAnalyticsRangeSchema.parse("30d")).toBe("30d");
+    expect(AdminAnalyticsPayloadSchema.parse(analytics).days[0]?.jobs.succeeded).toBe(4);
+  });
+
+  it("rejects unsupported ranges and job-secret fields", () => {
+    expect(() => AdminAnalyticsRangeSchema.parse("90d")).toThrow();
+    expect(() =>
+      AdminAnalyticsPayloadSchema.parse({
+        ...analytics,
+        days: [{ ...analytics.days[0], jobs: { ...analytics.days[0].jobs, payload: {} } }],
       }),
     ).toThrow();
   });
