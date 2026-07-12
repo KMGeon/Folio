@@ -54,6 +54,31 @@ describe("SummaryReviewTable", () => {
     expect(rows[2]?.chapter).toBeNull();
   });
 
+  it("extends rows for chapters without a matching summary section", () => {
+    const rows = buildSummaryReviewRows(prologue, [
+      chapter(1),
+      chapter(2),
+      chapter(3),
+      chapter(4),
+      chapter(5),
+    ]);
+
+    expect(rows).toHaveLength(5);
+    expect(rows[4]?.summary).toBeNull();
+    expect(rows[4]?.chapter?.index).toBe(5);
+
+    const markup = renderToStaticMarkup(
+      <SummaryReviewTable
+        prologue={prologue}
+        chapters={[chapter(1), chapter(2), chapter(3), chapter(4), chapter(5)]}
+        onSelectChapter={() => {}}
+      />,
+    );
+
+    expect(markup).toContain("추가 챕터");
+    expect(markup).toContain("제5장 리뷰가 이어집니다.");
+  });
+
   it("renders paired summary and review columns with responsive labels", () => {
     const markup = renderToStaticMarkup(
       <SummaryReviewTable prologue={prologue} chapters={[chapter(1)]} onSelectChapter={() => {}} />,

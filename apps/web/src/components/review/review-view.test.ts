@@ -70,11 +70,16 @@ describe("ReviewView source", () => {
     expect(source).toContain("onSelectChapter={setOpenIndex}");
   });
 
-  it("allows both overview grid columns to shrink on narrow screens", () => {
-    expect(source).toContain("lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]");
-    expect(source).toContain("lg:gap-8");
-    expect(source).toContain('<section className="min-w-0">\n                <ReviewPrologue');
-    expect(source).toContain('<section className="min-w-0">\n                <div className="mb-3');
+  it("uses the paired table as the overview composition without duplicate chapter cards", () => {
+    expect(source).not.toContain(
+      'import { ChapterCards } from "@/components/review/chapter-cards"',
+    );
+    expect(source).not.toContain(
+      "<ChapterCards chapters={reviewChapters} onSelect={setOpenIndex} />",
+    );
+    expect(source).toContain('<div className="space-y-4">\n              <ReviewPrologue');
+    expect(source).toContain('chapterPanelTab === "activity"');
+    expect(source).toContain("continueChapter");
   });
 
   it("keeps the chapter panel dense so the diff stays primary", () => {

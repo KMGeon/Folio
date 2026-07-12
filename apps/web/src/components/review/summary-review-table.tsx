@@ -34,11 +34,17 @@ const severityClasses: Record<FocusAreaSeverity, string> = {
   info: "border-info/40 bg-info/15 text-info",
 };
 
-export type SummaryReviewRow = {
-  id: SummarySectionId;
-  summary: SummarySection;
-  chapter: ReviewChapter | null;
-};
+export type SummaryReviewRow =
+  | {
+      id: SummarySectionId;
+      summary: SummarySection;
+      chapter: ReviewChapter | null;
+    }
+  | {
+      id: `chapter-${number}`;
+      summary: null;
+      chapter: ReviewChapter;
+    };
 
 /** Pair fixed prologue sections to chapter order so each review row keeps its context. */
 export function buildSummaryReviewRows(
@@ -78,11 +84,23 @@ export function buildSummaryReviewRows(
     },
   ];
 
-  return summaries.map((summary, index) => ({
-    id: summary.id,
-    summary,
-    chapter: chapters[index] ?? null,
-  }));
+  const rowCount = Math.max(summaries.length, chapters.length);
+
+  return Array.from({ length: rowCount }, (_, index) => {
+    const summary = summaries[index];
+    const chapter = chapters[index];
+
+    if (summary) {
+      return { id: summary.id, summary, chapter: chapter ?? null };
+    }
+
+    // Extra chapters remain reachable from the shared comparison surface.
+    if (!chapter) {
+      throw new Error("Summary review row is missing both a summary and chapter.");
+    }
+
+    return { id: `chapter-${chapter.index}` as const, summary: null, chapter };
+  });
 }
 
 export function SummaryReviewTable({
@@ -106,7 +124,11 @@ export function SummaryReviewTable({
           className="grid min-w-0 border-t lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]"
         >
           <SummaryReviewCell label="변경 요약">
-            {renderSummarySection(row.summary)}
+            {row.summary ? (
+              renderSummarySection(row.summary)
+            ) : (
+              <SummaryContinuationCell chapter={row.chapter} />
+            )}
           </SummaryReviewCell>
           <SummaryReviewCell label="리뷰" className="lg:border-l">
             {row.chapter ? (
@@ -260,4 +282,13 @@ function FocusSummarySection({ summary }: { summary: SummarySection }) {
 
 function EmptyReviewCell() {
   return <p className="text-sm leading-6 text-muted-foreground">연결된 리뷰 챕터가 없습니다.</p>;
+}
+
+function SummaryContinuationCell({ chapter }: { chapter: ReviewChapter }) {
+  return (
+    <section>
+      <p className="font-medium text-muted-foreground text-xs">추가 챕터</p>
+      <p className="mt-1 text-sm text-muted-foreground">제{chapter.index}장 리뷰가 이어집니다.</p>
+    </section>
+  );
 }
