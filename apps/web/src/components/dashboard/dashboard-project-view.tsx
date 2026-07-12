@@ -97,8 +97,8 @@ function ProjectDesk({
           <span className={counts.ready > 0 ? "text-primary" : undefined}>
             ready {counts.ready}
           </span>
-          <span>yours {counts.yours}</span>
-          <span>done {counts.completed}</span>
+          <span>reviewing {counts.reviewing}</span>
+          <span>done {counts.complete}</span>
         </div>
       </header>
       <div
@@ -113,7 +113,7 @@ function ProjectDesk({
           <div className="mb-3 flex items-center justify-between border-b border-border pb-2">
             <h3 className="text-sm font-medium text-foreground">Recent complete in {name}</h3>
             <span className="font-mono text-[0.65rem] tabular-nums text-muted-foreground">
-              {counts.completed}
+              {counts.complete}
             </span>
           </div>
           {completed.length > 0 ? (

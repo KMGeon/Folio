@@ -50,16 +50,16 @@ export function DashboardProjectBar({
           onClick={() => onFocusChange("ready")}
         />
         <QueueChip
-          label="Yours"
-          value={counts.yours}
-          active={focus === "yours"}
-          onClick={() => onFocusChange("yours")}
+          label="Reviewing"
+          value={counts.reviewing}
+          active={focus === "reviewing"}
+          onClick={() => onFocusChange("reviewing")}
         />
         <QueueChip
           label="Complete"
-          value={counts.completed}
-          active={focus === "completed"}
-          onClick={() => onFocusChange("completed")}
+          value={counts.complete}
+          active={focus === "complete"}
+          onClick={() => onFocusChange("complete")}
         />
       </div>
     </section>

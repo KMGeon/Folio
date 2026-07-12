@@ -331,11 +331,20 @@ export function DashboardBoardClient({ user }: { user: { login: string; avatarUr
       projects.length > 0
         ? dashboardScopeCounts(projects, activeRepoId)
         : {
+            attention: 0,
             ready: columns.ready.count,
-            yours: columns.yours.count,
-            completed: columns.completed.count,
+            reviewing: columns.yours.count,
+            processing: columns.other.count,
+            complete: columns.completed.count,
           },
-    [activeRepoId, columns.completed.count, columns.ready.count, columns.yours.count, projects],
+    [
+      activeRepoId,
+      columns.completed.count,
+      columns.other.count,
+      columns.ready.count,
+      columns.yours.count,
+      projects,
+    ],
   );
   const scopeName = dashboardScopeName(activeProject?.repo ?? null);
   const projectsLoading = isSummaryLoading || projects.some((project) => project.isLoading);

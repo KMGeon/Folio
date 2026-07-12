@@ -4,23 +4,47 @@ import { dashboardHeaderStandfirst } from "./dashboard-header";
 
 describe("dashboardHeaderStandfirst", () => {
   it("prioritizes ready queue copy", () => {
-    expect(dashboardHeaderStandfirst({ ready: 3, yours: 1, completed: 18 }, "Folio")).toContain(
-      "리뷰 3건이 대기",
-    );
-    expect(dashboardHeaderStandfirst({ ready: 3, yours: 1, completed: 18 }, "Folio")).toContain(
-      "Folio",
-    );
+    expect(
+      dashboardHeaderStandfirst(
+        { attention: 0, ready: 3, reviewing: 1, processing: 0, complete: 18 },
+        "Folio",
+      ),
+    ).toContain("리뷰 3건이 대기");
+    expect(
+      dashboardHeaderStandfirst(
+        { attention: 0, ready: 3, reviewing: 1, processing: 0, complete: 18 },
+        "Folio",
+      ),
+    ).toContain("Folio");
   });
 
-  it("falls back to yours, then completed, then default", () => {
-    expect(dashboardHeaderStandfirst({ ready: 0, yours: 2, completed: 5 })).toContain(
-      "열린 PR 2건",
-    );
-    expect(dashboardHeaderStandfirst({ ready: 0, yours: 0, completed: 18 })).toContain(
-      "대기 중인 리뷰가 없습니다",
-    );
-    expect(dashboardHeaderStandfirst({ ready: 0, yours: 0, completed: 0 })).toContain(
-      "챕터 순서로",
-    );
+  it("falls back to reviewing, then complete, then default", () => {
+    expect(
+      dashboardHeaderStandfirst({
+        attention: 0,
+        ready: 0,
+        reviewing: 2,
+        processing: 0,
+        complete: 5,
+      }),
+    ).toContain("진행 중인 리뷰 2건");
+    expect(
+      dashboardHeaderStandfirst({
+        attention: 0,
+        ready: 0,
+        reviewing: 0,
+        processing: 0,
+        complete: 18,
+      }),
+    ).toContain("대기 중인 리뷰가 없습니다");
+    expect(
+      dashboardHeaderStandfirst({
+        attention: 0,
+        ready: 0,
+        reviewing: 0,
+        processing: 0,
+        complete: 0,
+      }),
+    ).toContain("챕터 순서로");
   });
 });

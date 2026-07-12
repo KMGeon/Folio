@@ -32,7 +32,7 @@ describe("dashboard project controls", () => {
       <DashboardProjectBar
         activeRepo={projects[0]!.repo}
         repoCount={2}
-        counts={{ ready: 2, yours: 1, completed: 7 }}
+        counts={{ attention: 0, ready: 2, reviewing: 1, processing: 0, complete: 7 }}
         focus="ready"
         onFocusChange={vi.fn()}
       />,
@@ -43,7 +43,7 @@ describe("dashboard project controls", () => {
     expect(html).toContain("Folio enabled");
     expect(html).not.toContain("not enabled");
     expect(html).toContain("Ready");
-    expect(html).toContain("Yours");
+    expect(html).toContain("Reviewing");
     expect(html).toContain("Complete");
     expect(html).toContain('aria-pressed="true"');
   });
@@ -53,7 +53,21 @@ function project(id: string, fullName: string, ready: number): DashboardProjectD
   const page = { items: [], nextCursor: null, count: 0 };
   return {
     repo: { id, fullName, folioEnabled: true, openPrCount: 0 },
-    pages: { ready: { ...page, count: ready }, yours: page, other: page, completed: page },
+    pages: {
+      ready: {
+        ...page,
+        count: ready,
+        items: Array.from({ length: ready }, (_, index) => ({
+          id: `${id}-${index}`,
+          analysisStatus: "complete",
+          status: "ready",
+          viewedChapters: 0,
+        })) as never,
+      },
+      yours: page,
+      other: page,
+      completed: page,
+    },
     isLoading: false,
     error: null,
   };
