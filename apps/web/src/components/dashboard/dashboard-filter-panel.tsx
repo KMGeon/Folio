@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { ArrowDown, SlidersHorizontal } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,9 @@ export interface DashboardFilterState {
 export interface DashboardFilterPanelProps {
   open: boolean;
   filters: DashboardFilterState;
-  onChange: (filters: DashboardFilterState) => void;
+  onOpenChange: (open: boolean) => void;
+  onSave: (filters: DashboardFilterState) => void;
+  triggerRef: RefObject<HTMLButtonElement | null>;
 }
 
 const propertyOptions: DashboardCardProperty[] = [
@@ -42,26 +44,88 @@ const propertyOptions: DashboardCardProperty[] = [
   "Updated date",
 ];
 
-export function DashboardFilterPanel({ open, filters, onChange }: DashboardFilterPanelProps) {
+export function DashboardFilterPanel({
+  open,
+  filters,
+  onOpenChange,
+  onSave,
+  triggerRef,
+}: DashboardFilterPanelProps) {
+  const [draftFilters, setDraftFilters] = useState(filters);
+  const panelRef = useRef<HTMLElement | null>(null);
+  const firstControlRef = useRef<HTMLSelectElement | null>(null);
+
+  const closeAndRestoreFocus = useCallback(() => {
+    onOpenChange(false);
+    triggerRef.current?.focus();
+  }, [onOpenChange, triggerRef]);
+
+  useEffect(() => {
+    if (!open) {
+      return undefined;
+    }
+
+    // Staging avoids reloading the dashboard while a reviewer is still choosing filters.
+    setDraftFilters(filters);
+    const focusFrame = window.requestAnimationFrame(() => firstControlRef.current?.focus());
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) {
+        return;
+      }
+      if (panelRef.current?.contains(target) || triggerRef.current?.contains(target)) {
+        return;
+      }
+      closeAndRestoreFocus();
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeAndRestoreFocus();
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [closeAndRestoreFocus, filters, open, triggerRef]);
+
   if (!open) {
     return null;
   }
 
-  const patch = (next: Partial<DashboardFilterState>) => onChange({ ...filters, ...next });
+  const patch = (next: Partial<DashboardFilterState>) =>
+    setDraftFilters((current) => ({ ...current, ...next }));
   const toggleProperty = (property: DashboardCardProperty) => {
     patch({
-      visibleProperties: filters.visibleProperties.includes(property)
-        ? filters.visibleProperties.filter((item) => item !== property)
-        : [...filters.visibleProperties, property],
+      visibleProperties: draftFilters.visibleProperties.includes(property)
+        ? draftFilters.visibleProperties.filter((item) => item !== property)
+        : [...draftFilters.visibleProperties, property],
     });
   };
 
   return (
-    <aside className="absolute right-0 top-12 z-30 w-full max-w-[352px] overflow-hidden rounded-lg border bg-card shadow-lg md:right-6">
+    <aside
+      ref={panelRef}
+      id="dashboard-filter-menu"
+      role="dialog"
+      aria-label="Filters and ordering"
+      className="absolute right-0 top-full z-30 mt-2 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-lg border bg-card shadow-xs"
+    >
+      <div className="flex items-center justify-between border-b px-3 py-2.5">
+        <div className="font-mono text-[0.7rem] uppercase tracking-[0.16em] text-muted-foreground">
+          Filters &amp; ordering
+        </div>
+      </div>
       <FilterRow icon={<SlidersHorizontal className="size-3.5" />} label="Ordering">
         <div className="flex gap-2">
           <select
-            value={filters.ordering}
+            ref={firstControlRef}
+            value={draftFilters.ordering}
             onChange={(event) => patch({ ordering: event.target.value as DashboardOrdering })}
             aria-label="Ordering"
             className="h-8 rounded-md border bg-background px-2.5 text-sm text-foreground outline-none transition-colors focus-visible:border-ring"
@@ -74,15 +138,15 @@ export function DashboardFilterPanel({ open, filters, onChange }: DashboardFilte
             variant="outline"
             size="icon"
             aria-label="Toggle ordering direction"
-            onClick={() => patch({ direction: filters.direction === "desc" ? "asc" : "desc" })}
+            onClick={() => patch({ direction: draftFilters.direction === "desc" ? "asc" : "desc" })}
           >
-            <ArrowDown className={cn("size-4", filters.direction === "asc" && "rotate-180")} />
+            <ArrowDown className={cn("size-4", draftFilters.direction === "asc" && "rotate-180")} />
           </Button>
         </div>
       </FilterRow>
       <FilterRow label="Closed reviews">
         <select
-          value={filters.closedRange}
+          value={draftFilters.closedRange}
           onChange={(event) => patch({ closedRange: event.target.value as DashboardClosedRange })}
           aria-label="Closed reviews"
           className="h-8 rounded-md border bg-background px-2.5 text-sm text-foreground outline-none transition-colors focus-visible:border-ring"
@@ -96,7 +160,7 @@ export function DashboardFilterPanel({ open, filters, onChange }: DashboardFilte
       </FilterRow>
       <ToggleRow
         label="Show drafts"
-        checked={filters.showDrafts}
+        checked={draftFilters.showDrafts}
         onChange={(showDrafts) => patch({ showDrafts })}
       />
       <div className="border-t p-3">
@@ -109,10 +173,10 @@ export function DashboardFilterPanel({ open, filters, onChange }: DashboardFilte
               key={property}
               type="button"
               onClick={() => toggleProperty(property)}
-              aria-pressed={filters.visibleProperties.includes(property)}
+              aria-pressed={draftFilters.visibleProperties.includes(property)}
               className={cn(
                 "rounded-full border px-2.5 py-1 font-mono text-[0.7rem] transition-colors",
-                filters.visibleProperties.includes(property)
+                draftFilters.visibleProperties.includes(property)
                   ? "border-border bg-muted text-foreground"
                   : "border-border/60 text-muted-foreground hover:border-border hover:text-foreground",
               )}
@@ -121,6 +185,21 @@ export function DashboardFilterPanel({ open, filters, onChange }: DashboardFilte
             </button>
           ))}
         </div>
+      </div>
+      <div className="flex justify-end gap-2 border-t bg-background/40 p-3">
+        <Button type="button" variant="ghost" size="sm" onClick={closeAndRestoreFocus}>
+          Cancel
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          onClick={() => {
+            onSave(draftFilters);
+            closeAndRestoreFocus();
+          }}
+        >
+          Save changes
+        </Button>
       </div>
     </aside>
   );

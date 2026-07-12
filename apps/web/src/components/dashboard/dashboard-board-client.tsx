@@ -51,6 +51,7 @@ export function DashboardBoardClient({ user }: { user: { login: string; avatarUr
   const inFlightRef = useRef<DashboardInFlightMap>(new Map());
   const requestEpochsRef = useRef<DashboardRequestEpochs>({ open: 0, completed: 0 });
   const searchInputHostRef = useRef<HTMLDivElement | null>(null);
+  const filterTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     columnsRef.current = columns;
@@ -391,9 +392,11 @@ export function DashboardBoardClient({ user }: { user: { login: string; avatarUr
         }))
       }
       searchHostRef={searchInputHostRef}
+      filterTriggerRef={filterTriggerRef}
       filterOpen={filterOpen}
       filters={filters}
-      onFiltersChange={setFilters}
+      onFilterOpenChange={setFilterOpen}
+      onFiltersSave={setFilters}
       onRetryReview={(pull) => void retryReview(pull)}
       completedLoadingMore={completedLoadingMore}
       onLoadMoreCompleted={loadMoreCompleted}
