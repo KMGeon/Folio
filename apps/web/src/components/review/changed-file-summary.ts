@@ -37,3 +37,31 @@ export function aggregateChangedFiles(chapters: ReviewChapter[]): ChangedFile[] 
   }
   return [...byPath.values()];
 }
+
+/** Case-insensitive path filter for the Files tab query box. */
+export function filterChangedFiles(files: ChangedFile[], query: string): ChangedFile[] {
+  const normalized = query.trim().toLocaleLowerCase();
+  if (!normalized) {
+    return files;
+  }
+  return files.filter((file) => file.path.toLocaleLowerCase().includes(normalized));
+}
+
+/**
+ * Keep the selected file path inside the filtered list.
+ * Returns the current path when still visible; otherwise the first visible path.
+ */
+export function resolveSelectedFilePath(
+  files: ChangedFile[],
+  query: string,
+  selectedPath: string | null,
+): string | null {
+  const visible = filterChangedFiles(files, query);
+  if (visible.length === 0) {
+    return null;
+  }
+  if (selectedPath && visible.some((file) => file.path === selectedPath)) {
+    return selectedPath;
+  }
+  return visible[0]?.path ?? null;
+}

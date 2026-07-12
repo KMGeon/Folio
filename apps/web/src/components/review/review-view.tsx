@@ -1,11 +1,14 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, ChevronsDown, ChevronsUp } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight, ChevronsDown, ChevronsUp } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ChapterCards } from "@/components/review/chapter-cards";
 import { getChapterNavigationShortcut } from "@/components/review/chapter-navigation-shortcut";
-import { aggregateChangedFiles } from "@/components/review/changed-file-summary";
+import {
+  aggregateChangedFiles,
+  resolveSelectedFilePath,
+} from "@/components/review/changed-file-summary";
 import { buildFileScopedChapter } from "@/components/review/chapter-file-diff";
 import { ChapterPanel } from "@/components/review/chapter-panel";
 import { CommitGraph } from "@/components/review/commit-graph";
@@ -87,9 +90,19 @@ export function ReviewView({
   const files = aggregateChangedFiles(reviewChapters);
   const fileProgressValue = fileProgress(files);
   const chapterProgressValue = chapterMilestoneProgress(reviewChapters);
+  // Keep Files-tab selection inside the filtered set (query may hide the prior path).
+  const resolvedSelectedPath = useMemo(
+    () => resolveSelectedFilePath(files, filesTabQuery, selectedFilePath),
+    [files, filesTabQuery, selectedFilePath],
+  );
   const selectedFile = useMemo(
-    () => files.find((file) => file.path === selectedFilePath) ?? files[0] ?? null,
-    [files, selectedFilePath],
+    () => files.find((file) => file.path === resolvedSelectedPath) ?? null,
+    [files, resolvedSelectedPath],
+  );
+  // First incomplete chapter is the overview "continue" target.
+  const continueChapter = useMemo(
+    () => reviewChapters.find((chapter) => !chapter.viewed) ?? null,
+    [reviewChapters],
   );
   const selectedFileChapter = selectedFile
     ? reviewChapters.find((chapter) => chapter.index === selectedFile.chapterIndex)
@@ -225,7 +238,8 @@ export function ReviewView({
       {tab === "chapters" ? (
         openChapter ? (
           <div className="flex min-h-0 flex-1 flex-col">
-            <div className="flex shrink-0 items-center gap-2 px-4 py-2.5 md:px-6">
+            {/* Sticky strip keeps chapter controls visible while the diff scrolls. */}
+            <div className="sticky top-0 z-20 flex shrink-0 items-center gap-2 border-b bg-background/95 px-4 py-2.5 backdrop-blur-sm md:px-6">
               <Button variant="ghost" size="sm" onClick={() => setOpenIndex(null)}>
                 <ChevronLeft className="size-4" />
                 개요
@@ -301,6 +315,7 @@ export function ReviewView({
                 showReviewFocus={preferences.showReviewFocus}
                 onKeyChangeViewedChange={updateKeyChangeViewed}
                 onChapterViewedChange={updateChapterViewed}
+                onSelectChapter={setOpenIndex}
                 onJumpToKeyChange={handleJumpToKeyChange}
                 jumpNotice={jumpNotice}
               />
@@ -331,7 +346,27 @@ export function ReviewView({
                   </div>
                 </div>
                 {chapterPanelTab === "chapters" ? (
-                  <ChapterCards chapters={reviewChapters} onSelect={setOpenIndex} />
+                  <div className="space-y-3">
+                    {continueChapter ? (
+                      <button
+                        type="button"
+                        onClick={() => setOpenIndex(continueChapter.index)}
+                        className="flex w-full items-center gap-3 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2.5 text-left transition-colors hover:bg-primary/15"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium text-primary text-xs">이어서 리뷰</div>
+                          <div className="mt-0.5 truncate text-sm text-foreground">
+                            제{continueChapter.index}장 · {continueChapter.title}
+                          </div>
+                        </div>
+                        <span className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md bg-primary px-3 font-medium text-primary-foreground text-xs">
+                          계속
+                          <ArrowRight className="size-3.5" />
+                        </span>
+                      </button>
+                    ) : null}
+                    <ChapterCards chapters={reviewChapters} onSelect={setOpenIndex} />
+                  </div>
                 ) : (
                   <div className="rounded-lg border bg-card p-2">
                     <CommitGraph commits={commits} pr={pr} />

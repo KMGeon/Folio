@@ -110,6 +110,16 @@ describe("ReviewView source", () => {
     expect(topBarSource).toContain("파일 {viewedFiles}/{totalFiles}");
   });
 
+  it("ships Sprint B navigation and continue chrome", () => {
+    expect(source).toContain("sticky top-0 z-20");
+    expect(source).toContain("이어서 리뷰");
+    expect(source).toContain("continueChapter");
+    expect(source).toContain("onSelectChapter={setOpenIndex}");
+    expect(source).toContain("resolveSelectedFilePath");
+    expect(chapterPanelSource).toContain("onSelectChapter");
+    expect(chapterPanelSource).toContain("onSelect={onSelectChapter}");
+  });
+
   it("supports chapter-panel tree filtering and file activation", () => {
     expect(changedFileTreeSource).toContain("filterChangedFileTree(tree, query)");
     expect(changedFileTreeSource).toContain("query?: string");

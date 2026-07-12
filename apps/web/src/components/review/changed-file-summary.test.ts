@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import type { ReviewChapter } from "@/lib/review-api";
 
-import { aggregateChangedFiles } from "./changed-file-summary";
+import {
+  aggregateChangedFiles,
+  filterChangedFiles,
+  resolveSelectedFilePath,
+} from "./changed-file-summary";
 
 const chapters: ReviewChapter[] = [
   {
@@ -50,5 +54,25 @@ describe("aggregateChangedFiles", () => {
         chapterTitle: "Setup",
       },
     ]);
+  });
+});
+
+describe("filterChangedFiles / resolveSelectedFilePath", () => {
+  const files = aggregateChangedFiles(chapters);
+
+  it("filters by path substring", () => {
+    expect(filterChangedFiles(files, "b.ts").map((file) => file.path)).toEqual(["src/b.ts"]);
+  });
+
+  it("keeps the selection when still visible", () => {
+    expect(resolveSelectedFilePath(files, "src", "src/b.ts")).toBe("src/b.ts");
+  });
+
+  it("falls back to the first visible path when the selection is filtered out", () => {
+    expect(resolveSelectedFilePath(files, "b.ts", "src/a.ts")).toBe("src/b.ts");
+  });
+
+  it("returns null when nothing matches", () => {
+    expect(resolveSelectedFilePath(files, "zzz", "src/a.ts")).toBeNull();
   });
 });

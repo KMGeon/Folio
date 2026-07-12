@@ -1,7 +1,6 @@
 "use client";
 
 import { Check, CheckCircle2, ListChecks, Search } from "lucide-react";
-import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { FileTree } from "@/components/review/changed-file-tree";
@@ -25,12 +24,13 @@ export function ChapterPanel({
   showReviewFocus = true,
   onKeyChangeViewedChange,
   onChapterViewedChange,
+  onSelectChapter,
   onJumpToKeyChange,
   jumpNotice,
 }: {
   chapters: ReviewChapter[];
   activeIndex: number;
-  /** e.g. "/KMGeon/Folio/pull/38" — chapter links append "/chapters/{index}". */
+  /** e.g. "/KMGeon/Folio/pull/38" — used when in-place select is unavailable. */
   prPath: string;
   org: string;
   repo: string;
@@ -38,6 +38,8 @@ export function ChapterPanel({
   showReviewFocus?: boolean;
   onKeyChangeViewedChange?: (chapterIndex: number, keyChangeId: string, viewed: boolean) => void;
   onChapterViewedChange?: (chapterIndex: number, viewed: boolean) => void;
+  /** In-place chapter jump (preferred over hard navigation). */
+  onSelectChapter?: (index: number) => void;
   /** Request scroll/highlight for a key-change's lineRef (wired by parent). */
   onJumpToKeyChange?: (keyChangeId: string) => void;
   /** Shown under 검토할 사항 when a jump target cannot be resolved. */
@@ -78,7 +80,12 @@ export function ChapterPanel({
           focusComplete={localProgress.focusComplete}
           onViewedChange={onChapterViewedChange}
         />
-        <ChapterSwitcher chapters={chapters} activeIndex={chapter.index} prPath={prPath} />
+        <ChapterSwitcher
+          chapters={chapters}
+          activeIndex={chapter.index}
+          prPath={prPath}
+          onSelect={onSelectChapter}
+        />
       </div>
 
       <div className="px-3 pt-2">
@@ -226,9 +233,10 @@ export function ChapterPanel({
         </h3>
         <div className="mt-3 space-y-1">
           {chapters.map((item) => (
-            <Link
+            <button
               key={item.index}
-              href={`${prPath}/chapters/${item.index}`}
+              type="button"
+              onClick={() => onSelectChapter?.(item.index)}
               className={cn(
                 "flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-accent",
                 item.index === chapter.index && "bg-accent text-foreground",
@@ -238,7 +246,7 @@ export function ChapterPanel({
                 {item.viewed ? <CheckCircle2 className="size-3.5 text-primary" /> : item.index}
               </span>
               <span className="min-w-0 flex-1 truncate">{item.title}</span>
-            </Link>
+            </button>
           ))}
         </div>
       </div>
