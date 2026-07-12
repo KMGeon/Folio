@@ -17,9 +17,10 @@ const topBarSource = readFileSync(resolve(__dirname, "review-top-bar.tsx"), "utf
 
 describe("ReviewView source", () => {
   it("matches the compact review density reference", () => {
-    expect(chapterCardsSource).toContain("gap-3 border-b p-3");
+    expect(chapterCardsSource).toContain("gap-3 border-b px-4 py-3.5");
     expect(chapterCardsSource).toContain("font-sans text-sm");
-    expect(chapterCardsSource).toContain("font-mono text-xs");
+    expect(chapterCardsSource).toContain("검토할 사항");
+    expect(chapterCardsSource).toContain("FOCUS_PREVIEW_LIMIT");
     expect(topBarSource).toContain("font-sans text-xl");
     expect(topBarSource).toContain("px-4 pt-2.5 md:px-6");
     expect(source).toContain("overflow-y-auto px-4 py-3 md:px-6");
