@@ -42,6 +42,19 @@ export const installationsRepo = {
     return row ?? null;
   },
 
+  async getByGithubIdForUpdate(
+    githubInstallationId: number,
+    db: Db = getDb(),
+  ): Promise<InstallationRow | null> {
+    const [row] = await db
+      .select()
+      .from(installations)
+      .where(eq(installations.githubInstallationId, githubInstallationId))
+      .limit(1)
+      .for("update");
+    return row ?? null;
+  },
+
   async listByAccountLogin(accountLogin: string, db: Db = getDb()): Promise<InstallationRow[]> {
     return db.select().from(installations).where(eq(installations.accountLogin, accountLogin));
   },
@@ -55,6 +68,7 @@ export const installationsRepo = {
         set: {
           accountLogin: input.accountLogin,
           accountType: input.accountType,
+          githubAccountId: input.githubAccountId ?? undefined,
           suspendedAt: input.suspendedAt ?? null,
           updatedAt: new Date(),
         },

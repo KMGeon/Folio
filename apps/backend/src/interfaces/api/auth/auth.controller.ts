@@ -112,12 +112,12 @@ export class AuthController {
       res.clearCookie(INSTALLATION_STATE_COOKIE, { path: "/" });
       res.clearCookie(INSTALLATION_CLAIM_COOKIE, { path: "/" });
       const installationStateCookie = req.cookies?.[INSTALLATION_STATE_COOKIE];
+      // GitHub omits state for automatic install OAuth, so retain the same-browser nonce cookie.
       if (
         !code ||
         setupAction !== "install" ||
-        !state ||
         typeof installationStateCookie !== "string" ||
-        state !== installationStateCookie
+        (state !== undefined && state !== installationStateCookie)
       ) {
         throw new BadRequestException("invalid GitHub App installation callback");
       }

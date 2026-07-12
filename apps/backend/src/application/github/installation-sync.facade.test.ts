@@ -57,11 +57,12 @@ describe("InstallationSyncFacade", () => {
     const facade = new InstallationSyncFacade();
     await facade.sync({
       githubInstallationId: 123,
-      account: { login: "acme", type: "Organization" },
+      account: { githubAccountId: 42, login: "acme", type: "Organization" },
     });
 
     expect(upsertByGithubId).toHaveBeenCalledWith({
       githubInstallationId: 123,
+      githubAccountId: 42,
       accountLogin: "acme",
       accountType: "Organization",
     });
