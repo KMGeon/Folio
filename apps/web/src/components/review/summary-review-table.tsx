@@ -1,6 +1,7 @@
-import type { Prologue } from "@folio/types";
+import type { ComplexityLevel, FocusAreaSeverity, Prologue } from "@folio/types";
 
 import { ChapterCard } from "@/components/review/chapter-cards";
+import { MermaidDiagram } from "@/components/review/mermaid-diagram";
 import type { ReviewChapter } from "@/lib/review-api";
 import { cn } from "@/lib/utils";
 
@@ -13,6 +14,24 @@ type SummarySection = {
   title: string;
   content: string | null;
   items?: { title: string; description: string }[];
+  outcome?: string | null;
+  diagram?: string | null;
+  complexity?: Prologue["complexity"];
+  focusAreas?: Prologue["focusAreas"];
+};
+
+const complexityClasses: Record<ComplexityLevel, string> = {
+  low: "border-primary/30 bg-primary/10 text-primary",
+  medium: "border-warning/45 bg-warning/15 text-warning",
+  high: "border-destructive/30 bg-destructive/10 text-destructive",
+  "very-high": "border-destructive/40 bg-destructive/15 text-destructive",
+};
+
+const severityClasses: Record<FocusAreaSeverity, string> = {
+  critical: "border-destructive/40 bg-destructive/15 text-destructive",
+  high: "border-destructive/30 bg-destructive/10 text-destructive",
+  medium: "border-warning/45 bg-warning/15 text-warning",
+  info: "border-info/40 bg-info/15 text-info",
 };
 
 export type SummaryReviewRow = {
@@ -38,6 +57,8 @@ export function buildSummaryReviewRows(
       id: "purpose",
       title: "왜 이 PR인가?",
       content: prologue.motivation ?? "변경 내용에서 명확히 확인되지 않았습니다.",
+      outcome: prologue.outcome,
+      diagram: prologue.diagram,
     },
     {
       id: "changes",
@@ -51,13 +72,9 @@ export function buildSummaryReviewRows(
     {
       id: "focus",
       title: "리뷰 포커스",
-      content: prologue.focusAreas.length
-        ? prologue.complexity.reasoning
-        : "별도 검토 지점이 제공되지 않았습니다.",
-      items: prologue.focusAreas.map((area) => ({
-        title: area.title,
-        description: area.description,
-      })),
+      content: null,
+      complexity: prologue.complexity,
+      focusAreas: prologue.focusAreas,
     },
   ];
 
@@ -126,6 +143,13 @@ function SummaryReviewCell({
 }
 
 function renderSummarySection(summary: SummarySection) {
+  if (summary.id === "purpose") {
+    return <PurposeSummarySection summary={summary} />;
+  }
+  if (summary.id === "focus") {
+    return <FocusSummarySection summary={summary} />;
+  }
+
   return (
     <section>
       <h3 className="font-medium text-sm text-foreground">{summary.title}</h3>
@@ -145,6 +169,91 @@ function renderSummarySection(summary: SummarySection) {
           ))}
         </ul>
       ) : null}
+    </section>
+  );
+}
+
+function PurposeSummarySection({ summary }: { summary: SummarySection }) {
+  return (
+    <section>
+      <h3 className="font-medium text-sm text-foreground">{summary.title}</h3>
+      <p className="mt-1.5 text-sm leading-6 text-muted-foreground">{summary.content}</p>
+      <div className="mt-4">
+        <h4 className="font-medium text-sm text-foreground">무엇을 하는가</h4>
+        <p className="mt-1.5 text-sm leading-6 text-muted-foreground">
+          {summary.outcome ?? "변경 내용에서 명확히 확인되지 않았습니다."}
+        </p>
+        {summary.diagram ? (
+          <div className="mt-3">
+            <MermaidDiagram source={summary.diagram} label="PR 변경 흐름도" />
+          </div>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+function FocusSummarySection({ summary }: { summary: SummarySection }) {
+  const complexity = summary.complexity;
+  const focusAreas = summary.focusAreas ?? [];
+
+  if (!complexity) {
+    return null;
+  }
+
+  return (
+    <section>
+      <h3 className="font-medium text-sm text-foreground">{summary.title}</h3>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <span
+          className={cn(
+            "rounded-full border px-2 py-0.5 font-medium text-xs",
+            complexityClasses[complexity.level],
+          )}
+        >
+          {complexity.level}
+        </span>
+        <p className="text-muted-foreground text-sm leading-6">{complexity.reasoning}</p>
+      </div>
+      {focusAreas.length ? (
+        <div className="mt-3 space-y-2.5">
+          {focusAreas.map((area) => (
+            <div
+              key={`${area.type}-${area.title}`}
+              className="rounded-md border bg-muted/20 px-3 py-2.5"
+            >
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span
+                  className={cn(
+                    "rounded-full border px-2 py-0.5 font-medium text-xs",
+                    severityClasses[area.severity],
+                  )}
+                >
+                  {area.severity}
+                </span>
+                <span className="font-medium text-sm leading-snug">{area.title}</span>
+              </div>
+              <p className="mt-1.5 text-muted-foreground text-sm leading-6">{area.description}</p>
+              {area.locations.length ? (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {area.locations.map((location) => (
+                    <span
+                      key={location}
+                      className="rounded-md bg-muted px-2 py-0.5 font-mono text-muted-foreground text-xs"
+                    >
+                      {location}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-3 text-muted-foreground text-sm leading-6">
+          별도 검토 지점이 제공되지 않았습니다.
+        </p>
+      )}
     </section>
   );
 }
