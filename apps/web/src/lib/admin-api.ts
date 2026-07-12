@@ -1,5 +1,9 @@
 import type {
   AdminAuditPage,
+  AdminJobDetail,
+  AdminJobKind,
+  AdminJobPage,
+  AdminJobStatus,
   AdminOverviewPayload,
   AdminUserPage,
   AdminUserStatusFilter,
@@ -33,6 +37,15 @@ export interface AdminAuditFilters {
 export interface AdminWorkspaceFilters {
   q?: string;
   installationState?: AdminWorkspaceInstallationState;
+  limit?: number;
+  cursor?: string;
+}
+
+export interface AdminJobFilters {
+  q?: string;
+  status?: AdminJobStatus;
+  kind?: AdminJobKind;
+  distressed?: boolean;
   limit?: number;
   cursor?: string;
 }
@@ -74,6 +87,23 @@ export function fetchAdminWorkspace(
 ): Promise<AdminWorkspaceDetail> {
   return adminRequest<AdminWorkspaceDetail>(
     `/api/v1/admin/workspaces/${encodeURIComponent(workspaceId)}`,
+    options.cookie,
+  );
+}
+
+export function fetchAdminJobs(
+  options: AdminJobFilters & ServerCookieOptions = {},
+): Promise<AdminJobPage> {
+  const { cookie, ...filters } = options;
+  return adminRequest<AdminJobPage>(withQuery("/api/v1/admin/jobs", filters), cookie);
+}
+
+export function fetchAdminJob(
+  jobId: string,
+  options: ServerCookieOptions = {},
+): Promise<AdminJobDetail> {
+  return adminRequest<AdminJobDetail>(
+    `/api/v1/admin/jobs/${encodeURIComponent(jobId)}`,
     options.cookie,
   );
 }

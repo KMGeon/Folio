@@ -9,6 +9,13 @@ import type { AdminAuditItem, AdminOverviewPayload } from "@folio/types";
 import { AdminOverview } from "./admin-overview";
 
 const mountedRoots: Root[] = [];
+const emptyQueue = {
+  pending: 0,
+  running: 0,
+  retrying: 0,
+  succeededLast24h: 0,
+  deadLast24h: 0,
+};
 
 Object.assign(globalThis, { React });
 (
@@ -21,43 +28,60 @@ afterEach(async () => {
 });
 
 describe("AdminOverview", () => {
-  it("renders the zero pending-user metric without an attention row", async () => {
+  it("renders Phase 3 metrics without attention rows when counts are zero", async () => {
     const container = await mount({
-      metrics: { pendingUsers: 0, workspaces: 0, enabledRepositories: 0 },
+      metrics: {
+        pendingUsers: 0,
+        workspaces: 0,
+        enabledRepositories: 0,
+        distressedJobs: 0,
+      },
       attention: [],
+      queueSnapshot: emptyQueue,
       recentAudit: [],
     });
 
     expect(container.textContent).toContain("승인 대기 사용자");
-    expect(container.textContent).toContain("0");
+    expect(container.textContent).toContain("문제 작업");
+    expect(container.textContent).toContain("큐 스냅샷");
     expect(container.querySelector('a[href="/admin/users?status=pending"]')).toBeNull();
-    expect(container.textContent).toContain("최근 감사 로그가 없습니다");
+    expect(container.querySelector('a[href="/admin/operations?distressed=true"]')).toBeNull();
   });
 
-  it("links a positive pending-user attention row to the filtered users page", async () => {
+  it("links distressed jobs attention to the operations filter", async () => {
     const container = await mount({
-      metrics: { pendingUsers: 3, workspaces: 0, enabledRepositories: 0 },
-      attention: [{ kind: "pending_users", count: 3 }],
+      metrics: {
+        pendingUsers: 0,
+        workspaces: 0,
+        enabledRepositories: 0,
+        distressedJobs: 4,
+      },
+      attention: [{ kind: "distressed_jobs", count: 4 }],
+      queueSnapshot: { ...emptyQueue, deadLast24h: 1 },
       recentAudit: [],
     });
 
-    const link = container.querySelector('a[href="/admin/users?status=pending"]');
-    expect(link?.textContent).toContain("3");
-    expect(link?.textContent).toContain("승인 대기");
+    const link = container.querySelector('a[href="/admin/operations?distressed=true"]');
+    expect(link?.textContent).toContain("4");
+    expect(link?.textContent).toContain("문제 작업");
+    expect(container.textContent).toContain("dead 24h");
   });
 
-  it("renders at most five recent audit rows and no future Phase 1 placeholders", async () => {
+  it("renders at most five recent audit rows", async () => {
     const recentAudit = Array.from({ length: 6 }, (_, index) => auditItem(index));
     const container = await mount({
-      metrics: { pendingUsers: 0, workspaces: 0, enabledRepositories: 0 },
+      metrics: {
+        pendingUsers: 0,
+        workspaces: 0,
+        enabledRepositories: 0,
+        distressedJobs: 0,
+      },
       attention: [],
+      queueSnapshot: emptyQueue,
       recentAudit,
     });
 
     expect(container.querySelectorAll("[data-overview-audit-row]")).toHaveLength(5);
-    expect(container.textContent).not.toContain("Workspace oversight");
-    expect(container.textContent).not.toContain("Jobs");
-    expect(container.textContent).not.toContain("Operations");
   });
 });
 

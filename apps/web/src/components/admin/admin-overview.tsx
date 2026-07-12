@@ -7,36 +7,53 @@ export function AdminOverview({ payload }: { payload: AdminOverviewPayload }) {
   const suspendedAttention = payload.attention.find(
     (item) => item.kind === "suspended_installations",
   );
+  const distressedAttention = payload.attention.find((item) => item.kind === "distressed_jobs");
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Metric label="승인 대기 사용자" value={payload.metrics.pendingUsers} />
         <Metric label="워크스페이스" value={payload.metrics.workspaces} />
         <Metric label="활성화된 저장소" value={payload.metrics.enabledRepositories} />
+        <Metric label="문제 작업" value={payload.metrics.distressedJobs} />
       </div>
 
       {pendingAttention ? (
-        <Link
+        <AttentionLink
           href="/admin/users?status=pending"
-          className="flex h-10 items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-3 text-xs text-primary transition-colors hover:bg-primary/15"
-        >
-          <Clock3 className="size-3.5" aria-hidden="true" />
-          <span className="flex-1">승인 대기 사용자 {pendingAttention.count}명</span>
-          <ArrowRight className="size-3.5" aria-hidden="true" />
-        </Link>
+          tone="primary"
+          label={`승인 대기 사용자 ${pendingAttention.count}명`}
+        />
       ) : null}
 
       {suspendedAttention ? (
-        <Link
+        <AttentionLink
           href="/admin/workspaces?installationState=suspended"
-          className="flex h-10 items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 text-xs text-destructive transition-colors hover:bg-destructive/15"
-        >
-          <Clock3 className="size-3.5" aria-hidden="true" />
-          <span className="flex-1">정지된 GitHub 설치 {suspendedAttention.count}개</span>
-          <ArrowRight className="size-3.5" aria-hidden="true" />
-        </Link>
+          tone="destructive"
+          label={`정지된 GitHub 설치 ${suspendedAttention.count}개`}
+        />
       ) : null}
+
+      {distressedAttention ? (
+        <AttentionLink
+          href="/admin/operations?distressed=true"
+          tone="destructive"
+          label={`문제 작업 ${distressedAttention.count}개`}
+        />
+      ) : null}
+
+      <section className="rounded-lg border bg-card">
+        <div className="border-b px-3 py-2.5">
+          <h2 className="text-sm font-medium text-foreground">큐 스냅샷</h2>
+        </div>
+        <dl className="grid gap-2 px-3 py-3 text-xs sm:grid-cols-5">
+          <Snapshot label="pending" value={payload.queueSnapshot.pending} />
+          <Snapshot label="running" value={payload.queueSnapshot.running} />
+          <Snapshot label="retrying" value={payload.queueSnapshot.retrying} />
+          <Snapshot label="succeeded 24h" value={payload.queueSnapshot.succeededLast24h} />
+          <Snapshot label="dead 24h" value={payload.queueSnapshot.deadLast24h} />
+        </dl>
+      </section>
 
       <section className="rounded-lg border bg-card">
         <div className="border-b px-3 py-2.5">
@@ -77,5 +94,39 @@ function Metric({ label, value }: { label: string; value: number }) {
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="mt-1 font-mono text-2xl font-semibold text-foreground">{value}</p>
     </section>
+  );
+}
+
+function Snapshot({ label, value }: { label: string; value: number }) {
+  return (
+    <div>
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="mt-0.5 font-mono text-sm text-foreground">{value}</dd>
+    </div>
+  );
+}
+
+function AttentionLink({
+  href,
+  label,
+  tone,
+}: {
+  href: string;
+  label: string;
+  tone: "primary" | "destructive";
+}) {
+  const classes =
+    tone === "primary"
+      ? "border-primary/30 bg-primary/10 text-primary hover:bg-primary/15"
+      : "border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/15";
+  return (
+    <Link
+      href={href}
+      className={`flex h-10 items-center gap-2 rounded-lg border px-3 text-xs transition-colors ${classes}`}
+    >
+      <Clock3 className="size-3.5" aria-hidden="true" />
+      <span className="flex-1">{label}</span>
+      <ArrowRight className="size-3.5" aria-hidden="true" />
+    </Link>
   );
 }
