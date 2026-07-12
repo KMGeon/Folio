@@ -5,8 +5,8 @@ import React, { useState } from "react";
 
 import type { Prologue } from "@folio/types";
 
-import { SummaryReviewTable } from "@/components/review/summary-review-table";
-import type { ReviewChapter, ReviewIssueComment, ReviewPrMeta } from "@/lib/review-api";
+import { ReviewSummary } from "@/components/review/review-summary";
+import type { ReviewIssueComment, ReviewPrMeta } from "@/lib/review-api";
 import { cn } from "@/lib/utils";
 
 type PrologueTab = "summary" | "description" | "comments";
@@ -15,14 +15,10 @@ export function ReviewPrologue({
   pr,
   prologue,
   comments,
-  chapters,
-  onSelectChapter,
 }: {
   pr: ReviewPrMeta;
   prologue: Prologue | null;
   comments: ReviewIssueComment[];
-  chapters: ReviewChapter[];
-  onSelectChapter: (index: number) => void;
 }) {
   const [tab, setTab] = useState<PrologueTab>(prologue ? "summary" : "description");
 
@@ -76,11 +72,7 @@ export function ReviewPrologue({
       </div>
 
       {tab === "summary" && prologue ? (
-        <SummaryReviewTable
-          prologue={prologue}
-          chapters={chapters}
-          onSelectChapter={onSelectChapter}
-        />
+        <ReviewSummary prologue={prologue} />
       ) : tab === "description" ? (
         <ConversationCard author={pr.author} createdLabel="PR 설명">
           <MarkdownText text={pr.body || "PR 설명이 없습니다."} />

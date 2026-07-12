@@ -65,21 +65,17 @@ describe("ReviewView source", () => {
     expect(overviewSource).toContain("prologue={review.prologue}");
     expect(chapterSource).toContain("prologue={review.prologue}");
     expect(source).toContain("prologue: Prologue | null");
-    expect(source).toContain("<ReviewPrologue");
-    expect(source).toContain("chapters={reviewChapters}");
-    expect(source).toContain("onSelectChapter={setOpenIndex}");
+    expect(source).toContain("<ReviewPrologue pr={pr} prologue={prologue}");
   });
 
-  it("uses the paired table as the overview composition without duplicate chapter cards", () => {
-    expect(source).not.toContain(
-      'import { ChapterCards } from "@/components/review/chapter-cards"',
-    );
-    expect(source).not.toContain(
-      "<ChapterCards chapters={reviewChapters} onSelect={setOpenIndex} />",
-    );
-    expect(source).toContain('<div className="space-y-4">\n              <ReviewPrologue');
+  it("uses independent summary and review overview columns", () => {
+    expect(source).toContain('import { ChapterCards } from "@/components/review/chapter-cards"');
+    expect(source).toContain("<ChapterCards chapters={reviewChapters} onSelect={setOpenIndex} />");
+    expect(source).toContain("lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]");
+    expect(source).toContain('<section className="min-w-0">\n                <ReviewPrologue');
     expect(source).toContain('chapterPanelTab === "activity"');
     expect(source).toContain("continueChapter");
+    expect(source).not.toContain("SummaryReviewTable");
   });
 
   it("keeps the chapter panel dense so the diff stays primary", () => {
