@@ -325,7 +325,13 @@ export function ReviewView({
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 md:px-6 md:py-5">
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:gap-8">
               <section className="min-w-0">
-                <ReviewPrologue pr={pr} prologue={prologue} comments={comments} />
+                <ReviewPrologue
+                  pr={pr}
+                  prologue={prologue}
+                  comments={comments}
+                  chapters={reviewChapters}
+                  onSelectChapter={setOpenIndex}
+                />
               </section>
               <section className="min-w-0">
                 <div className="mb-3 flex items-center justify-between gap-3">

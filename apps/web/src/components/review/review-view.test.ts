@@ -65,7 +65,9 @@ describe("ReviewView source", () => {
     expect(overviewSource).toContain("prologue={review.prologue}");
     expect(chapterSource).toContain("prologue={review.prologue}");
     expect(source).toContain("prologue: Prologue | null");
-    expect(source).toContain("<ReviewPrologue pr={pr} prologue={prologue}");
+    expect(source).toContain("<ReviewPrologue");
+    expect(source).toContain("chapters={reviewChapters}");
+    expect(source).toContain("onSelectChapter={setOpenIndex}");
   });
 
   it("allows both overview grid columns to shrink on narrow screens", () => {
