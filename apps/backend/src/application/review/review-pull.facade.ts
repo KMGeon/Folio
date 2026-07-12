@@ -29,6 +29,7 @@ export interface ReviewPullDeps {
   octokitFactory?: (input: { owner: string; repo: string }) => Octokit | Promise<Octokit>;
   persist?: (input: PersistReviewInput) => Promise<PersistedReview>;
   decomposeDeps?: DecomposeDeps;
+  getRepositoryPreference?: (fullName: string) => Promise<{ aiReplyEnabled: boolean } | null>;
 }
 
 @Injectable()
@@ -73,25 +74,30 @@ export class ReviewPullFacade {
     // 1-based position matches the read facade's chapter index and the deep-link order.
     const ordered = chapters.map((c, i) => ({ order: i + 1, title: c.title }));
 
-    const body = buildChapterCommentBody({
-      org: input.owner,
-      repo: input.repo,
-      number: input.number,
-      webBaseUrl: config.FOLIO_WEB_BASE_URL,
-      commitSha: summary.headSha.slice(0, 7),
-      chapters: ordered,
-    });
-
     let commentUrl: string | null = null;
     let commentError: string | null = null;
-    try {
-      // Pass the raw key string; upsertMarkedComment calls commentMarker internally.
-      const res = await upsertMarkedComment(octokit, ref, "chapters", body);
-      // Comment persistence already committed; a write failure is non-fatal so
-      // the caller still gets the review result with a populated commentError.
-      commentUrl = `${summary.htmlUrl}#issuecomment-${res.id}`;
-    } catch (err) {
-      commentError = err instanceof Error ? err.message : String(err);
+    // Read after dequeue so a preference change applies even to a queued review job.
+    const repository = await (this.deps.getRepositoryPreference ?? repositoriesRepo.getByFullName)(
+      `${input.owner}/${input.repo}`,
+    );
+    if (repository?.aiReplyEnabled ?? true) {
+      const body = buildChapterCommentBody({
+        org: input.owner,
+        repo: input.repo,
+        number: input.number,
+        webBaseUrl: config.FOLIO_WEB_BASE_URL,
+        commitSha: summary.headSha.slice(0, 7),
+        chapters: ordered,
+      });
+      try {
+        // Pass the raw key string; upsertMarkedComment calls commentMarker internally.
+        const res = await upsertMarkedComment(octokit, ref, "chapters", body);
+        // Comment persistence already committed; a write failure is non-fatal so
+        // the caller still gets the review result with a populated commentError.
+        commentUrl = `${summary.htmlUrl}#issuecomment-${res.id}`;
+      } catch (err) {
+        commentError = err instanceof Error ? err.message : String(err);
+      }
     }
 
     return {
