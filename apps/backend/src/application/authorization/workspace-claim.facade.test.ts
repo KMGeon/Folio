@@ -1,8 +1,10 @@
 import {
+  type InstallationRow,
   type UserRow,
   type WorkspaceMemberRow,
   type WorkspaceRow,
   auditLogsRepo,
+  installationsRepo,
   usersRepo,
   workspaceMembersRepo,
   workspacesRepo,
@@ -31,6 +33,7 @@ const dbDouble = vi.hoisted(() => ({ transaction: vi.fn() }));
 vi.mock("@folio/db", () => ({
   auditLogsRepo: { record: vi.fn() },
   getDb: () => ({ transaction: dbDouble.transaction }),
+  installationsRepo: { upsertByGithubId: vi.fn() },
   usersRepo: { getById: vi.fn(), getByIdForUpdate: vi.fn() },
   workspaceMembersRepo: {
     create: vi.fn(),
@@ -58,6 +61,19 @@ function workspace(): WorkspaceRow {
     githubAccountId: 42,
     accountLogin: "acme",
     accountType: ACCOUNT_TYPE.ORGANIZATION,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+function installation(suspendedAt: Date | null): InstallationRow {
+  return {
+    id: "installation-1",
+    githubInstallationId: 123,
+    githubAccountId: 42,
+    accountLogin: "acme",
+    accountType: ACCOUNT_TYPE.ORGANIZATION,
+    suspendedAt,
     createdAt: now,
     updatedAt: now,
   };
@@ -100,7 +116,10 @@ function user(): UserRow {
 describe("WorkspaceClaimFacade", () => {
   let entitlement: { canUseFeature: ReturnType<typeof vi.fn> };
   let membership: { ensureReviewer: ReturnType<typeof vi.fn> };
-  let resolver: { firstWorkspaceForUser: ReturnType<typeof vi.fn> };
+  let resolver: {
+    firstWorkspaceForUser: ReturnType<typeof vi.fn>;
+    listInstallationsForWorkspace: ReturnType<typeof vi.fn>;
+  };
   let installationIdentity: { resolveInstallationIdentity: ReturnType<typeof vi.fn> };
   let facade: WorkspaceClaimFacade;
 
@@ -110,7 +129,10 @@ describe("WorkspaceClaimFacade", () => {
     vi.mocked(usersRepo.getByIdForUpdate).mockResolvedValue(user());
     entitlement = { canUseFeature: vi.fn() };
     membership = { ensureReviewer: vi.fn() };
-    resolver = { firstWorkspaceForUser: vi.fn() };
+    resolver = {
+      firstWorkspaceForUser: vi.fn(),
+      listInstallationsForWorkspace: vi.fn().mockResolvedValue([]),
+    };
     installationIdentity = {
       resolveInstallationIdentity: vi.fn().mockResolvedValue({
         githubAccountId: 42,
@@ -148,6 +170,15 @@ describe("WorkspaceClaimFacade", () => {
       ).toBeLessThan(dbDouble.transaction.mock.invocationCallOrder[0]!);
       expect(workspacesRepo.upsertByGithubAccountId).toHaveBeenCalledWith(
         {
+          githubAccountId: 42,
+          accountLogin: "acme",
+          accountType: ACCOUNT_TYPE.ORGANIZATION,
+        },
+        transaction,
+      );
+      expect(installationsRepo.upsertByGithubId).toHaveBeenCalledWith(
+        {
+          githubInstallationId: 123,
           githubAccountId: 42,
           accountLogin: "acme",
           accountType: ACCOUNT_TYPE.ORGANIZATION,
@@ -350,6 +381,7 @@ describe("WorkspaceClaimFacade", () => {
       vi.mocked(workspaceMembersRepo.getMembership).mockResolvedValue(
         member("user-1", WORKSPACE_ROLE.ADMIN),
       );
+      resolver.listInstallationsForWorkspace.mockResolvedValue([installation(null)]);
       entitlement.canUseFeature.mockResolvedValue({ entitled: true });
 
       await expect(facade.currentContext("user-1")).resolves.toEqual({
@@ -359,7 +391,9 @@ describe("WorkspaceClaimFacade", () => {
         globalStatus: GLOBAL_STATUS.ACTIVE,
         isSystemAdmin: false,
         entitlements: Object.values(ENTITLEMENT_FEATURE),
+        onboardingState: "ready",
       });
+      expect(resolver.listInstallationsForWorkspace).toHaveBeenCalledWith(42);
       expect(entitlement.canUseFeature).toHaveBeenCalledTimes(
         Object.values(ENTITLEMENT_FEATURE).length,
       );
@@ -374,22 +408,39 @@ describe("WorkspaceClaimFacade", () => {
         workspace: null,
         role: null,
         memberStatus: null,
+        onboardingState: "install_required",
       });
       expect(workspaceMembersRepo.getMembership).not.toHaveBeenCalled();
+      expect(resolver.listInstallationsForWorkspace).not.toHaveBeenCalled();
     });
 
-    it("preserves suspended membership state", async () => {
+    it("reports membership_suspended before installation availability", async () => {
       vi.mocked(usersRepo.getById).mockResolvedValue(user());
       resolver.firstWorkspaceForUser.mockResolvedValue(workspace());
       vi.mocked(workspaceMembersRepo.getMembership).mockResolvedValue(
         member("user-1", WORKSPACE_ROLE.REVIEWER, MEMBERSHIP_STATUS.SUSPENDED),
       );
+      resolver.listInstallationsForWorkspace.mockResolvedValue([installation(null)]);
       entitlement.canUseFeature.mockResolvedValue({ entitled: true });
 
       await expect(facade.currentContext("user-1")).resolves.toMatchObject({
         role: WORKSPACE_ROLE.REVIEWER,
         memberStatus: MEMBERSHIP_STATUS.SUSPENDED,
+        onboardingState: "membership_suspended",
       });
+    });
+
+    it("reports reinstall_required when all workspace installations are suspended", async () => {
+      vi.mocked(usersRepo.getById).mockResolvedValue(user());
+      resolver.firstWorkspaceForUser.mockResolvedValue(workspace());
+      vi.mocked(workspaceMembersRepo.getMembership).mockResolvedValue(member("user-1"));
+      resolver.listInstallationsForWorkspace.mockResolvedValue([installation(now)]);
+      entitlement.canUseFeature.mockResolvedValue({ entitled: true });
+
+      await expect(facade.currentContext("user-1")).resolves.toMatchObject({
+        onboardingState: "reinstall_required",
+      });
+      expect(resolver.listInstallationsForWorkspace).toHaveBeenCalledWith(42);
     });
 
     it("omits features denied by the entitlement service", async () => {

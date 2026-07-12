@@ -4,6 +4,7 @@ import {
   AuditActionSchema,
   ENTITLEMENT_FEATURE,
   GLOBAL_STATUS,
+  INSTALLATION_ONBOARDING_STATE,
   MEMBERSHIP_STATUS,
   WORKSPACE_ROLE,
   WorkspaceRoleSchema,
@@ -17,6 +18,15 @@ describe("authorization types", () => {
   it("exposes membership and global status values", () => {
     expect(Object.values(MEMBERSHIP_STATUS)).toEqual(["active", "suspended"]);
     expect(Object.values(GLOBAL_STATUS)).toEqual(["pending", "active", "suspended"]);
+  });
+
+  it("exposes the fixed installation onboarding states", () => {
+    expect(Object.values(INSTALLATION_ONBOARDING_STATE)).toEqual([
+      "ready",
+      "install_required",
+      "reinstall_required",
+      "membership_suspended",
+    ]);
   });
 
   it("lists the audited actions and gated features", () => {

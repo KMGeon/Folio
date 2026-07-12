@@ -65,6 +65,7 @@ describe("WorkspaceController", () => {
       globalStatus: GLOBAL_STATUS.ACTIVE,
       isSystemAdmin: false,
       entitlements: [],
+      onboardingState: "install_required",
     };
     facade.currentContext.mockResolvedValue(context);
 
