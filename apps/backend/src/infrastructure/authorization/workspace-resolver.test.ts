@@ -142,6 +142,29 @@ describe("WorkspaceResolver", () => {
     expect(workspacesRepo.getById).toHaveBeenCalledWith("workspace-1");
   });
 
+  it("uses a preferred workspace only when it belongs to the user", async () => {
+    const workspace = workspaceRow({ id: "workspace-2" });
+    vi.mocked(workspaceMembersRepo.listByUser).mockResolvedValue([
+      { workspaceId: "workspace-1" } as never,
+      { workspaceId: "workspace-2" } as never,
+    ]);
+    vi.mocked(workspacesRepo.getById).mockResolvedValue(workspace);
+
+    await expect(resolver.workspaceForUser("user-1", "workspace-2")).resolves.toBe(workspace);
+    expect(workspacesRepo.getById).toHaveBeenCalledWith("workspace-2");
+  });
+
+  it("falls back to the first workspace when a preferred id is not a membership", async () => {
+    const workspace = workspaceRow();
+    vi.mocked(workspaceMembersRepo.listByUser).mockResolvedValue([
+      { workspaceId: "workspace-1" } as never,
+    ]);
+    vi.mocked(workspacesRepo.getById).mockResolvedValue(workspace);
+
+    await expect(resolver.workspaceForUser("user-1", "workspace-other")).resolves.toBe(workspace);
+    expect(workspacesRepo.getById).toHaveBeenCalledWith("workspace-1");
+  });
+
   it("returns null when a user has no workspace membership", async () => {
     vi.mocked(workspaceMembersRepo.listByUser).mockResolvedValue([]);
 

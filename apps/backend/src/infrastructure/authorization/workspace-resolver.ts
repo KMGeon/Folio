@@ -30,7 +30,17 @@ export class WorkspaceResolver {
   }
 
   async firstWorkspaceForUser(userId: string): Promise<WorkspaceRow | null> {
-    const [membership] = await workspaceMembersRepo.listByUser(userId);
+    return this.workspaceForUser(userId);
+  }
+
+  async workspaceForUser(
+    userId: string,
+    preferredWorkspaceId?: string,
+  ): Promise<WorkspaceRow | null> {
+    const memberships = await workspaceMembersRepo.listByUser(userId);
+    const membership =
+      memberships.find((candidate) => candidate.workspaceId === preferredWorkspaceId) ??
+      memberships[0];
     return membership ? workspacesRepo.getById(membership.workspaceId) : null;
   }
 }

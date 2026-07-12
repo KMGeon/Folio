@@ -130,13 +130,13 @@ function liveRepoAccess(permission: string) {
 }
 
 describe("RepositoriesFacade", () => {
-  const resolver = { firstWorkspaceForUser: vi.fn() };
+  const resolver = { workspaceForUser: vi.fn() };
   const repoAccess = { assertLiveLevelAtLeast: vi.fn() };
   let facade: RepositoriesFacade;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    resolver.firstWorkspaceForUser.mockResolvedValue(workspace);
+    resolver.workspaceForUser.mockResolvedValue(workspace);
     repoAccess.assertLiveLevelAtLeast.mockResolvedValue(true);
     vi.mocked(usersRepo.getById).mockResolvedValue(user);
     vi.mocked(usersRepo.getByIdForUpdate).mockResolvedValue(user);
@@ -178,7 +178,7 @@ describe("RepositoriesFacade", () => {
   it("lists repositories only from the actor's stable workspace", async () => {
     const result = await facade.listForUser({ userId: user.id, login: user.login });
 
-    expect(resolver.firstWorkspaceForUser).toHaveBeenCalledWith(user.id);
+    expect(resolver.workspaceForUser).toHaveBeenCalledWith(user.id, undefined);
     expect(repositoriesRepo.listByWorkspaceId).toHaveBeenCalledWith(workspace.id);
     expect(result).toEqual({
       githubInstallationId: 145418830,
@@ -190,6 +190,22 @@ describe("RepositoriesFacade", () => {
         }),
       ],
     });
+  });
+
+  it("lists repositories from the verified workspace selected by the user", async () => {
+    const organizationWorkspace = {
+      ...workspace,
+      id: "workspace-organization",
+      accountLogin: "TobeNetworksGlobal",
+      githubAccountId: 99,
+    };
+    resolver.workspaceForUser.mockResolvedValue(organizationWorkspace);
+
+    await facade.listForUser({ userId: user.id, login: user.login }, organizationWorkspace.id);
+
+    expect(resolver.workspaceForUser).toHaveBeenCalledWith(user.id, organizationWorkspace.id);
+    expect(repositoriesRepo.listByWorkspaceId).toHaveBeenCalledWith(organizationWorkspace.id);
+    expect(installationsRepo.listByWorkspaceAccountId).toHaveBeenCalledWith(99);
   });
 
   it("deterministically selects the newest active GitHub installation", async () => {
@@ -205,7 +221,7 @@ describe("RepositoriesFacade", () => {
   });
 
   it("returns an empty list when the actor has no workspace", async () => {
-    resolver.firstWorkspaceForUser.mockResolvedValue(null);
+    resolver.workspaceForUser.mockResolvedValue(null);
 
     await expect(facade.listForUser({ userId: user.id, login: user.login })).resolves.toEqual({
       githubInstallationId: null,

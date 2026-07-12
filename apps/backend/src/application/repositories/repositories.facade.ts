@@ -48,8 +48,14 @@ export class RepositoriesFacade {
     private readonly indexWriter?: PullRequestIndexWriter,
   ) {}
 
-  async listForUser(user: { userId: string; login: string }): Promise<RepositoryListPayload> {
-    const workspace = await this.workspaceResolver.firstWorkspaceForUser(user.userId);
+  async listForUser(
+    user: { userId: string; login: string },
+    preferredWorkspaceId?: string,
+  ): Promise<RepositoryListPayload> {
+    const workspace = await this.workspaceResolver.workspaceForUser(
+      user.userId,
+      preferredWorkspaceId,
+    );
     if (!workspace) {
       return { githubInstallationId: null, repositories: [] };
     }
@@ -82,8 +88,14 @@ export class RepositoriesFacade {
     };
   }
 
-  async setEnabled(input: ToggleRepositoryInput): Promise<Repository> {
-    const workspace = await this.workspaceResolver.firstWorkspaceForUser(input.user.id);
+  async setEnabled(
+    input: ToggleRepositoryInput,
+    preferredWorkspaceId?: string,
+  ): Promise<Repository> {
+    const workspace = await this.workspaceResolver.workspaceForUser(
+      input.user.id,
+      preferredWorkspaceId,
+    );
     if (!workspace) {
       throw new CoreException(ErrorType.WorkspaceNotFound);
     }
