@@ -1,11 +1,20 @@
 import { describe, expect, it } from "vitest";
 import {
   AdminAuditPageSchema,
+  AdminJobPageSchema,
   AdminOverviewPayloadSchema,
   AdminUserPageSchema,
   AdminUserStatusFilterSchema,
   AdminWorkspacePageSchema,
 } from "./admin.js";
+
+const emptyQueueSnapshot = {
+  pending: 0,
+  running: 0,
+  retrying: 0,
+  succeededLast24h: 0,
+  deadLast24h: 0,
+} as const;
 
 const validAuditItem = {
   id: "00000000-0000-4000-8000-000000000002",
@@ -62,8 +71,14 @@ describe("Admin Phase 1 contracts", () => {
     ).toThrow();
     expect(() =>
       AdminOverviewPayloadSchema.parse({
-        metrics: { pendingUsers: -1, workspaces: 0, enabledRepositories: 0 },
+        metrics: {
+          pendingUsers: -1,
+          workspaces: 0,
+          enabledRepositories: 0,
+          distressedJobs: 0,
+        },
         attention: [],
+        queueSnapshot: emptyQueueSnapshot,
         recentAudit: [],
       }),
     ).toThrow();
@@ -103,8 +118,14 @@ describe("Admin Phase 1 contracts", () => {
 
   it("limits recent audit entries to five", () => {
     const overview = {
-      metrics: { pendingUsers: 0, workspaces: 0, enabledRepositories: 0 },
+      metrics: {
+        pendingUsers: 0,
+        workspaces: 0,
+        enabledRepositories: 0,
+        distressedJobs: 0,
+      },
       attention: [],
+      queueSnapshot: emptyQueueSnapshot,
       recentAudit: Array.from({ length: 5 }, () => validAuditItem),
     };
 
@@ -119,8 +140,14 @@ describe("Admin Phase 1 contracts", () => {
 
   it("requires positive attention counts", () => {
     const overview = {
-      metrics: { pendingUsers: 1, workspaces: 0, enabledRepositories: 0 },
+      metrics: {
+        pendingUsers: 1,
+        workspaces: 0,
+        enabledRepositories: 0,
+        distressedJobs: 0,
+      },
       attention: [{ kind: "pending_users", count: 1 }],
+      queueSnapshot: emptyQueueSnapshot,
       recentAudit: [],
     } as const;
 
@@ -159,6 +186,72 @@ describe("Admin Phase 2 workspace contracts", () => {
       AdminWorkspacePageSchema.parse({
         ...page,
         items: [{ ...page.items[0], reviewContent: "private diff" }],
+      }),
+    ).toThrow();
+  });
+});
+
+describe("Admin Phase 3 job contracts", () => {
+  const safeJob = {
+    id: "00000000-0000-4000-8000-000000000020",
+    kind: "review_pull",
+    status: "failed",
+    attempts: 2,
+    maxAttempts: 5,
+    runAfter: "2026-07-12T00:00:00.000Z",
+    leaseExpiresAt: null,
+    lockedBy: null,
+    repository: { id: null, fullName: "acme/app" },
+    errorSummary: "timeout",
+    isDistressed: true,
+    createdAt: "2026-07-12T00:00:00.000Z",
+    updatedAt: "2026-07-12T01:00:00.000Z",
+  } as const;
+
+  it("accepts safe job pages and rejects payload/result leakage", () => {
+    expect(AdminJobPageSchema.parse({ items: [safeJob], nextCursor: null }).items).toHaveLength(1);
+    expect(() =>
+      AdminJobPageSchema.parse({
+        items: [{ ...safeJob, payload: { kind: "review_pull" } }],
+        nextCursor: null,
+      }),
+    ).toThrow();
+    expect(() =>
+      AdminJobPageSchema.parse({
+        items: [{ ...safeJob, result: { chapters: [] } }],
+        nextCursor: null,
+      }),
+    ).toThrow();
+    expect(() =>
+      AdminJobPageSchema.parse({
+        items: [{ ...safeJob, lastError: "raw secret" }],
+        nextCursor: null,
+      }),
+    ).toThrow();
+  });
+
+  it("requires Phase 3 overview queue snapshot and distressed metric", () => {
+    const overview = {
+      metrics: {
+        pendingUsers: 0,
+        workspaces: 1,
+        enabledRepositories: 2,
+        distressedJobs: 3,
+      },
+      attention: [{ kind: "distressed_jobs", count: 3 }],
+      queueSnapshot: emptyQueueSnapshot,
+      recentAudit: [],
+    };
+    expect(AdminOverviewPayloadSchema.parse(overview).metrics.distressedJobs).toBe(3);
+    expect(() =>
+      AdminOverviewPayloadSchema.parse({
+        metrics: {
+          pendingUsers: 0,
+          workspaces: 0,
+          enabledRepositories: 0,
+        },
+        attention: [],
+        recentAudit: [],
       }),
     ).toThrow();
   });
