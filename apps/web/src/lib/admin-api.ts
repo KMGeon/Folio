@@ -1,5 +1,6 @@
 import type {
   AdminAuditPage,
+  AdminHealthPayload,
   AdminJobDetail,
   AdminJobKind,
   AdminJobPage,
@@ -72,6 +73,10 @@ export function fetchAdminOverview(
   options: ServerCookieOptions = {},
 ): Promise<AdminOverviewPayload> {
   return adminRequest<AdminOverviewPayload>("/api/v1/admin/overview", options.cookie);
+}
+
+export function fetchAdminHealth(options: ServerCookieOptions = {}): Promise<AdminHealthPayload> {
+  return adminRequest<AdminHealthPayload>("/api/v1/admin/health", options.cookie);
 }
 
 export function fetchAdminWorkspaces(

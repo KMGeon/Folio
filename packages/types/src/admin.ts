@@ -226,6 +226,53 @@ export const AdminQueueSnapshotSchema = z
   .strict();
 export type AdminQueueSnapshot = z.infer<typeof AdminQueueSnapshotSchema>;
 
+export const AdminWorkerHeartbeatStatusSchema = z.enum(["ok", "stale", "unknown"]);
+export type AdminWorkerHeartbeatStatus = z.infer<typeof AdminWorkerHeartbeatStatusSchema>;
+
+export const AdminWorkerHeartbeatItemSchema = z
+  .object({
+    workerId: z.string().min(1),
+    lastSeenAt: IsoDateTimeSchema,
+    startedAt: IsoDateTimeSchema,
+    ageSeconds: z.number().int().nonnegative(),
+    status: z.enum(["ok", "stale"]),
+  })
+  .strict();
+export type AdminWorkerHeartbeatItem = z.infer<typeof AdminWorkerHeartbeatItemSchema>;
+
+export const AdminCodexPathStatusSchema = z.enum(["recent_success", "aging", "no_success"]);
+export type AdminCodexPathStatus = z.infer<typeof AdminCodexPathStatusSchema>;
+
+// Ops health facts only — never live Codex probe output or secrets.
+export const AdminHealthPayloadSchema = z
+  .object({
+    checkedAt: IsoDateTimeSchema,
+    worker: z
+      .object({
+        status: AdminWorkerHeartbeatStatusSchema,
+        staleAfterSeconds: z.number().int().positive(),
+        workers: z.array(AdminWorkerHeartbeatItemSchema),
+      })
+      .strict(),
+    codexPath: z
+      .object({
+        status: AdminCodexPathStatusSchema,
+        lastReviewPullSucceededAt: IsoDateTimeSchema.nullable(),
+        reviewPullSucceededLast24h: z.number().int().nonnegative(),
+        reviewPullFailedLast24h: z.number().int().nonnegative(),
+        note: z.string().min(1),
+      })
+      .strict(),
+    queue: z
+      .object({
+        pending: z.number().int().nonnegative(),
+        distressedJobs: z.number().int().nonnegative(),
+      })
+      .strict(),
+  })
+  .strict();
+export type AdminHealthPayload = z.infer<typeof AdminHealthPayloadSchema>;
+
 export const AdminOverviewPayloadSchema = z
   .object({
     metrics: z
@@ -250,6 +297,10 @@ export const AdminOverviewPayloadSchema = z
             kind: z.literal("distressed_jobs"),
             count: z.number().int().positive(),
           })
+          .strict(),
+        z.object({ kind: z.literal("worker_stale"), count: z.number().int().positive() }).strict(),
+        z
+          .object({ kind: z.literal("worker_unknown"), count: z.number().int().positive() })
           .strict(),
       ]),
     ),

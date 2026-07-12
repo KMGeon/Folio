@@ -41,3 +41,13 @@ export { reviewStateRepo } from "./review-state.js";
 export { commentsRepo } from "./comments.js";
 export { subscriptionsRepo } from "./subscriptions.js";
 export { foliantRepo } from "./foliant.js";
+export { workerHeartbeatsRepo } from "./worker-heartbeats.js";
+export { adminHealthRepo, type AdminHealthProjection } from "./admin-health.js";
+export {
+  ADMIN_WORKER_HEARTBEAT_MS,
+  ADMIN_WORKER_STALE_AFTER_MS,
+  CODEX_PATH_NOTE,
+  codexPathStatus,
+  workerFleetStatus,
+  workerHeartbeatItemStatus,
+} from "./admin-health-status.js";
