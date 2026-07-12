@@ -25,10 +25,12 @@ describe("ReviewTopBar", () => {
         }}
         activeTab="chapters"
         onTabChange={() => undefined}
-        chapterCount={1}
-        fileCount={1}
+        chapterCount={3}
+        fileCount={15}
+        viewedChapters={1}
+        totalChapters={3}
         viewedFiles={0}
-        totalFiles={1}
+        totalFiles={15}
         totalAdditions={1}
         totalDeletions={0}
       />,
@@ -40,6 +42,9 @@ describe("ReviewTopBar", () => {
     expect(markup).toContain("text-info");
     expect(markup).toContain("bg-primary/15");
     expect(markup).toContain("text-primary");
+    expect(markup).toContain("챕터 1/3");
+    expect(markup).toContain("파일 0/15");
+    expect(markup).not.toContain("viewed");
     expect(markup).toContain("shrink-0 px-4 pt-3 md:px-6");
     expect(markup).toContain("flex min-w-0 flex-col gap-2.5");
     expect(markup).toContain("mt-3 flex flex-wrap items-center gap-x-3 gap-y-2");
