@@ -112,7 +112,7 @@ function project(
   completedCount = 5,
 ): DashboardProjectData {
   return {
-    repo: { id, fullName, folioEnabled: true, openPrCount: 0 },
+    repo: { id, fullName, folioEnabled: true, openPrCount: 0, priority: "normal" },
     pages: {
       ready: page(openPulls.filter((pull) => pull.sourceBucket === "ready")),
       yours: page(openPulls.filter((pull) => pull.sourceBucket === "yours")),

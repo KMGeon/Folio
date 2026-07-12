@@ -18,6 +18,7 @@ describe("loadDashboardProjectData", () => {
       fullName: "KMGeon/Folio",
       openPrCount: 3,
       folioEnabled: true,
+      priority: "normal" as const,
     };
 
     const project = await loadDashboardProjectData(
@@ -54,6 +55,7 @@ describe("loadDashboardProjectData", () => {
       fullName: "KMGeon/Folio",
       openPrCount: 3,
       folioEnabled: true,
+      priority: "normal" as const,
     };
 
     await loadDashboardProjectBucketPage(

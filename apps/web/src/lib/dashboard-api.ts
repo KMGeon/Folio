@@ -1,4 +1,5 @@
 import { apiRequest } from "./api-client";
+import type { RepositoryPriority } from "@folio/types";
 
 export type DashboardReviewStatus = "ready" | "processing";
 export type ReviewAnalysisStatus =
@@ -75,6 +76,7 @@ export interface DashboardRepo {
   fullName: string;
   openPrCount: number;
   folioEnabled: boolean;
+  priority: RepositoryPriority;
 }
 
 export interface ActivityDay {

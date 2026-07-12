@@ -5,7 +5,12 @@ import { useState } from "react";
 
 import { Switch } from "@/components/ui/switch";
 import { ApiError } from "@/lib/api-client";
-import { type RepositorySummary, setRepositoryEnabled } from "@/lib/repositories-api";
+import {
+  type RepositoryPriority,
+  type RepositorySummary,
+  setRepositoryEnabled,
+  updateRepositorySettings,
+} from "@/lib/repositories-api";
 import { cn } from "@/lib/utils";
 
 export function RepositorySettingsTable({
@@ -28,7 +33,10 @@ export function RepositorySettingsTable({
         left.fullName.localeCompare(right.fullName),
     );
 
-  const changeRepository = async (repository: RepositorySummary, enabled: boolean) => {
+  const updateRepository = async (
+    repository: RepositorySummary,
+    request: () => Promise<RepositorySummary>,
+  ) => {
     if (disabledReason || !repository.githubAccessActive || pendingRepositoryId !== null) {
       return;
     }
@@ -36,7 +44,7 @@ export function RepositorySettingsTable({
     setPendingRepositoryId(repository.id);
     setErrorsByRepositoryId((current) => ({ ...current, [repository.id]: "" }));
     try {
-      const updated = await setRepositoryEnabled(repository.id, enabled);
+      const updated = await request();
       // The response is the confirmed backend state, so failed requests never leave an optimistic value behind.
       setRepositories((current) =>
         current.map((item) => (item.id === repository.id ? updated : item)),
@@ -60,6 +68,13 @@ export function RepositorySettingsTable({
       setPendingRepositoryId(null);
     }
   };
+
+  const changeRepositoryEnabled = (repository: RepositorySummary, enabled: boolean) =>
+    updateRepository(repository, () => setRepositoryEnabled(repository.id, enabled));
+  const changeRepositorySettings = (
+    repository: RepositorySummary,
+    input: Partial<Pick<RepositorySummary, "aiReplyEnabled" | "priority">>,
+  ) => updateRepository(repository, () => updateRepositorySettings(repository.id, input));
 
   return (
     <div className="space-y-3">
@@ -91,6 +106,12 @@ export function RepositorySettingsTable({
                 <th scope="col" className="h-8 px-3 text-right font-medium">
                   Folio review
                 </th>
+                <th scope="col" className="h-8 px-3 text-right font-medium">
+                  AI 답글
+                </th>
+                <th scope="col" className="h-8 px-3 text-right font-medium">
+                  우선순위
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -101,7 +122,15 @@ export function RepositorySettingsTable({
                   disabledReason={disabledReason}
                   pending={pendingRepositoryId !== null}
                   error={errorsByRepositoryId[repository.id]}
-                  onCheckedChange={(enabled) => void changeRepository(repository, enabled)}
+                  onFolioEnabledChange={(enabled) =>
+                    void changeRepositoryEnabled(repository, enabled)
+                  }
+                  onAiReplyEnabledChange={(enabled) =>
+                    void changeRepositorySettings(repository, { aiReplyEnabled: enabled })
+                  }
+                  onPriorityChange={(priority) =>
+                    void changeRepositorySettings(repository, { priority })
+                  }
                 />
               ))}
             </tbody>
@@ -117,16 +146,21 @@ function RepositoryRow({
   disabledReason,
   pending,
   error,
-  onCheckedChange,
+  onFolioEnabledChange,
+  onAiReplyEnabledChange,
+  onPriorityChange,
 }: {
   repository: RepositorySummary;
   disabledReason: string | null;
   pending: boolean;
   error?: string;
-  onCheckedChange: (enabled: boolean) => void;
+  onFolioEnabledChange: (enabled: boolean) => void;
+  onAiReplyEnabledChange: (enabled: boolean) => void;
+  onPriorityChange: (priority: RepositoryPriority) => void;
 }) {
   const disconnected = !repository.githubAccessActive;
   const checked = repository.githubAccessActive && repository.folioEnabled;
+  const controlsDisabled = disconnected || disabledReason !== null || pending;
   const RepositoryIcon = repository.private ? LockKeyhole : GitFork;
   const disabledReasonId = `repository-${repository.id}-disabled-reason`;
   const mutationErrorId = `repository-${repository.id}-mutation-error`;
@@ -160,18 +194,18 @@ function RepositoryRow({
           </div>
         </div>
       </td>
-      <td className="px-3 py-2">
+      <td className="px-3 py-2 text-right">
         <div className="flex flex-col items-end gap-1">
           <Switch
             checked={checked}
-            disabled={disconnected || disabledReason !== null || pending}
+            disabled={controlsDisabled}
             label={
               disconnected
                 ? `${repository.fullName} Folio 리뷰 사용 불가: GitHub 앱 연결 해제됨`
                 : `${repository.fullName} Folio 리뷰 ${checked ? "끄기" : "켜기"}`
             }
             describedBy={describedBy || undefined}
-            onCheckedChange={onCheckedChange}
+            onCheckedChange={onFolioEnabledChange}
           />
           {effectiveDisabledReason ? (
             <span id={disabledReasonId} className="max-w-72 text-right text-muted-foreground">
@@ -184,6 +218,28 @@ function RepositoryRow({
             </span>
           ) : null}
         </div>
+      </td>
+      <td className="px-3 py-2 text-right">
+        <Switch
+          checked={repository.aiReplyEnabled}
+          disabled={controlsDisabled}
+          label={`${repository.fullName} AI 답글 생성 ${repository.aiReplyEnabled ? "끄기" : "켜기"}`}
+          describedBy={describedBy || undefined}
+          onCheckedChange={onAiReplyEnabledChange}
+        />
+      </td>
+      <td className="px-3 py-2 text-right">
+        <select
+          aria-label={`${repository.fullName} 우선순위`}
+          value={repository.priority}
+          disabled={controlsDisabled}
+          onChange={(event) => onPriorityChange(event.target.value as RepositoryPriority)}
+          className="h-7 rounded-md border border-input bg-background px-2 text-xs text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <option value="high">높음</option>
+          <option value="normal">보통</option>
+          <option value="low">낮음</option>
+        </select>
       </td>
     </tr>
   );

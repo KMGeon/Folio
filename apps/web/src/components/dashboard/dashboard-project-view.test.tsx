@@ -97,7 +97,7 @@ function project(id: string, fullName: string, populated: boolean): DashboardPro
     : [];
   const completed = populated ? [completedPull(fullName)] : [];
   return {
-    repo: { id, fullName, folioEnabled: true, openPrCount: open.length },
+    repo: { id, fullName, folioEnabled: true, openPrCount: open.length, priority: "normal" },
     pages: {
       ready: { items: open, nextCursor: null, count: open.length },
       yours: { items: [], nextCursor: null, count: 0 },

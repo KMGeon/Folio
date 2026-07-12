@@ -54,7 +54,7 @@ describe("dashboard project controls", () => {
 function project(id: string, fullName: string, ready: number): DashboardProjectData {
   const page = { items: [], nextCursor: null, count: 0 };
   return {
-    repo: { id, fullName, folioEnabled: true, openPrCount: 0 },
+    repo: { id, fullName, folioEnabled: true, openPrCount: 0, priority: "normal" },
     pages: {
       ready: {
         ...page,

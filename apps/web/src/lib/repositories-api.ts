@@ -1,5 +1,7 @@
 import { apiRequest } from "./api-client";
 
+export type RepositoryPriority = "high" | "normal" | "low";
+
 export interface RepositorySummary {
   id: string;
   installationId: string;
@@ -11,6 +13,8 @@ export interface RepositorySummary {
   defaultBranch: string;
   folioEnabled: boolean;
   githubAccessActive: boolean;
+  aiReplyEnabled: boolean;
+  priority: RepositoryPriority;
 }
 
 export interface RepositoryListPayload {
@@ -42,5 +46,16 @@ export async function setRepositoryEnabled(
       ...(cookie ? { cookie } : {}),
     },
     body: JSON.stringify({ enabled }),
+  });
+}
+
+export function updateRepositorySettings(
+  repositoryId: string,
+  input: Partial<Pick<RepositorySummary, "aiReplyEnabled" | "priority">>,
+): Promise<RepositorySummary> {
+  return apiRequest<RepositorySummary>(`/api/v1/repositories/${repositoryId}/settings`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
   });
 }
