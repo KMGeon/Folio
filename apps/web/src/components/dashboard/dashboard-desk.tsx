@@ -1,24 +1,35 @@
 "use client";
 
-import type { ReactNode, Ref } from "react";
+import type { Ref } from "react";
 
-import { DashboardBoard, type DashboardColumnState } from "@/components/dashboard/dashboard-board";
-import { DashboardFocusEmpty } from "@/components/dashboard/dashboard-focus-empty";
+import {
+  type DashboardProjectData,
+  type DashboardQueueFocus,
+  type DashboardScopeCounts,
+} from "@/components/dashboard/dashboard-project-desk-model";
+import { DashboardProjectBar } from "@/components/dashboard/dashboard-project-bar";
+import { DashboardProjectSidebar } from "@/components/dashboard/dashboard-project-sidebar";
+import { DashboardProjectView } from "@/components/dashboard/dashboard-project-view";
 import {
   DashboardFilterPanel,
   type DashboardFilterState,
 } from "@/components/dashboard/dashboard-filter-panel";
-import {
-  DashboardHeader,
-  type DashboardHeaderCounts,
-} from "@/components/dashboard/dashboard-header";
+import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { DashboardSearchBar } from "@/components/dashboard/dashboard-search-bar";
-import type { DashboardCardProperty, DashboardPull } from "@/lib/dashboard-api";
+import { DashboardColumnSkeleton } from "@/components/dashboard/dashboard-skeleton";
+import type { DashboardPull } from "@/lib/dashboard-api";
 
 export function DashboardDesk({
   user,
   counts,
-  openQueueEmpty,
+  scopeName,
+  projects,
+  activeRepoId,
+  queueFocus,
+  onProjectSelect,
+  onQueueFocusChange,
+  projectsLoading,
+  projectsError,
   query,
   onQueryChange,
   onFilterClick,
@@ -27,15 +38,18 @@ export function DashboardDesk({
   filterOpen,
   filters,
   onFiltersChange,
-  boardColumns,
-  completedColumns,
   onRetryReview,
-  onSearchClick,
-  onShowComplete,
 }: {
   user: { login: string; avatarUrl: string };
-  counts: DashboardHeaderCounts;
-  openQueueEmpty: boolean;
+  counts: DashboardScopeCounts;
+  scopeName: string;
+  projects: DashboardProjectData[];
+  activeRepoId: string | null;
+  queueFocus: DashboardQueueFocus;
+  onProjectSelect: (repoId: string | null) => void;
+  onQueueFocusChange: (focus: DashboardQueueFocus) => void;
+  projectsLoading: boolean;
+  projectsError: string | null;
   query: string;
   onQueryChange: (value: string) => void;
   onFilterClick: () => void;
@@ -44,75 +58,64 @@ export function DashboardDesk({
   filterOpen: boolean;
   filters: DashboardFilterState;
   onFiltersChange: (filters: DashboardFilterState) => void;
-  boardColumns: DashboardColumnState[];
-  completedColumns: DashboardColumnState[];
   onRetryReview: (pull: DashboardPull) => void;
-  onSearchClick: () => void;
-  onShowComplete: () => void;
 }) {
+  const activeProject = activeRepoId
+    ? projects.find((project) => project.repo.id === activeRepoId)
+    : null;
+  const activeRepo = activeProject?.repo ?? null;
+
   return (
     <div className="relative space-y-5">
-      <DashboardHeader login={user.login} avatarUrl={user.avatarUrl} counts={counts} />
-      <div ref={searchHostRef}>
-        <DashboardSearchBar
-          query={query}
-          onQueryChange={onQueryChange}
-          onFilterClick={onFilterClick}
-          onSortClick={onSortClick}
+      <DashboardHeader
+        login={user.login}
+        avatarUrl={user.avatarUrl}
+        counts={counts}
+        scopeName={scopeName}
+      />
+      <div className="grid min-w-0 gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
+        <DashboardProjectSidebar
+          projects={projects}
+          activeRepoId={activeRepoId}
+          onSelect={onProjectSelect}
         />
+        <main className="min-w-0 space-y-4">
+          <DashboardProjectBar
+            activeRepo={activeRepo}
+            repoCount={projects.length}
+            counts={counts}
+            focus={queueFocus}
+            onFocusChange={onQueueFocusChange}
+          />
+          <div ref={searchHostRef}>
+            <DashboardSearchBar
+              query={query}
+              onQueryChange={onQueryChange}
+              onFilterClick={onFilterClick}
+              onSortClick={onSortClick}
+              placeholder={`Search in ${scopeName}...`}
+            />
+          </div>
+          {projectsError ? (
+            <div className="rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground">
+              {projectsError}
+            </div>
+          ) : projectsLoading && projects.length === 0 ? (
+            <div className="grid gap-3 md:grid-cols-2">
+              <DashboardColumnSkeleton />
+            </div>
+          ) : (
+            <DashboardProjectView
+              projects={projects}
+              activeRepoId={activeRepoId}
+              focus={queueFocus}
+              visibleProperties={filters.visibleProperties}
+              onRetryReview={onRetryReview}
+            />
+          )}
+        </main>
       </div>
-      {openQueueEmpty ? (
-        <FocusQueueLayout
-          completedColumns={completedColumns}
-          highlightMyPrs={filters.highlightMyPrs}
-          visibleProperties={filters.visibleProperties}
-          onRetryReview={onRetryReview}
-          onSearchClick={onSearchClick}
-          onShowComplete={onShowComplete}
-        />
-      ) : (
-        <DashboardBoard
-          layout={filters.layout}
-          showEmptyColumns={filters.showEmptyColumns}
-          highlightMyPrs={filters.highlightMyPrs}
-          visibleProperties={filters.visibleProperties}
-          columns={boardColumns}
-          onRetryReview={onRetryReview}
-        />
-      )}
       <DashboardFilterPanel open={filterOpen} filters={filters} onChange={onFiltersChange} />
-    </div>
-  );
-}
-
-function FocusQueueLayout({
-  completedColumns,
-  highlightMyPrs,
-  visibleProperties,
-  onRetryReview,
-  onSearchClick,
-  onShowComplete,
-}: {
-  completedColumns: DashboardColumnState[];
-  highlightMyPrs: boolean;
-  visibleProperties: DashboardCardProperty[];
-  onRetryReview: (pull: DashboardPull) => void;
-  onSearchClick: () => void;
-  onShowComplete: () => void;
-}): ReactNode {
-  return (
-    <div className="grid gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
-      <DashboardFocusEmpty onSearchClick={onSearchClick} onShowComplete={onShowComplete} />
-      <div id="dashboard-complete-column">
-        <DashboardBoard
-          layout="list"
-          showEmptyColumns
-          highlightMyPrs={highlightMyPrs}
-          visibleProperties={visibleProperties}
-          columns={completedColumns}
-          onRetryReview={onRetryReview}
-        />
-      </div>
     </div>
   );
 }

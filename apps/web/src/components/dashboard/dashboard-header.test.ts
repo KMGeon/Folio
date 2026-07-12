@@ -4,8 +4,11 @@ import { dashboardHeaderStandfirst } from "./dashboard-header";
 
 describe("dashboardHeaderStandfirst", () => {
   it("prioritizes ready queue copy", () => {
-    expect(dashboardHeaderStandfirst({ ready: 3, yours: 1, completed: 18 })).toContain(
+    expect(dashboardHeaderStandfirst({ ready: 3, yours: 1, completed: 18 }, "Folio")).toContain(
       "리뷰 3건이 대기",
+    );
+    expect(dashboardHeaderStandfirst({ ready: 3, yours: 1, completed: 18 }, "Folio")).toContain(
+      "Folio",
     );
   });
 

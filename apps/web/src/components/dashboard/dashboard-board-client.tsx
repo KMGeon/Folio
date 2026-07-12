@@ -3,17 +3,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
-  type DashboardBoardLabels,
-  type DashboardColumnState,
-} from "@/components/dashboard/dashboard-board";
-import {
-  dashboardBucketConfigs,
-  dashboardEmptyText,
   dashboardOpenBuckets,
-  defaultDashboardLabels,
   initialDashboardFilters,
 } from "@/components/dashboard/dashboard-board-config";
-import { DashboardDesk, isOpenQueueEmpty } from "@/components/dashboard/dashboard-desk";
+import { DashboardDesk } from "@/components/dashboard/dashboard-desk";
+import {
+  dashboardScopeCounts,
+  dashboardScopeName,
+  type DashboardQueueFocus,
+} from "@/components/dashboard/dashboard-project-desk-model";
 import {
   beginDashboardRequest,
   type DashboardInFlightMap,
@@ -30,6 +28,7 @@ import {
   type ColumnStateMap,
   type DashboardReloadOptions,
 } from "@/components/dashboard/dashboard-board-stream";
+import { useDashboardProjects } from "@/components/dashboard/use-dashboard-projects";
 import {
   type DashboardBucket,
   type DashboardPull,
@@ -38,21 +37,16 @@ import {
 } from "@/lib/dashboard-api";
 import { createReview } from "@/lib/review-api";
 
-export function DashboardBoardClient({
-  labels = defaultDashboardLabels,
-  user,
-}: {
-  labels?: DashboardBoardLabels;
-  user: { login: string; avatarUrl: string };
-}) {
+export function DashboardBoardClient({ user }: { user: { login: string; avatarUrl: string } }) {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [filters, setFilters] = useState(initialDashboardFilters);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [activeRepoId, setActiveRepoId] = useState<string | null>(null);
+  const [queueFocus, setQueueFocus] = useState<DashboardQueueFocus>("ready");
   const [columns, setColumns] = useState<ColumnStateMap>(() => initialColumns());
   const columnsRef = useRef(columns);
   const inFlightRef = useRef<DashboardInFlightMap>(new Map());
-  const observers = useRef(new Map<DashboardBucket, IntersectionObserver>());
   const requestEpochsRef = useRef<DashboardRequestEpochs>({ open: 0, completed: 0 });
   const searchInputHostRef = useRef<HTMLDivElement | null>(null);
 
@@ -64,6 +58,30 @@ export function DashboardBoardClient({
     const timeout = window.setTimeout(() => setDebouncedQuery(query.trim()), 250);
     return () => window.clearTimeout(timeout);
   }, [query]);
+
+  const {
+    projects,
+    isSummaryLoading,
+    summaryError,
+    reload: reloadProjects,
+  } = useDashboardProjects({
+    q: debouncedQuery || undefined,
+    ordering: filters.ordering,
+    direction: filters.direction,
+    closedRange: filters.closedRange,
+    showDrafts: filters.showDrafts,
+  });
+  const activeProject = useMemo(
+    () => projects.find((project) => project.repo.id === activeRepoId) ?? null,
+    [activeRepoId, projects],
+  );
+  const activeRepository = activeProject?.repo.fullName;
+
+  useEffect(() => {
+    if (activeRepoId && projects.length > 0 && !activeProject) {
+      setActiveRepoId(null);
+    }
+  }, [activeProject, activeRepoId, projects.length]);
 
   const loadBucket = useCallback(
     async (
@@ -109,6 +127,7 @@ export function DashboardBoardClient({
           direction: filters.direction,
           closedRange: filters.closedRange,
           showDrafts: filters.showDrafts,
+          repository: activeRepository,
         });
         if (version !== requestEpochsRef.current[requestScope]) {
           return;
@@ -141,7 +160,14 @@ export function DashboardBoardClient({
         finishDashboardRequest(inFlightRef.current, bucket, mode, requestToken);
       }
     },
-    [debouncedQuery, filters.closedRange, filters.direction, filters.ordering, filters.showDrafts],
+    [
+      activeRepository,
+      debouncedQuery,
+      filters.closedRange,
+      filters.direction,
+      filters.ordering,
+      filters.showDrafts,
+    ],
   );
 
   const loadOpenBuckets = useCallback(
@@ -170,6 +196,7 @@ export function DashboardBoardClient({
           ordering: filters.ordering,
           direction: filters.direction,
           showDrafts: filters.showDrafts,
+          repository: activeRepository,
         });
         if (version !== requestEpochsRef.current.open) {
           return;
@@ -209,11 +236,10 @@ export function DashboardBoardClient({
         finishDashboardRequest(inFlightRef.current, "open", "reset", requestToken);
       }
     },
-    [debouncedQuery, filters.direction, filters.ordering, filters.showDrafts],
+    [activeRepository, debouncedQuery, filters.direction, filters.ordering, filters.showDrafts],
   );
 
   useEffect(() => {
-    const activeObservers = observers.current;
     const openEpoch = resetDashboardRequestScope(
       inFlightRef.current,
       requestEpochsRef.current,
@@ -222,12 +248,7 @@ export function DashboardBoardClient({
 
     void loadOpenBuckets(openEpoch);
 
-    return () => {
-      for (const bucket of dashboardOpenBuckets) {
-        activeObservers.get(bucket)?.disconnect();
-        activeObservers.delete(bucket);
-      }
-    };
+    return undefined;
   }, [debouncedQuery, filters.direction, filters.ordering, filters.showDrafts, loadOpenBuckets]);
 
   useEffect(() => {
@@ -236,11 +257,11 @@ export function DashboardBoardClient({
       requestEpochsRef,
       loadOpenBuckets,
       setColumns,
+      onRefresh: reloadProjects,
     });
-  }, [loadOpenBuckets]);
+  }, [loadOpenBuckets, reloadProjects]);
 
   useEffect(() => {
-    const activeObservers = observers.current;
     const completedEpoch = resetDashboardRequestScope(
       inFlightRef.current,
       requestEpochsRef.current,
@@ -249,10 +270,7 @@ export function DashboardBoardClient({
 
     void loadBucket("completed", "reset", completedEpoch);
 
-    return () => {
-      activeObservers.get("completed")?.disconnect();
-      activeObservers.delete("completed");
-    };
+    return undefined;
   }, [
     debouncedQuery,
     filters.closedRange,
@@ -281,46 +299,10 @@ export function DashboardBoardClient({
       // Quiet poll while review jobs run — keep cards visible.
       void loadOpenBuckets(openEpoch, { soft: true });
       void loadBucket("completed", "reset", completedEpoch, { soft: true });
+      reloadProjects();
     }, 3000);
     return () => window.clearInterval(interval);
-  }, [hasActiveReviews, loadBucket, loadOpenBuckets]);
-
-  const sentinelRef = useCallback(
-    (bucket: DashboardBucket) => (node: HTMLDivElement | null) => {
-      observers.current.get(bucket)?.disconnect();
-      if (!node || !columnsRef.current[bucket].nextCursor) {
-        return;
-      }
-
-      const observer = new IntersectionObserver((entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          void loadBucket(bucket, "append");
-        }
-      });
-      observer.observe(node);
-      observers.current.set(bucket, observer);
-    },
-    [loadBucket],
-  );
-
-  const boardColumns = useMemo<DashboardColumnState[]>(
-    () =>
-      dashboardBucketConfigs.map(({ bucket }) => ({
-        bucket,
-        title: labels[bucket],
-        count: columns[bucket].count,
-        items: columns[bucket].items,
-        isInitialLoading: columns[bucket].isInitialLoading,
-        isLoadingMore: columns[bucket].isLoadingMore,
-        hasMore: Boolean(columns[bucket].nextCursor),
-        error: columns[bucket].error,
-        emptyText: dashboardEmptyText[bucket],
-        sentinelRef: sentinelRef(bucket),
-        onRetry: () =>
-          void (bucket === "completed" ? loadBucket(bucket, "reset") : loadOpenBuckets()),
-      })),
-    [columns, labels, loadBucket, loadOpenBuckets, sentinelRef],
-  );
+  }, [hasActiveReviews, loadBucket, loadOpenBuckets, reloadProjects]);
 
   const retryReview = useCallback(
     async (pull: DashboardPull) => {
@@ -339,53 +321,37 @@ export function DashboardBoardClient({
         loadOpenBuckets(openEpoch),
         loadBucket("completed", "reset", completedEpoch),
       ]);
+      reloadProjects();
     },
-    [loadBucket, loadOpenBuckets],
+    [loadBucket, loadOpenBuckets, reloadProjects],
   );
 
   const headerCounts = useMemo(
-    () => ({
-      ready: columns.ready.count,
-      yours: columns.yours.count,
-      completed: columns.completed.count,
-    }),
-    [columns.completed.count, columns.ready.count, columns.yours.count],
-  );
-
-  const openQueueEmpty = useMemo(
     () =>
-      isOpenQueueEmpty({
-        ready: columns.ready,
-        yours: columns.yours,
-        other: columns.other,
-      }),
-    [columns.other, columns.ready, columns.yours],
+      projects.length > 0
+        ? dashboardScopeCounts(projects, activeRepoId)
+        : {
+            ready: columns.ready.count,
+            yours: columns.yours.count,
+            completed: columns.completed.count,
+          },
+    [activeRepoId, columns.completed.count, columns.ready.count, columns.yours.count, projects],
   );
-
-  const focusSearch = useCallback(() => {
-    searchInputHostRef.current?.querySelector("input")?.focus();
-  }, []);
-
-  const showComplete = useCallback(() => {
-    if (columns.completed.count > 0) {
-      document
-        .getElementById("dashboard-complete-column")
-        ?.scrollIntoView({ behavior: "smooth", block: "start" });
-      return;
-    }
-    setFilters((current) => ({ ...current, showEmptyColumns: true }));
-  }, [columns.completed.count]);
-
-  const completedOnlyColumns = useMemo(
-    () => boardColumns.filter((column) => column.bucket === "completed"),
-    [boardColumns],
-  );
+  const scopeName = dashboardScopeName(activeProject?.repo ?? null);
+  const projectsLoading = isSummaryLoading || projects.some((project) => project.isLoading);
 
   return (
     <DashboardDesk
       user={user}
       counts={headerCounts}
-      openQueueEmpty={openQueueEmpty}
+      scopeName={scopeName}
+      projects={projects}
+      activeRepoId={activeRepoId}
+      queueFocus={queueFocus}
+      onProjectSelect={setActiveRepoId}
+      onQueueFocusChange={setQueueFocus}
+      projectsLoading={projectsLoading}
+      projectsError={summaryError}
       query={query}
       onQueryChange={setQuery}
       onFilterClick={() => setFilterOpen((open) => !open)}
@@ -399,11 +365,7 @@ export function DashboardBoardClient({
       filterOpen={filterOpen}
       filters={filters}
       onFiltersChange={setFilters}
-      boardColumns={boardColumns}
-      completedColumns={completedOnlyColumns}
       onRetryReview={(pull) => void retryReview(pull)}
-      onSearchClick={focusSearch}
-      onShowComplete={showComplete}
     />
   );
 }

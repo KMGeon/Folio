@@ -9,11 +9,13 @@ export function DashboardSearchBar({
   onQueryChange,
   onFilterClick,
   onSortClick,
+  placeholder = "Search pull requests...",
 }: {
   query: string;
   onQueryChange: (value: string) => void;
   onFilterClick: () => void;
   onSortClick: () => void;
+  placeholder?: string;
 }) {
   return (
     <div className="flex items-center gap-3">
@@ -22,7 +24,7 @@ export function DashboardSearchBar({
         <input
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
-          placeholder="Search pull requests..."
+          placeholder={placeholder}
           aria-label="Search pull requests"
           className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
         />

@@ -94,6 +94,7 @@ export function connectDashboardBoardStream(input: {
   requestEpochsRef: MutableRefObject<DashboardRequestEpochs>;
   loadOpenBuckets: (version?: number, options?: DashboardReloadOptions) => Promise<void>;
   setColumns: Dispatch<SetStateAction<ColumnStateMap>>;
+  onRefresh?: () => void;
 }): () => void {
   let cancelled = false;
   let debounceTimer: number | null = null;
@@ -115,6 +116,7 @@ export function connectDashboardBoardStream(input: {
         "open",
       );
       void input.loadOpenBuckets(openEpoch, { soft: true });
+      input.onRefresh?.();
     }, 400);
   };
 
