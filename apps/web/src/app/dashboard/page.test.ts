@@ -6,16 +6,25 @@ describe("DashboardPage", () => {
   it("renders the lazy PR board dashboard instead of waiting for full card arrays", async () => {
     const source = await readFile(new URL("./page.tsx", import.meta.url), "utf8");
 
+    const config = await readFile(
+      new URL("../../components/dashboard/dashboard-board-config.ts", import.meta.url),
+      "utf8",
+    );
+
     expect(source).toContain("DashboardBoardClient");
     expect(source).toContain("getMe");
     expect(source).toContain('redirect("/login?redirect=/dashboard")');
     expect(source).not.toContain("fetchDashboardSummary");
-    expect(source).toContain("Ready to review");
-    expect(source).toContain("Your pull requests");
-    expect(source).toContain("Other");
-    expect(source).toContain("Complete");
+    expect(source).toContain("defaultDashboardLabels");
+    expect(source).toContain("avatarUrl: user.avatarUrl");
     expect(source).not.toContain("completedPulls={");
     expect(source).not.toContain("RepositoryToggleForm");
+    // Masthead lives in the client H2 compact header, not the page shell.
+    expect(source).not.toContain("Welcome back");
+    expect(config).toContain("Ready to review");
+    expect(config).toContain("Your pull requests");
+    expect(config).toContain("Other");
+    expect(config).toContain("Complete");
   });
 
   it("keeps dashboard board components split by concrete responsibility", async () => {
