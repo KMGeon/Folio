@@ -109,7 +109,11 @@ export function jumpTargetFromKeyChange(
       endLine: ref.endLine,
     });
     if (!anchor) {
+      // length checked above; narrow for noUncheckedIndexedAccess / strict builds
       const first = lines[0];
+      if (!first) {
+        continue;
+      }
       anchor = {
         path: first.path,
         kind: first.kind,
