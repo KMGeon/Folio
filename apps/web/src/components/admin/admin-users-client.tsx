@@ -134,41 +134,57 @@ export function AdminUsersClient({
 
   return (
     <div className="space-y-3">
-      <ul
-        aria-label="시스템 사용자 목록"
-        className="divide-y divide-border rounded-lg border bg-card"
-      >
-        {items.map((user) => (
-          <li key={user.id} className="flex min-h-14 items-center gap-3 px-3 py-2">
-            <img
-              src={user.avatarUrl}
-              alt=""
-              width={32}
-              height={32}
-              referrerPolicy="no-referrer"
-              className="size-8 shrink-0 rounded-full border"
-            />
-            <div className="min-w-0 flex-1">
-              <div className="flex min-w-0 items-center gap-2">
-                <span className="truncate text-sm font-medium text-foreground">{user.login}</span>
-                {user.isSystemAdmin ? (
-                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs text-primary">
-                    <ShieldCheck className="size-3" aria-hidden="true" />
-                    시스템 관리자
+      {items.length ? (
+        <ul
+          aria-label="시스템 사용자 목록"
+          className="divide-y divide-border rounded-lg border bg-card"
+        >
+          {items.map((user) => (
+            <li
+              key={user.id}
+              data-admin-user-row
+              className="flex min-h-14 items-center gap-3 px-3 py-2"
+            >
+              <img
+                src={user.avatarUrl}
+                alt=""
+                width={32}
+                height={32}
+                referrerPolicy="no-referrer"
+                className="size-8 shrink-0 rounded-full border"
+              />
+              <div className="min-w-0 flex-1">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="truncate text-sm font-medium text-foreground">{user.login}</span>
+                  {user.isSystemAdmin ? (
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs text-primary">
+                      <ShieldCheck className="size-3" aria-hidden="true" />
+                      시스템 관리자
+                    </span>
+                  ) : null}
+                </div>
+                <div className="mt-0.5 flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+                  <span className="truncate font-mono">{user.email ?? "GitHub email 없음"}</span>
+                  <span className={STATUS_STYLES[user.globalStatus]}>
+                    {STATUS_LABELS[user.globalStatus]}
                   </span>
-                ) : null}
+                  <span className="shrink-0">
+                    가입:{" "}
+                    <time dateTime={user.createdAt}>
+                      {new Date(user.createdAt).toLocaleString()}
+                    </time>
+                  </span>
+                </div>
               </div>
-              <div className="mt-0.5 flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
-                <span className="truncate font-mono">{user.email ?? "GitHub email 없음"}</span>
-                <span className={STATUS_STYLES[user.globalStatus]}>
-                  {STATUS_LABELS[user.globalStatus]}
-                </span>
-              </div>
-            </div>
-            <UserActions user={user} onAction={openDialog} />
-          </li>
-        ))}
-      </ul>
+              <UserActions user={user} onAction={openDialog} />
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="rounded-lg border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
+          조건에 맞는 사용자가 없습니다
+        </div>
+      )}
 
       {requestError ? (
         <div

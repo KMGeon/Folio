@@ -1,10 +1,10 @@
 import type { AdminUserStatusFilter } from "@folio/types";
-import { cookies } from "next/headers";
 
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { AdminUsersClient } from "@/components/admin/admin-users-client";
 import { Button } from "@/components/ui/button";
 import { fetchAdminUsers } from "@/lib/admin-api";
+import { getAdminServerAccess, readAdminServerData } from "../admin-server-access";
 
 const STATUS_FILTERS: { value: AdminUserStatusFilter; label: string }[] = [
   { value: "all", label: "전체 상태" },
@@ -21,11 +21,10 @@ export default async function AdminUsersPage({
   const raw = await searchParams;
   const q = singleValue(raw.q)?.trim() || undefined;
   const status = statusFilter(singleValue(raw.status));
-  const cookieHeader = (await cookies())
-    .getAll()
-    .map((cookie) => `${cookie.name}=${cookie.value}`)
-    .join("; ");
-  const initialPage = await fetchAdminUsers({ q, status, limit: 25, cookie: cookieHeader });
+  const access = await getAdminServerAccess();
+  const initialPage = await readAdminServerData(access, (cookie) =>
+    fetchAdminUsers({ q, status, limit: 25, cookie }),
+  );
 
   return (
     <section className="mx-auto max-w-5xl">

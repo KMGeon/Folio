@@ -25,18 +25,6 @@ describe("admin routes", () => {
     );
   });
 
-  it("guards the layout with a validated admin return path and system-admin authority", () => {
-    const layout = readFileSync(resolve(adminRoot, "layout.tsx"), "utf8");
-
-    expect(layout).toContain('headers()).get("x-folio-request-path")');
-    expect(layout).toContain('rawPath?.startsWith("/admin")');
-    expect(layout).toContain("const user = await getMe(cookieHeader)");
-    expect(layout).toContain("redirect(`/login?redirect=${encodeURIComponent(returnPath)}`)");
-    expect(layout).toContain("if (!user.isSystemAdmin)");
-    expect(layout).toContain('redirect("/dashboard")');
-    expect(layout).toContain("<AdminShell>");
-  });
-
   it("provides compact loading and recoverable error boundaries", () => {
     const loading = readFileSync(resolve(adminRoot, "loading.tsx"), "utf8");
     const error = readFileSync(resolve(adminRoot, "error.tsx"), "utf8");

@@ -1,5 +1,4 @@
 import type { AuditAction } from "@folio/types";
-import { cookies } from "next/headers";
 
 import {
   AdminAuditClient,
@@ -8,6 +7,7 @@ import {
 } from "@/components/admin/admin-audit-client";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { fetchAdminAudit } from "@/lib/admin-api";
+import { getAdminServerAccess, readAdminServerData } from "../admin-server-access";
 
 const AUDIT_ACTIONS = new Set<AuditAction>([
   "user_approve",
@@ -38,21 +38,20 @@ export default async function AdminAuditPage({
     from: dateOnlyValue(raw.from),
     to: dateOnlyValue(raw.to),
   };
-  const cookie = (await cookies())
-    .getAll()
-    .map((item) => `${item.name}=${item.value}`)
-    .join("; ");
+  const access = await getAdminServerAccess();
   // Keep one validated request object shared by the initial fetch and every cursor request.
   const requestFilters: AdminAuditRequestFilters = {
     ...formFilters,
     from: dateBoundary(formFilters.from, "start"),
     to: dateBoundary(formFilters.to, "end"),
   };
-  const initialPage = await fetchAdminAudit({
-    ...requestFilters,
-    limit: 25,
-    cookie,
-  });
+  const initialPage = await readAdminServerData(access, (cookie) =>
+    fetchAdminAudit({
+      ...requestFilters,
+      limit: 25,
+      cookie,
+    }),
+  );
 
   return (
     <section className="mx-auto max-w-6xl">

@@ -1,15 +1,11 @@
-import { cookies } from "next/headers";
-
 import { AdminOverview } from "@/components/admin/admin-overview";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { fetchAdminOverview } from "@/lib/admin-api";
+import { getAdminServerAccess, readAdminServerData } from "../admin-server-access";
 
 export default async function AdminOverviewPage() {
-  const cookie = (await cookies())
-    .getAll()
-    .map((item) => `${item.name}=${item.value}`)
-    .join("; ");
-  const payload = await fetchAdminOverview({ cookie });
+  const access = await getAdminServerAccess();
+  const payload = await readAdminServerData(access, (cookie) => fetchAdminOverview({ cookie }));
 
   return (
     <section className="mx-auto max-w-5xl">

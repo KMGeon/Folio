@@ -78,7 +78,7 @@ export async function getMe(cookie?: string): Promise<SessionUser | null> {
     credentials: "include",
     headers: requestHeaders(cookie),
   });
-  if (!response.ok) {
+  if (response.status === 401) {
     return null;
   }
   const data = await readApiPayload<{ user: SessionUser }>(

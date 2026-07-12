@@ -67,6 +67,24 @@ describe("AdminUsersClient", () => {
     expect(labels(row(container, "admin"))).toEqual([]);
   });
 
+  it("renders each user's labeled joined date and time", async () => {
+    const container = await mountClient();
+    const joined = row(container, "waiting").querySelector("time");
+
+    expect(joined?.getAttribute("datetime")).toBe(pending.createdAt);
+    expect(joined?.parentElement?.textContent).toContain("가입:");
+    expect(joined?.textContent).toContain("2026");
+  });
+
+  it("renders an explicit empty user state", async () => {
+    const container = await mount(
+      <AdminUsersClient initialPage={{ items: [], nextCursor: null }} status="all" />,
+    );
+
+    expect(container.textContent).toContain("조건에 맞는 사용자가 없습니다");
+    expect(container.querySelectorAll("[data-admin-user-row]")).toHaveLength(0);
+  });
+
   it("makes no request when confirmation is cancelled", async () => {
     const container = await mountClient();
     await click(button(row(container, "waiting"), "승인"));
@@ -188,6 +206,22 @@ describe("AdminUsersClient", () => {
       limit: 25,
       cursor: "fresh-cursor",
     });
+  });
+
+  it("ignores an unresolved stale pagination result after an authoritative rerender", async () => {
+    let resolveStale: ((page: AdminUserPage) => void) | undefined;
+    mocks.fetchUsers.mockReturnValueOnce(new Promise((resolve) => (resolveStale = resolve)));
+    const mounted = await mountRerenderableClient(initialPage);
+
+    await act(async () => button(mounted.container, "더 보기").click());
+    await mounted.rerender({ items: [pending], nextCursor: "fresh-cursor" });
+    await act(async () =>
+      resolveStale?.({ items: [user("stale-next", "active")], nextCursor: null }),
+    );
+
+    expect(mounted.container.textContent).not.toContain("stale-next");
+    expect(mounted.container.textContent).toContain("waiting");
+    expect(button(mounted.container, "더 보기").disabled).toBe(false);
   });
 });
 

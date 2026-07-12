@@ -13,6 +13,7 @@ vi.mock("next/headers", () => ({
   cookies: async () => ({
     getAll: () => [{ name: "folio_session", value: "abc" }],
   }),
+  headers: async () => ({ get: () => "/admin/audit" }),
 }));
 
 vi.mock("@/lib/admin-api", () => ({ fetchAdminAudit }));

@@ -59,6 +59,33 @@ describe("authorization API clients", () => {
     await expect(getMe()).resolves.toEqual(user);
   });
 
+  it("returns null only when the current-user endpoint returns 401", async () => {
+    fetchMock.mockResolvedValueOnce(failure(401, "unauthorized", "로그인이 필요합니다."));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(getMe()).resolves.toBeNull();
+  });
+
+  it.each([
+    [
+      failure(503, "backend_unavailable", "인증 서비스를 사용할 수 없습니다."),
+      503,
+      "backend_unavailable",
+    ],
+    [response(null, 200), 200, "invalid_response"],
+  ] as const)(
+    "throws a typed current-user failure instead of treating it as logout",
+    async (reply, status, code) => {
+      fetchMock.mockResolvedValueOnce(reply);
+      vi.stubGlobal("fetch", fetchMock);
+
+      const error = await getMe().catch((caught) => caught);
+
+      expect(error).toBeInstanceOf(AuthorizationApiError);
+      expect(error).toMatchObject({ status, code });
+    },
+  );
+
   it("lists exact workspace member fields and forwards a server cookie", async () => {
     const members = [
       {
