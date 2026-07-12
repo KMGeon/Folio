@@ -8,6 +8,7 @@ import {
 } from "@/components/dashboard/dashboard-project-desk-model";
 import {
   type DashboardProjectLoadOptions,
+  loadDashboardProjectBucketPage,
   loadDashboardProjectData,
 } from "@/components/dashboard/dashboard-project-loader";
 import { fetchDashboardSummary, type DashboardRepo } from "@/lib/dashboard-api";
@@ -26,8 +27,11 @@ export function useDashboardProjects(options: DashboardProjectLoadOptions) {
   const [isSummaryLoading, setIsSummaryLoading] = useState(true);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [refreshVersion, setRefreshVersion] = useState(0);
+  /** repoId → loading-more for completed history */
+  const [completedLoadingMore, setCompletedLoadingMore] = useState<Record<string, boolean>>({});
   const loadVersion = useRef(0);
   const projectsRef = useRef(projects);
+  const completedInFlight = useRef(new Set<string>());
 
   useEffect(() => {
     projectsRef.current = projects;
@@ -75,6 +79,8 @@ export function useDashboardProjects(options: DashboardProjectLoadOptions) {
         error: null,
       })),
     );
+    setCompletedLoadingMore({});
+    completedInFlight.current.clear();
 
     void Promise.all(
       repos.map(async (repo) => {
@@ -103,6 +109,60 @@ export function useDashboardProjects(options: DashboardProjectLoadOptions) {
     });
   }, [closedRange, direction, ordering, q, showDrafts, refreshVersion, repos]);
 
+  const loadMoreCompleted = useCallback(
+    async (repoId: string) => {
+      const project = projectsRef.current.find((candidate) => candidate.repo.id === repoId);
+      const cursor = project?.pages.completed.nextCursor;
+      if (!project || !cursor || completedInFlight.current.has(repoId)) {
+        return;
+      }
+      completedInFlight.current.add(repoId);
+      setCompletedLoadingMore((current) => ({ ...current, [repoId]: true }));
+      try {
+        const page = await loadDashboardProjectBucketPage(project.repo, {
+          q,
+          ordering,
+          direction,
+          closedRange,
+          showDrafts,
+          bucket: "completed",
+          cursor,
+        });
+        setProjects((current) =>
+          current.map((candidate) => {
+            if (candidate.repo.id !== repoId) {
+              return candidate;
+            }
+            const seen = new Set(candidate.pages.completed.items.map((item) => item.id));
+            const appended = page.items.filter((item) => !seen.has(item.id));
+            return {
+              ...candidate,
+              pages: {
+                ...candidate.pages,
+                completed: {
+                  items: [...candidate.pages.completed.items, ...appended],
+                  count: page.count,
+                  nextCursor: page.nextCursor,
+                },
+              },
+            };
+          }),
+        );
+      } finally {
+        completedInFlight.current.delete(repoId);
+        setCompletedLoadingMore((current) => ({ ...current, [repoId]: false }));
+      }
+    },
+    [closedRange, direction, ordering, q, showDrafts],
+  );
+
   const reload = useCallback(() => setRefreshVersion((version) => version + 1), []);
-  return { projects, isSummaryLoading, summaryError, reload };
+  return {
+    projects,
+    isSummaryLoading,
+    summaryError,
+    reload,
+    loadMoreCompleted,
+    completedLoadingMore,
+  };
 }

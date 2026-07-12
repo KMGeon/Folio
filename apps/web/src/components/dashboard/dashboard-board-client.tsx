@@ -66,6 +66,8 @@ export function DashboardBoardClient({ user }: { user: { login: string; avatarUr
     isSummaryLoading,
     summaryError,
     reload: reloadProjects,
+    loadMoreCompleted,
+    completedLoadingMore,
   } = useDashboardProjects({
     q: debouncedQuery || undefined,
     ordering: filters.ordering,
@@ -393,6 +395,8 @@ export function DashboardBoardClient({ user }: { user: { login: string; avatarUr
       filters={filters}
       onFiltersChange={setFilters}
       onRetryReview={(pull) => void retryReview(pull)}
+      onLoadMoreCompleted={(repoId) => void loadMoreCompleted(repoId)}
+      completedLoadingMore={completedLoadingMore}
     />
   );
 }

@@ -1,3 +1,5 @@
+"use client";
+
 import {
   ArrowRight,
   CheckCircle2,
@@ -9,7 +11,7 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 
 import { ReadingSpine, SizePill, sizeMeta } from "@/components/dashboard/dashboard-card-meta";
 import {
@@ -44,17 +46,22 @@ export function DashboardProjectCockpit({
   onFocusChange,
   visibleProperties,
   onRetryReview,
+  onLoadMoreCompleted,
+  isLoadingMoreCompleted = false,
 }: {
   project: DashboardProjectData;
   focus: DashboardCockpitState;
   onFocusChange: (focus: DashboardCockpitState) => void;
   visibleProperties: DashboardCardProperty[];
   onRetryReview: (pull: DashboardPull) => void;
+  onLoadMoreCompleted?: () => void;
+  isLoadingMoreCompleted?: boolean;
 }) {
   const name = dashboardProjectName(project.repo.fullName);
   const counts = dashboardProjectCounts(project);
   const hasOpenWork = counts.attention + counts.ready + counts.reviewing + counts.processing > 0;
   const pulls = dashboardProjectPullsForState(project, focus);
+  const hasMoreCompleted = Boolean(project.pages.completed.nextCursor);
 
   return (
     <section className="overflow-hidden rounded-xl border border-border bg-card/35">
@@ -82,6 +89,10 @@ export function DashboardProjectCockpit({
           <DashboardCockpitPullList
             focus={focus}
             pulls={pulls}
+            totalCount={focus === "complete" ? counts.complete : pulls.length}
+            hasMoreCompleted={hasMoreCompleted}
+            isLoadingMoreCompleted={isLoadingMoreCompleted}
+            onLoadMoreCompleted={onLoadMoreCompleted}
             visibleProperties={visibleProperties}
             onRetryReview={onRetryReview}
           />
@@ -150,11 +161,19 @@ function DashboardQueueClearBanner({ name }: { name: string }) {
 function DashboardCockpitPullList({
   focus,
   pulls,
+  totalCount,
+  hasMoreCompleted,
+  isLoadingMoreCompleted,
+  onLoadMoreCompleted,
   visibleProperties,
   onRetryReview,
 }: {
   focus: DashboardCockpitState;
   pulls: (DashboardPull | DashboardCompletedPull)[];
+  totalCount: number;
+  hasMoreCompleted: boolean;
+  isLoadingMoreCompleted: boolean;
+  onLoadMoreCompleted?: () => void;
   visibleProperties: DashboardCardProperty[];
   onRetryReview: (pull: DashboardPull) => void;
 }) {
@@ -167,15 +186,19 @@ function DashboardCockpitPullList({
   }
   if (focus === "complete") {
     return (
-      <div className="grid gap-2">
-        {(pulls as DashboardCompletedPull[]).map((pull) => (
-          <CompletedPullRow key={pull.id} pull={pull} visibleProperties={visibleProperties} />
-        ))}
-      </div>
+      <CompletedPullScrollList
+        pulls={pulls as DashboardCompletedPull[]}
+        loadedCount={pulls.length}
+        totalCount={totalCount}
+        hasMore={hasMoreCompleted}
+        isLoadingMore={isLoadingMoreCompleted}
+        onLoadMore={onLoadMoreCompleted}
+        visibleProperties={visibleProperties}
+      />
     );
   }
   return (
-    <div className="grid gap-2">
+    <div className="grid max-h-[min(70vh,640px)] gap-2 overflow-y-auto pr-1">
       {(pulls as DashboardPull[]).map((pull) => (
         <OpenPullRow
           key={pull.id}
@@ -185,6 +208,71 @@ function DashboardCockpitPullList({
           onRetryReview={onRetryReview}
         />
       ))}
+    </div>
+  );
+}
+
+/** Scrollable complete history with infinite load via bottom sentinel. */
+function CompletedPullScrollList({
+  pulls,
+  loadedCount,
+  totalCount,
+  hasMore,
+  isLoadingMore,
+  onLoadMore,
+  visibleProperties,
+}: {
+  pulls: DashboardCompletedPull[];
+  loadedCount: number;
+  totalCount: number;
+  hasMore: boolean;
+  isLoadingMore: boolean;
+  onLoadMore?: () => void;
+  visibleProperties: DashboardCardProperty[];
+}) {
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!hasMore || !onLoadMore) {
+      return;
+    }
+    const node = sentinelRef.current;
+    if (!node) {
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          onLoadMore();
+        }
+      },
+      { root: node.parentElement, rootMargin: "120px", threshold: 0 },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [hasMore, onLoadMore, loadedCount]);
+
+  return (
+    <div className="space-y-2">
+      <p className="font-mono text-[0.65rem] tabular-nums text-muted-foreground">
+        Showing {loadedCount}
+        {totalCount > loadedCount ? ` of ${totalCount}` : ""} completed
+      </p>
+      <div
+        className="grid max-h-[min(70vh,640px)] gap-2 overflow-y-auto pr-1"
+        aria-label="Completed pull requests"
+      >
+        {pulls.map((pull) => (
+          <CompletedPullRow key={pull.id} pull={pull} visibleProperties={visibleProperties} />
+        ))}
+        {isLoadingMore ? <DashboardColumnSkeleton /> : null}
+        {hasMore ? <div ref={sentinelRef} className="h-1" aria-hidden="true" /> : null}
+        {!hasMore && totalCount > 0 ? (
+          <p className="py-1 text-center font-mono text-[0.65rem] text-muted-foreground">
+            End of completed history
+          </p>
+        ) : null}
+      </div>
     </div>
   );
 }

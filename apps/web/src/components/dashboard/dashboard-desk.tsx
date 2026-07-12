@@ -39,6 +39,8 @@ export function DashboardDesk({
   filters,
   onFiltersChange,
   onRetryReview,
+  onLoadMoreCompleted,
+  completedLoadingMore,
 }: {
   user: { login: string; avatarUrl: string };
   counts: DashboardScopeCounts;
@@ -59,6 +61,8 @@ export function DashboardDesk({
   filters: DashboardFilterState;
   onFiltersChange: (filters: DashboardFilterState) => void;
   onRetryReview: (pull: DashboardPull) => void;
+  onLoadMoreCompleted?: (repoId: string) => void;
+  completedLoadingMore?: Record<string, boolean>;
 }) {
   const activeProject = activeRepoId
     ? projects.find((project) => project.repo.id === activeRepoId)
@@ -112,6 +116,8 @@ export function DashboardDesk({
               onFocusChange={onQueueFocusChange}
               visibleProperties={filters.visibleProperties}
               onRetryReview={onRetryReview}
+              onLoadMoreCompleted={onLoadMoreCompleted}
+              completedLoadingMore={completedLoadingMore}
             />
           )}
         </main>

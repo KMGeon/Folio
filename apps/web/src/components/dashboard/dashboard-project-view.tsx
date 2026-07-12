@@ -8,6 +8,8 @@ import { DashboardProjectCockpit } from "@/components/dashboard/dashboard-projec
 import { DashboardProjectEmpty } from "@/components/dashboard/dashboard-next-up";
 import type { DashboardCardProperty, DashboardPull } from "@/lib/dashboard-api";
 
+const EMPTY_COMPLETED_LOADING: Record<string, boolean> = {};
+
 export function DashboardProjectView({
   projects,
   activeRepoId,
@@ -15,6 +17,8 @@ export function DashboardProjectView({
   onFocusChange,
   visibleProperties,
   onRetryReview,
+  onLoadMoreCompleted,
+  completedLoadingMore = EMPTY_COMPLETED_LOADING,
 }: {
   projects: DashboardProjectData[];
   activeRepoId: string | null;
@@ -22,6 +26,8 @@ export function DashboardProjectView({
   onFocusChange: (focus: DashboardQueueFocus) => void;
   visibleProperties: DashboardCardProperty[];
   onRetryReview: (pull: DashboardPull) => void;
+  onLoadMoreCompleted?: (repoId: string) => void;
+  completedLoadingMore?: Record<string, boolean>;
 }) {
   // `projects` is Settings-enabled only; empty list ⇒ nothing toggled on.
   if (projects.length === 0) {
@@ -42,6 +48,8 @@ export function DashboardProjectView({
           onFocusChange={onFocusChange}
           visibleProperties={visibleProperties}
           onRetryReview={onRetryReview}
+          onLoadMoreCompleted={onLoadMoreCompleted}
+          isLoadingMoreCompleted={Boolean(completedLoadingMore[project.repo.id])}
         />
       </div>
     );
@@ -57,6 +65,8 @@ export function DashboardProjectView({
           onFocusChange={onFocusChange}
           visibleProperties={visibleProperties}
           onRetryReview={onRetryReview}
+          onLoadMoreCompleted={onLoadMoreCompleted}
+          isLoadingMoreCompleted={Boolean(completedLoadingMore[project.repo.id])}
         />
       ))}
     </div>
@@ -69,12 +79,16 @@ function ProjectDesk({
   onFocusChange,
   visibleProperties,
   onRetryReview,
+  onLoadMoreCompleted,
+  isLoadingMoreCompleted,
 }: {
   project: DashboardProjectData;
   focus: DashboardQueueFocus;
   onFocusChange: (focus: DashboardQueueFocus) => void;
   visibleProperties: DashboardCardProperty[];
   onRetryReview: (pull: DashboardPull) => void;
+  onLoadMoreCompleted?: (repoId: string) => void;
+  isLoadingMoreCompleted: boolean;
 }) {
   return (
     <DashboardProjectCockpit
@@ -83,6 +97,10 @@ function ProjectDesk({
       onFocusChange={onFocusChange}
       visibleProperties={visibleProperties}
       onRetryReview={onRetryReview}
+      onLoadMoreCompleted={
+        onLoadMoreCompleted ? () => onLoadMoreCompleted(project.repo.id) : undefined
+      }
+      isLoadingMoreCompleted={isLoadingMoreCompleted}
     />
   );
 }
