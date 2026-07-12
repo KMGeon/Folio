@@ -76,7 +76,7 @@ describe("ChapterPanel key-change controls", () => {
     expect(onJump).toHaveBeenCalledWith("kc-1");
   });
 
-  it("does not call onJumpToKeyChange when the checkbox is clicked", async () => {
+  it("jumps to the linked diff when the checkbox is clicked", async () => {
     const onJump = vi.fn();
     const container = await mount(
       <ChapterPanel
@@ -91,7 +91,8 @@ describe("ChapterPanel key-change controls", () => {
     );
 
     await click(getCheckbox(container, /검토 완료/));
-    expect(onJump).not.toHaveBeenCalled();
+    // Checking a focus item should also reveal its linked diff row.
+    expect(onJump).toHaveBeenCalledWith("kc-1");
   });
 
   it("renders jumpNotice near 검토할 사항", async () => {

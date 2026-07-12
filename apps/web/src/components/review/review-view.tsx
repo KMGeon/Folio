@@ -116,10 +116,8 @@ export function ReviewView({
 
   const openChapter =
     openIndex === null ? null : (reviewChapters.find((c) => c.index === openIndex) ?? null);
-  const { handleJumpToKeyChange, jumpNotice, jumpTarget } = useKeyChangeJump(
-    openChapter,
-    setCollapsedFiles,
-  );
+  const { handleJumpToKeyChange, jumpNotice, jumpTarget, activeKeyChangeId, focusMarkers } =
+    useKeyChangeJump(openChapter, setCollapsedFiles);
   const openChapterPosition = openChapter
     ? reviewChapters.findIndex((chapter) => chapter.index === openChapter.index)
     : -1;
@@ -294,6 +292,7 @@ export function ReviewView({
               <DiffViewer
                 chapter={openChapter}
                 collapsedFiles={collapsedFiles}
+                focusMarkers={focusMarkers}
                 jumpTarget={jumpTarget}
                 viewMode={diffViewMode}
                 onFileViewedChange={updateFileViewed}
@@ -317,6 +316,7 @@ export function ReviewView({
                 onChapterViewedChange={updateChapterViewed}
                 onSelectChapter={setOpenIndex}
                 onJumpToKeyChange={handleJumpToKeyChange}
+                activeKeyChangeId={activeKeyChangeId}
                 jumpNotice={jumpNotice}
               />
             </div>

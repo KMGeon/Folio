@@ -116,3 +116,57 @@ export function InlineCommentEditor({
     </div>
   );
 }
+
+export function CommentRows({
+  active,
+  body,
+  colSpan,
+  comment,
+  error,
+  submitting,
+  onBodyChange,
+  onCancel,
+  onSubmit,
+}: {
+  active: boolean;
+  body: string;
+  colSpan: number;
+  comment?: CreatedReviewComment;
+  error: string | null;
+  submitting: boolean;
+  onBodyChange: (body: string) => void;
+  onCancel: () => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <>
+      {active ? (
+        <tr className="bg-primary/15">
+          <td className="border-r border-border/60" />
+          <td />
+          <td />
+          <td colSpan={colSpan} className="py-3 pr-4">
+            <InlineCommentEditor
+              value={body}
+              onChange={onBodyChange}
+              submitting={submitting}
+              error={error}
+              onCancel={onCancel}
+              onSubmit={onSubmit}
+            />
+          </td>
+        </tr>
+      ) : null}
+      {comment ? (
+        <tr className="bg-primary/10">
+          <td className="border-r border-border/60" />
+          <td />
+          <td />
+          <td colSpan={colSpan} className="py-2 pr-4">
+            <CreatedCommentLink comment={comment} />
+          </td>
+        </tr>
+      ) : null}
+    </>
+  );
+}

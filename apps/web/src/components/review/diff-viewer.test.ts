@@ -45,8 +45,11 @@ describe("DiffViewer source", () => {
   });
 
   it("anchors and highlights jump target rows in the file diff panel", () => {
+    const focusStyleSource = readFileSync(resolve(__dirname, "focus-line-styles.ts"), "utf8");
     expect(filePanelSource).toContain("diffLineElementId");
-    expect(filePanelSource).toContain("bg-primary/20");
-    expect(filePanelSource).toContain("ring-1 ring-inset ring-primary/40");
+    expect(filePanelSource).toContain("focusRowClass");
+    expect(focusStyleSource).toContain("bg-primary/20");
+    expect(focusStyleSource).toContain("ring-1 ring-inset ring-primary/50");
+    expect(focusStyleSource).toContain("border-warning/70 bg-warning/10");
   });
 });

@@ -1,16 +1,19 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 
 import type { ReviewChapter } from "@/lib/review-api";
 
 import {
+  collectFocusLineMarkers,
   jumpTargetFromResolved,
   selectFirstResolvableLineRef,
+  type FocusLineMarker,
   type JumpTarget,
 } from "./resolve-line-ref";
 import { filePanelId, setFilePathsCollapsed, type CollapsedFileState } from "./review-file-state";
 
-const JUMP_HIGHLIGHT_MS = 2000;
+/** Active jump stays visible long enough to read the linked row. */
+const JUMP_HIGHLIGHT_MS = 4500;
 const JUMP_NOTICE_MS = 3000;
 
 export function useKeyChangeJump(
@@ -18,12 +21,21 @@ export function useKeyChangeJump(
   setCollapsedFiles: Dispatch<SetStateAction<CollapsedFileState>>,
 ) {
   const [jumpTarget, setJumpTarget] = useState<JumpTarget | null>(null);
+  const [activeKeyChangeId, setActiveKeyChangeId] = useState<string | null>(null);
   const [jumpNotice, setJumpNotice] = useState<string | null>(null);
   const jumpTokenRef = useRef(0);
+  const lastAutoChapterRef = useRef<number | null>(null);
+
+  const focusMarkers: FocusLineMarker[] = useMemo(
+    () => (openChapter ? collectFocusLineMarkers(openChapter) : []),
+    [openChapter],
+  );
 
   useEffect(() => {
     setJumpTarget(null);
+    setActiveKeyChangeId(null);
     setJumpNotice(null);
+    lastAutoChapterRef.current = null;
   }, [openChapter?.index]);
 
   useEffect(() => {
@@ -42,45 +54,79 @@ export function useKeyChangeJump(
     return () => window.clearTimeout(timer);
   }, [jumpNotice]);
 
-  function handleJumpToKeyChange(keyChangeId: string) {
+  const handleJumpToKeyChange = useCallback(
+    (keyChangeId: string) => {
+      if (!openChapter) {
+        return;
+      }
+      const keyChange = openChapter.keyChanges.find((item) => item.id === keyChangeId);
+      if (!keyChange) {
+        return;
+      }
+
+      setActiveKeyChangeId(keyChangeId);
+
+      if (keyChange.lineRefs.length === 0) {
+        setJumpNotice("이 질문에 연결된 diff 줄이 없습니다.");
+        setJumpTarget(null);
+        return;
+      }
+
+      const resolved = selectFirstResolvableLineRef(openChapter, keyChange.lineRefs);
+      if (!resolved) {
+        setJumpNotice("연결된 diff 줄을 찾지 못했습니다.");
+        setJumpTarget(null);
+        const fallbackPath = keyChange.lineRefs.find((ref) =>
+          openChapter.files.some((file) => file.path === ref.filePath),
+        )?.filePath;
+        if (fallbackPath) {
+          setCollapsedFiles((current) => setFilePathsCollapsed(current, [fallbackPath], false));
+          // Allow the fallback file panel to uncollapse before it becomes the scroll target.
+          requestAnimationFrame(() => {
+            document
+              .getElementById(filePanelId(openChapter.index, fallbackPath))
+              ?.scrollIntoView({ block: "start", behavior: "smooth" });
+          });
+        }
+        return;
+      }
+
+      setJumpNotice(null);
+      jumpTokenRef.current += 1;
+      setCollapsedFiles((current) => setFilePathsCollapsed(current, [resolved.line.path], false));
+      setJumpTarget(jumpTargetFromResolved(openChapter.index, resolved, jumpTokenRef.current));
+    },
+    [openChapter, setCollapsedFiles],
+  );
+
+  // First open of a chapter: jump to the first unfinished focus question with a line link.
+  useEffect(() => {
     if (!openChapter) {
       return;
     }
-    const keyChange = openChapter.keyChanges.find((item) => item.id === keyChangeId);
-    if (!keyChange) {
+    if (lastAutoChapterRef.current === openChapter.index) {
       return;
     }
-
-    if (keyChange.lineRefs.length === 0) {
-      setJumpNotice("이 질문에 연결된 diff 줄이 없습니다.");
-      setJumpTarget(null);
+    const first =
+      openChapter.keyChanges.find((item) => !item.viewed && item.lineRefs.length > 0) ??
+      openChapter.keyChanges.find((item) => item.lineRefs.length > 0);
+    if (!first) {
+      lastAutoChapterRef.current = openChapter.index;
       return;
     }
+    lastAutoChapterRef.current = openChapter.index;
+    // Wait one frame so file panels mount before scroll/highlight.
+    const frame = requestAnimationFrame(() => {
+      handleJumpToKeyChange(first.id);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [openChapter, handleJumpToKeyChange]);
 
-    const resolved = selectFirstResolvableLineRef(openChapter, keyChange.lineRefs);
-    if (!resolved) {
-      setJumpNotice("연결된 diff 줄을 찾지 못했습니다.");
-      setJumpTarget(null);
-      const fallbackPath = keyChange.lineRefs.find((ref) =>
-        openChapter.files.some((file) => file.path === ref.filePath),
-      )?.filePath;
-      if (fallbackPath) {
-        setCollapsedFiles((current) => setFilePathsCollapsed(current, [fallbackPath], false));
-        // Allow the fallback file panel to uncollapse before it becomes the scroll target.
-        requestAnimationFrame(() => {
-          document
-            .getElementById(filePanelId(openChapter.index, fallbackPath))
-            ?.scrollIntoView({ block: "start", behavior: "smooth" });
-        });
-      }
-      return;
-    }
-
-    setJumpNotice(null);
-    jumpTokenRef.current += 1;
-    setCollapsedFiles((current) => setFilePathsCollapsed(current, [resolved.line.path], false));
-    setJumpTarget(jumpTargetFromResolved(openChapter.index, resolved, jumpTokenRef.current));
-  }
-
-  return { handleJumpToKeyChange, jumpNotice, jumpTarget };
+  return {
+    handleJumpToKeyChange,
+    jumpNotice,
+    jumpTarget,
+    activeKeyChangeId,
+    focusMarkers,
+  };
 }

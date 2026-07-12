@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { ReviewChapter, ReviewDiffLine, ReviewLineRef } from "@/lib/review-api";
 
 import {
+  collectFocusLineMarkers,
   diffLineElementId,
   resolveLineRef,
   selectFirstResolvableLineRef,
@@ -96,6 +97,39 @@ describe("selectFirstResolvableLineRef", () => {
     ]);
     expect(result?.line.n).toBe(9);
     expect(result?.ref.filePath).toBe("a.ts");
+  });
+});
+
+describe("collectFocusLineMarkers", () => {
+  it("collects unique resolvable focus lines for a chapter", () => {
+    const ch: ReviewChapter = {
+      ...chapter([
+        line({ path: "a.ts", kind: "add", n: 11, newLineNumber: 11 }),
+        line({ path: "a.ts", kind: "add", n: 12, newLineNumber: 12 }),
+      ]),
+      keyChanges: [
+        {
+          id: "k1",
+          content: "q1",
+          lineRefs: [{ filePath: "a.ts", side: "additions", startLine: 11, endLine: 11 }],
+          viewed: false,
+        },
+        {
+          id: "k2",
+          content: "q2",
+          lineRefs: [
+            { filePath: "a.ts", side: "additions", startLine: 11, endLine: 11 },
+            { filePath: "a.ts", side: "additions", startLine: 12, endLine: 12 },
+          ],
+          viewed: false,
+        },
+      ],
+    };
+    const markers = collectFocusLineMarkers(ch);
+    expect(markers).toEqual([
+      { path: "a.ts", lineNumber: 11, kind: "add", keyChangeId: "k1" },
+      { path: "a.ts", lineNumber: 12, kind: "add", keyChangeId: "k2" },
+    ]);
   });
 });
 
