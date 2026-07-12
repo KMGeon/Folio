@@ -64,8 +64,8 @@ describe("ReviewPrologue", () => {
     expect(markup).toContain("text-warning");
     expect(markup).toContain("border-warning/45 bg-warning/15 text-warning");
     expect(markup).toContain(prologue.motivation);
-    expect(markup).toContain("space-y-7 rounded-lg border bg-card p-6");
-    expect(markup).toContain("text-sm leading-7");
+    expect(markup).toContain("space-y-4 rounded-lg border bg-card p-4");
+    expect(markup).toContain("text-sm leading-6");
     expect(markup).toContain("rounded px-2.5 py-1 font-medium text-xs");
     expect(markup).toContain("text-muted-foreground");
     expect(markup).toContain("border-l-2 border-primary/50");
