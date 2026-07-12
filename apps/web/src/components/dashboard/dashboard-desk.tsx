@@ -1,6 +1,6 @@
 "use client";
 
-import type { Ref } from "react";
+import type { Ref, RefObject } from "react";
 
 import {
   type DashboardProjectData,
@@ -35,9 +35,11 @@ export function DashboardDesk({
   onFilterClick,
   onSortClick,
   searchHostRef,
+  filterTriggerRef,
   filterOpen,
   filters,
-  onFiltersChange,
+  onFilterOpenChange,
+  onFiltersSave,
   onRetryReview,
   completedLoadingMore,
   onLoadMoreCompleted,
@@ -57,9 +59,11 @@ export function DashboardDesk({
   onFilterClick: () => void;
   onSortClick: () => void;
   searchHostRef: Ref<HTMLDivElement>;
+  filterTriggerRef: RefObject<HTMLButtonElement | null>;
   filterOpen: boolean;
   filters: DashboardFilterState;
-  onFiltersChange: (filters: DashboardFilterState) => void;
+  onFilterOpenChange: (open: boolean) => void;
+  onFiltersSave: (filters: DashboardFilterState) => void;
   onRetryReview: (pull: DashboardPull) => void;
   completedLoadingMore: Record<string, boolean>;
   onLoadMoreCompleted: (repoId: string) => void;
@@ -91,13 +95,22 @@ export function DashboardDesk({
             focus={queueFocus}
             onFocusChange={onQueueFocusChange}
           />
-          <div ref={searchHostRef}>
+          <div ref={searchHostRef} className="relative">
             <DashboardSearchBar
               query={query}
               onQueryChange={onQueryChange}
               onFilterClick={onFilterClick}
               onSortClick={onSortClick}
+              filterOpen={filterOpen}
+              filterTriggerRef={filterTriggerRef}
               placeholder={`Search in ${scopeName}...`}
+            />
+            <DashboardFilterPanel
+              open={filterOpen}
+              filters={filters}
+              onOpenChange={onFilterOpenChange}
+              onSave={onFiltersSave}
+              triggerRef={filterTriggerRef}
             />
           </div>
           {projectsError ? (
@@ -122,7 +135,6 @@ export function DashboardDesk({
           )}
         </main>
       </div>
-      <DashboardFilterPanel open={filterOpen} filters={filters} onChange={onFiltersChange} />
     </div>
   );
 }
