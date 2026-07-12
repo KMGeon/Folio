@@ -15,6 +15,8 @@ export function DashboardProjectView({
   onFocusChange,
   visibleProperties,
   onRetryReview,
+  completedLoadingMore,
+  onLoadMoreCompleted,
 }: {
   projects: DashboardProjectData[];
   activeRepoId: string | null;
@@ -22,6 +24,8 @@ export function DashboardProjectView({
   onFocusChange: (focus: DashboardQueueFocus) => void;
   visibleProperties: DashboardCardProperty[];
   onRetryReview: (pull: DashboardPull) => void;
+  completedLoadingMore: Record<string, boolean>;
+  onLoadMoreCompleted: (repoId: string) => void;
 }) {
   // `projects` is Settings-enabled only; empty list ⇒ nothing toggled on.
   if (projects.length === 0) {
@@ -42,6 +46,8 @@ export function DashboardProjectView({
           onFocusChange={onFocusChange}
           visibleProperties={visibleProperties}
           onRetryReview={onRetryReview}
+          completedLoadingMore={completedLoadingMore[project.repo.id] ?? false}
+          onLoadMoreCompleted={() => onLoadMoreCompleted(project.repo.id)}
         />
       </div>
     );
@@ -57,6 +63,8 @@ export function DashboardProjectView({
           onFocusChange={onFocusChange}
           visibleProperties={visibleProperties}
           onRetryReview={onRetryReview}
+          completedLoadingMore={completedLoadingMore[project.repo.id] ?? false}
+          onLoadMoreCompleted={() => onLoadMoreCompleted(project.repo.id)}
         />
       ))}
     </div>
@@ -69,12 +77,16 @@ function ProjectDesk({
   onFocusChange,
   visibleProperties,
   onRetryReview,
+  completedLoadingMore,
+  onLoadMoreCompleted,
 }: {
   project: DashboardProjectData;
   focus: DashboardQueueFocus;
   onFocusChange: (focus: DashboardQueueFocus) => void;
   visibleProperties: DashboardCardProperty[];
   onRetryReview: (pull: DashboardPull) => void;
+  completedLoadingMore: boolean;
+  onLoadMoreCompleted: () => void;
 }) {
   return (
     <DashboardProjectCockpit
@@ -83,6 +95,8 @@ function ProjectDesk({
       onFocusChange={onFocusChange}
       visibleProperties={visibleProperties}
       onRetryReview={onRetryReview}
+      completedLoadingMore={completedLoadingMore}
+      onLoadMoreCompleted={onLoadMoreCompleted}
     />
   );
 }

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { selectEnabledDashboardRepos } from "./use-dashboard-projects";
+import {
+  appendDashboardProjectPullPage,
+  selectEnabledDashboardRepos,
+} from "./use-dashboard-projects";
 
 describe("selectEnabledDashboardRepos", () => {
   it("keeps only folio-enabled repositories and sorts by full name", () => {
@@ -21,4 +24,32 @@ describe("selectEnabledDashboardRepos", () => {
       ]),
     ).toEqual([]);
   });
+
+  it("appends a completed page without duplicating pulls already shown", () => {
+    const existing = [completedPull("pull-1"), completedPull("pull-2")];
+    const next = appendDashboardProjectPullPage(existing, [
+      completedPull("pull-2"),
+      completedPull("pull-3"),
+    ]);
+
+    expect(next.map((pull) => pull.id)).toEqual(["pull-1", "pull-2", "pull-3"]);
+  });
 });
+
+function completedPull(id: string) {
+  return {
+    id,
+    org: "KMGeon",
+    repo: "Folio",
+    number: 1,
+    title: "Completed pull",
+    author: "reviewer",
+    completedAt: "today",
+    completedState: "merged" as const,
+    githubStatus: "merged" as const,
+    analysisStatus: "complete" as const,
+    additions: 1,
+    deletions: 0,
+    changedFiles: 1,
+  };
+}
