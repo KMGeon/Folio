@@ -48,9 +48,10 @@ describe("DiffViewer source", () => {
     const focusStyleSource = readFileSync(resolve(__dirname, "focus-line-styles.ts"), "utf8");
     expect(filePanelSource).toContain("diffLineElementId");
     expect(filePanelSource).toContain("focusRowClass");
-    // Active jump uses info blue so it never collides with diff-add green.
-    expect(focusStyleSource).toContain("border-info bg-info/20");
-    expect(focusStyleSource).toContain("ring-1 ring-inset ring-info/60");
+    // Active jump uses amber (warning) so it points like passive focus, not a blue block.
+    expect(focusStyleSource).toContain("border-warning bg-warning/25");
+    expect(focusStyleSource).toContain("ring-1 ring-inset ring-warning/45");
     expect(focusStyleSource).toContain("border-warning bg-warning/15");
+    expect(focusStyleSource).not.toContain("border-info bg-info/20");
   });
 });

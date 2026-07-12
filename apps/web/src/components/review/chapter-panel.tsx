@@ -150,14 +150,14 @@ export function ChapterPanel({
                     key={item.id}
                     className={cn(
                       "relative flex w-full items-start gap-3 rounded-md border px-3 py-3 text-sm leading-6",
-                      // Amber = linked focus work; info blue = currently selected (never primary green — that reads as "added code").
+                      // Amber family only — never primary green (reads as “added”) or info blue (reads as multi-line selection).
                       item.viewed &&
                         "border-border/80 bg-muted/25 text-muted-foreground opacity-80",
                       !item.viewed &&
                         !isActive &&
                         "border-warning/40 bg-warning/12 text-foreground shadow-[inset_3px_0_0_0] shadow-warning",
                       isActive &&
-                        "border-info/50 bg-info/15 text-foreground shadow-[inset_3px_0_0_0] shadow-info",
+                        "border-warning/60 bg-warning/20 text-foreground shadow-[inset_3px_0_0_0] shadow-warning",
                     )}
                   >
                     {hasLink ? (
@@ -165,7 +165,7 @@ export function ChapterPanel({
                         className={cn(
                           "absolute top-3 right-3 size-2.5 rounded-full",
                           isActive
-                            ? "bg-info shadow-[0_0_0_3px] shadow-info/30"
+                            ? "bg-warning shadow-[0_0_0_3px] shadow-warning/40"
                             : "bg-warning shadow-[0_0_0_2px] shadow-warning/25",
                         )}
                         title="연결된 diff 줄이 있습니다"
@@ -205,7 +205,7 @@ export function ChapterPanel({
                         item.viewed
                           ? "border-primary bg-primary text-primary-foreground"
                           : isActive
-                            ? "border-info bg-info/25 text-info"
+                            ? "border-warning bg-warning/30 text-warning"
                             : "border-warning/70 bg-warning/20 text-warning",
                       )}
                     >
@@ -216,7 +216,7 @@ export function ChapterPanel({
                       onClick={() => onJumpToKeyChange?.(item.id)}
                       className={cn(
                         "min-w-0 flex-1 pr-4 text-left transition-colors",
-                        isActive && "text-info hover:text-info",
+                        isActive && "text-warning hover:text-warning",
                         !isActive && !item.viewed && "hover:text-warning",
                         item.viewed && "line-through text-muted-foreground",
                       )}
