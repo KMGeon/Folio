@@ -3,22 +3,22 @@ import { describe, expect, it } from "vitest";
 import { dashboardHeaderStandfirst } from "./dashboard-header";
 
 describe("dashboardHeaderStandfirst", () => {
-  it("prioritizes ready queue copy", () => {
+  it("prioritizes attention before ready queue copy", () => {
+    expect(
+      dashboardHeaderStandfirst(
+        { attention: 2, ready: 3, reviewing: 1, processing: 0, complete: 18 },
+        "Folio",
+      ),
+    ).toContain("확인 필요 2건");
     expect(
       dashboardHeaderStandfirst(
         { attention: 0, ready: 3, reviewing: 1, processing: 0, complete: 18 },
         "Folio",
       ),
     ).toContain("리뷰 3건이 대기");
-    expect(
-      dashboardHeaderStandfirst(
-        { attention: 0, ready: 3, reviewing: 1, processing: 0, complete: 18 },
-        "Folio",
-      ),
-    ).toContain("Folio");
   });
 
-  it("falls back to reviewing, then complete, then default", () => {
+  it("falls back through reviewing, processing, complete, then default", () => {
     expect(
       dashboardHeaderStandfirst({
         attention: 0,
@@ -28,6 +28,15 @@ describe("dashboardHeaderStandfirst", () => {
         complete: 5,
       }),
     ).toContain("진행 중인 리뷰 2건");
+    expect(
+      dashboardHeaderStandfirst({
+        attention: 0,
+        ready: 0,
+        reviewing: 0,
+        processing: 4,
+        complete: 5,
+      }),
+    ).toContain("준비 중인 PR 4건");
     expect(
       dashboardHeaderStandfirst({
         attention: 0,

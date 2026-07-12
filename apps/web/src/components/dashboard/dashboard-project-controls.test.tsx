@@ -42,8 +42,10 @@ describe("dashboard project controls", () => {
     expect(html).toContain("KMGeon/Folio");
     expect(html).toContain("Folio enabled");
     expect(html).not.toContain("not enabled");
+    expect(html).toContain("Attention");
     expect(html).toContain("Ready");
     expect(html).toContain("Reviewing");
+    expect(html).toContain("Processing");
     expect(html).toContain("Complete");
     expect(html).toContain('aria-pressed="true"');
   });

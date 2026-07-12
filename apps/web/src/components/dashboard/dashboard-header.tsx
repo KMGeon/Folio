@@ -37,13 +37,15 @@ export function DashboardHeader({
         </div>
 
         <div
-          className="inline-flex w-fit items-center gap-0.5 rounded-full border border-border bg-card/70 p-1"
+          className="flex w-fit max-w-full flex-wrap items-center gap-0.5 rounded-full border border-border bg-card/70 p-1"
           role="group"
           aria-label="Desk metrics"
         >
-          <MetricChip label="Ready" value={counts.ready} emphasis />
+          <MetricChip label="Attention" value={counts.attention} tone="attention" />
+          <MetricChip label="Ready" value={counts.ready} tone="ready" />
           <MetricChip label="Reviewing" value={counts.reviewing} />
-          <MetricChip label="Done" value={counts.complete} />
+          <MetricChip label="Processing" value={counts.processing} tone="processing" />
+          <MetricChip label="Complete" value={counts.complete} />
         </div>
       </div>
 
@@ -57,22 +59,29 @@ export function DashboardHeader({
 function MetricChip({
   label,
   value,
-  emphasis = false,
+  tone = "default",
 }: {
   label: string;
   value: number;
-  emphasis?: boolean;
+  tone?: "attention" | "ready" | "processing" | "default";
 }) {
   return (
     <div
       className={cn(
         "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs text-muted-foreground",
-        emphasis && "bg-primary/12 text-primary",
+        tone === "attention" && "bg-destructive/10 text-destructive",
+        tone === "ready" && "bg-primary/12 text-primary",
+        tone === "processing" && "bg-info/10 text-info",
       )}
     >
       <span>{label}</span>
       <strong
-        className={cn("font-medium tabular-nums text-foreground", emphasis && "text-primary")}
+        className={cn(
+          "font-medium tabular-nums text-foreground",
+          tone === "attention" && "text-destructive",
+          tone === "ready" && "text-primary",
+          tone === "processing" && "text-info",
+        )}
       >
         {value}
       </strong>
@@ -85,11 +94,17 @@ export function dashboardHeaderStandfirst(
   counts: DashboardHeaderCounts,
   scopeName = "All projects",
 ): string {
+  if (counts.attention > 0) {
+    return `${scopeName} 범위에 확인 필요 ${counts.attention}건이 있습니다. 재시도하거나 변경사항을 확인하세요.`;
+  }
   if (counts.ready > 0) {
     return `${scopeName} 범위에 리뷰 ${counts.ready}건이 대기 중입니다. 챕터 순서로 읽어 내려가세요.`;
   }
   if (counts.reviewing > 0) {
     return `${scopeName} 범위에 진행 중인 리뷰 ${counts.reviewing}건이 있습니다. 이어서 확인하세요.`;
+  }
+  if (counts.processing > 0) {
+    return `${scopeName} 범위에 준비 중인 PR ${counts.processing}건이 있습니다. Folio가 챕터를 생성하고 있습니다.`;
   }
   if (counts.complete > 0) {
     return `${scopeName} 범위에는 대기 중인 리뷰가 없습니다. 최근 완료 작업을 확인하세요.`;

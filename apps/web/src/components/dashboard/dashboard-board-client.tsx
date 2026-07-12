@@ -8,6 +8,7 @@ import {
 } from "@/components/dashboard/dashboard-board-config";
 import { DashboardDesk } from "@/components/dashboard/dashboard-desk";
 import {
+  dashboardDefaultFocus,
   dashboardScopeCounts,
   dashboardScopeName,
   type DashboardQueueFocus,
@@ -43,7 +44,8 @@ export function DashboardBoardClient({ user }: { user: { login: string; avatarUr
   const [filters, setFilters] = useState(initialDashboardFilters);
   const [filterOpen, setFilterOpen] = useState(false);
   const [activeRepoId, setActiveRepoId] = useState<string | null>(null);
-  const [queueFocus, setQueueFocus] = useState<DashboardQueueFocus>("ready");
+  const [queueFocus, setQueueFocus] = useState<DashboardQueueFocus>("complete");
+  const [focusIsUserSelected, setFocusIsUserSelected] = useState(false);
   const [columns, setColumns] = useState<ColumnStateMap>(() => initialColumns());
   const columnsRef = useRef(columns);
   const inFlightRef = useRef<DashboardInFlightMap>(new Map());
@@ -349,6 +351,22 @@ export function DashboardBoardClient({ user }: { user: { login: string; avatarUr
   const scopeName = dashboardScopeName(activeProject?.repo ?? null);
   const projectsLoading = isSummaryLoading || projects.some((project) => project.isLoading);
 
+  useEffect(() => {
+    if (!focusIsUserSelected) {
+      setQueueFocus(dashboardDefaultFocus(headerCounts));
+    }
+  }, [focusIsUserSelected, headerCounts]);
+
+  const selectProject = useCallback((repoId: string | null) => {
+    setActiveRepoId(repoId);
+    setFocusIsUserSelected(false);
+  }, []);
+
+  const selectQueueFocus = useCallback((focus: DashboardQueueFocus) => {
+    setQueueFocus(focus);
+    setFocusIsUserSelected(true);
+  }, []);
+
   return (
     <DashboardDesk
       user={user}
@@ -357,8 +375,8 @@ export function DashboardBoardClient({ user }: { user: { login: string; avatarUr
       projects={projects}
       activeRepoId={activeRepoId}
       queueFocus={queueFocus}
-      onProjectSelect={setActiveRepoId}
-      onQueueFocusChange={setQueueFocus}
+      onProjectSelect={selectProject}
+      onQueueFocusChange={selectQueueFocus}
       projectsLoading={projectsLoading}
       projectsError={summaryError}
       query={query}
