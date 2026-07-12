@@ -80,6 +80,23 @@ describe("ReviewView source", () => {
     expect(changedFileTreeSource).toContain("min-h-0 flex-1 overflow-y-auto p-3");
   });
 
+  it("wires a real files-tab filter into FileTree", () => {
+    expect(source).toContain('useState("")');
+    expect(source).toContain("fileQuery");
+    expect(source).toContain("setFileQuery");
+    expect(source).toContain("query={fileQuery}");
+    expect(source).toContain('placeholder="파일 필터링..."');
+    expect(source).not.toContain("Filter files...");
+  });
+
+  it("uses shared RiskPill and Korean chapter CTA copy", () => {
+    expect(chapterCardsSource).toContain('from "@/components/status-pill"');
+    expect(chapterCardsSource).toContain("리뷰 시작");
+    expect(chapterCardsSource).toContain("이어서 리뷰");
+    expect(chapterCardsSource).not.toContain("Start reviewing");
+    expect(chapterCardsSource).not.toContain("Low risk");
+  });
+
   it("supports chapter-panel tree filtering and file activation", () => {
     expect(changedFileTreeSource).toContain("filterChangedFileTree(tree, query)");
     expect(changedFileTreeSource).toContain("query?: string");

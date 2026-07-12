@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageSquare, MoreHorizontal } from "lucide-react";
+import { MessageSquare } from "lucide-react";
 import React, { useState } from "react";
 
 import type { Prologue } from "@folio/types";
@@ -48,34 +48,33 @@ export function ReviewPrologue({
     <section className="min-w-0">
       <div className="mb-3 flex items-center gap-2">
         <span className="font-mono text-muted-foreground text-[0.7rem] uppercase tracking-[0.18em]">
-          Prologue
+          프롤로그
         </span>
         <div className="flex rounded-md bg-muted/60 p-0.5">
           {prologue ? (
             <PrologueTabButton
               active={tab === "summary"}
-              label="Summary"
+              label="요약"
               onClick={() => setTab("summary")}
             />
           ) : null}
           <PrologueTabButton
             active={tab === "description"}
-            label="Description"
+            label="설명"
             onClick={() => setTab("description")}
           />
           <PrologueTabButton
             active={tab === "comments"}
-            label={`Comments ${comments.length}`}
+            label={`댓글 ${comments.length}`}
             onClick={() => setTab("comments")}
           />
         </div>
-        <MoreHorizontal className="ml-auto size-4 text-muted-foreground" />
       </div>
 
       {tab === "summary" && prologue ? (
         <ReviewSummary prologue={prologue} />
       ) : tab === "description" ? (
-        <ConversationCard author={pr.author} createdLabel="PR description">
+        <ConversationCard author={pr.author} createdLabel="PR 설명">
           <MarkdownText text={pr.body || "PR 설명이 없습니다."} />
         </ConversationCard>
       ) : (
@@ -99,7 +98,7 @@ function PrologueTabButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "rounded px-2.5 py-1 font-medium text-xs uppercase tracking-wide transition-colors",
+        "rounded px-2.5 py-1 font-medium text-xs transition-colors",
         active ? "bg-card text-foreground" : "text-muted-foreground hover:text-foreground",
       )}
     >

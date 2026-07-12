@@ -43,25 +43,26 @@ describe("ReviewPrologue", () => {
       <ReviewPrologue pr={pr} prologue={prologue} comments={[]} />,
     );
 
-    expect(markup).toContain("Summary");
-    expect(markup).toContain("Description");
-    expect(markup).toContain("Comments 0");
-    expect(markup).toContain("Why this PR?");
-    expect(markup).toContain("What it does");
-    expect(markup).toContain("Key changes");
-    expect(markup).toContain("Review focus");
+    expect(markup).toContain("요약");
+    expect(markup).toContain("설명");
+    expect(markup).toContain("댓글 0");
+    expect(markup).toContain("왜 이 PR인가?");
+    expect(markup).toContain("무엇을 하는가");
+    expect(markup).toContain("핵심 변경");
+    expect(markup).toContain("리뷰 포커스");
     expect(markup).toContain(prologue.motivation);
     expect(markup).toContain("space-y-4 rounded-lg border bg-card p-4");
     expect(markup).toContain("text-sm leading-6");
     expect(markup).not.toContain(pr.body);
+    expect(markup).not.toContain("MoreHorizontal");
   });
 
   it("omits Summary and starts with Description without a prologue", () => {
     const markup = renderToStaticMarkup(<ReviewPrologue pr={pr} prologue={null} comments={[]} />);
 
-    expect(markup).not.toContain("Summary");
-    expect(markup).toContain("Description");
-    expect(markup).toContain("Comments 0");
+    expect(markup).not.toContain("요약");
+    expect(markup).toContain("설명");
+    expect(markup).toContain("댓글 0");
     expect(markup).toContain(pr.body);
   });
 });

@@ -32,9 +32,13 @@ const statusMeta: Record<
 };
 
 const riskMeta: Record<RiskLevel, { label: string; className: string }> = {
-  low: { label: "낮은 위험", className: "border-primary/30 text-primary" },
-  medium: { label: "중간 위험", className: "border-warning/40 text-warning" },
-  high: { label: "높은 위험", className: "border-destructive/40 text-destructive" },
+  // Soft fill matches review cards; green/amber/red stay semantic, not decorative.
+  low: { label: "낮은 위험", className: "border-primary/30 bg-primary/10 text-primary" },
+  medium: { label: "중간 위험", className: "border-warning/40 bg-warning/10 text-warning" },
+  high: {
+    label: "높은 위험",
+    className: "border-destructive/40 bg-destructive/10 text-destructive",
+  },
 };
 
 export function StatusPill({ status }: { status: ReviewStatus }) {

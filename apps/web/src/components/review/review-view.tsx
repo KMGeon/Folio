@@ -68,6 +68,7 @@ export function ReviewView({
   // null = the graph+cards overview; a number = that chapter's in-place diff review.
   const [openIndex, setOpenIndex] = useState<number | null>(initialChapterIndex ?? null);
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
+  const [fileQuery, setFileQuery] = useState("");
   const [diffViewMode, setDiffViewMode] = useState<DiffViewMode>("split");
   const [preferences, setPreferences] = useState<ReviewPreferences>(DEFAULT_REVIEW_PREFERENCES);
   const [collapsedFiles, setCollapsedFiles] = useState(() => viewedFileCollapseState(chapters));
@@ -332,18 +333,25 @@ export function ReviewView({
             <div className="flex h-12 items-center justify-between border-b px-3">
               <div className="flex items-center gap-2 font-medium">
                 <FileText className="size-4 text-muted-foreground" />
-                Files
+                파일
                 <span className="text-muted-foreground">({files.length})</span>
               </div>
             </div>
             <div className="border-b p-3">
-              <div className="flex h-9 items-center gap-2 rounded-md border bg-background/55 px-3 text-muted-foreground text-sm">
-                <Search className="size-4" />
-                <span>Filter files...</span>
+              <div className="relative">
+                <Search className="-translate-y-1/2 absolute top-1/2 left-2.5 size-3.5 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={fileQuery}
+                  onChange={(event) => setFileQuery(event.target.value)}
+                  placeholder="파일 필터링..."
+                  className="h-7 w-full rounded-md border bg-transparent pr-2 pl-8 text-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30"
+                />
               </div>
             </div>
             <FileTree
               files={files}
+              query={fileQuery}
               selectedPath={selectedFile?.path ?? ""}
               onSelect={setSelectedFilePath}
             />

@@ -1,7 +1,12 @@
-import { Check, ChevronDown, ChevronRight, FileText, MessageSquarePlus } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, FileText } from "lucide-react";
 import { type ReactNode, Fragment } from "react";
 
-import type { CreatedReviewComment, ReviewChapter, ReviewDiffLine } from "@/lib/review-api";
+import type {
+  CreatedReviewComment,
+  ReviewChapter,
+  ReviewDiffLine,
+  ReviewFileStatus,
+} from "@/lib/review-api";
 import { cn } from "@/lib/utils";
 
 import { CommentButton, CreatedCommentLink, InlineCommentEditor } from "./diff-comment-controls";
@@ -11,6 +16,21 @@ import { SplitLineCells } from "./split-diff-line-cells";
 import { buildSplitDiffRows } from "./split-diff-rows";
 
 const SIGN: Record<string, string> = { add: "+", del: "-", ctx: " " };
+
+// Green only for additions — keep file chrome semantic, not decorative primary.
+function fileIconClass(status: ReviewFileStatus): string {
+  switch (status) {
+    case "added":
+      return "text-diff-add-fg";
+    case "deleted":
+      return "text-diff-del-fg";
+    case "renamed":
+    case "moved":
+      return "text-syntax-link";
+    default:
+      return "text-muted-foreground";
+  }
+}
 
 export interface ActiveDiffLine {
   key: string;
@@ -72,8 +92,10 @@ export function FileDiffPanel({
         >
           {collapsed ? <ChevronRight className="size-4" /> : <ChevronDown className="size-4" />}
         </button>
-        <FileText className="size-4 text-primary" />
-        <span className="min-w-0 flex-1 truncate font-mono text-[13px]">{file.path}</span>
+        <FileText className={cn("size-4", fileIconClass(file.status))} />
+        <span className="min-w-0 flex-1 truncate font-mono text-[13px]" title={file.path}>
+          {file.path}
+        </span>
         <span className="ml-2 font-mono text-xs text-diff-add-fg">+{file.additions}</span>
         {file.deletions > 0 ? (
           <span className="font-mono text-diff-del-fg text-xs">-{file.deletions}</span>
@@ -94,7 +116,6 @@ export function FileDiffPanel({
         >
           {file.viewed ? <Check className="size-3.5" /> : null}
         </button>
-        <MessageSquarePlus className="size-4 text-muted-foreground" />
       </div>
       {collapsed ? null : (
         <div className="overflow-x-auto font-mono text-xs leading-4">
