@@ -34,7 +34,7 @@ export function DashboardProjectSidebar({
           active={activeRepoId === null}
           icon={<LayoutGrid className="size-3.5" />}
           name="All projects"
-          detail={`workspace · ${projects.length} repos`}
+          detail={`workspace · ${projects.length} enabled`}
           ready={readyTotal}
           onClick={() => onSelect(null)}
         />

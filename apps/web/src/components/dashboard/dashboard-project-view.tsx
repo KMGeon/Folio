@@ -29,7 +29,8 @@ export function DashboardProjectView({
   onRetryReview: (pull: DashboardPull) => void;
 }) {
   if (projects.length === 0) {
-    return <DashboardProjectEmpty scopeName="All projects" focus={focus} />;
+    // projects[] is already Settings-enabled only — empty means none toggled on.
+    return <DashboardProjectEmpty scopeName="All projects" focus={focus} noEnabledRepos />;
   }
 
   if (activeRepoId) {
@@ -88,7 +89,7 @@ function ProjectDesk({
         <div className="min-w-0">
           <h2 className="truncate text-sm font-medium text-foreground">{name}</h2>
           <p className="truncate font-mono text-[0.65rem] text-muted-foreground">
-            {project.repo.fullName} · {project.repo.folioEnabled ? "enabled" : "not enabled"}
+            {project.repo.fullName} · Folio enabled
           </p>
         </div>
         <div className="flex gap-3 font-mono text-[0.65rem] tabular-nums text-muted-foreground">

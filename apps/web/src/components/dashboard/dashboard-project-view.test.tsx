@@ -28,7 +28,7 @@ describe("DashboardProjectView", () => {
     expect(html).not.toContain("docs 큐가 비어 있습니다");
   });
 
-  it("names All projects when the workspace has no repositories", () => {
+  it("guides to Settings when no repositories are Folio-enabled", () => {
     const html = renderToStaticMarkup(
       <DashboardProjectView
         projects={[]}
@@ -39,7 +39,8 @@ describe("DashboardProjectView", () => {
       />,
     );
 
-    expect(html).toContain("All projects 큐가 비어 있습니다");
+    expect(html).toContain("활성화된 레포가 없습니다");
+    expect(html).toContain("/settings/repositories");
   });
 
   function render(activeRepoId: string | null) {
