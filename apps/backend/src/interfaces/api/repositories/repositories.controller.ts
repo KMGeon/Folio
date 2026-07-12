@@ -80,16 +80,20 @@ export class RepositoriesController {
     @CurrentUser() user: AuthedUser,
     @Param("id") id: string,
     @Body() body: unknown,
+    @Req() request: Pick<AuthedRequest, "cookies">,
   ) {
     const parsed = UpdateRepositorySettingsBodySchema.safeParse(body);
     if (!parsed.success) {
       throw new BadRequestException("Repository settings must include a valid value");
     }
-    return this.repositoryPreferences.setPreferences({
-      user: { id: user.id, login: user.login },
-      repositoryId: id,
-      ...parsed.data,
-    });
+    return this.repositoryPreferences.setPreferences(
+      {
+        user: { id: user.id, login: user.login },
+        repositoryId: id,
+        ...parsed.data,
+      },
+      selectedWorkspaceId(request),
+    );
   }
 }
 
