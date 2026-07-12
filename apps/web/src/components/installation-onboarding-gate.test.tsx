@@ -47,14 +47,53 @@ describe("InstallationOnboardingGate", () => {
     const container = await mount("reinstall_required");
 
     expect(container.textContent).toContain("GitHub App을 다시 연결해야 합니다");
+    expect(container.textContent).toContain(
+      "이 워크스페이스의 GitHub App 연결이 해제되었습니다. 다시 연결해 주세요.",
+    );
     expect(container.querySelector("a")?.getAttribute("href")).toBe(installationUrl());
   });
 
   it("explains suspended membership without offering installation", async () => {
     const container = await mount("membership_suspended");
 
-    expect(container.textContent).toContain("연결이 해제되었습니다");
+    expect(container.textContent).toContain(
+      "이 워크스페이스 접근이 정지되었습니다. 워크스페이스 관리자에게 문의하세요.",
+    );
     expect(container.querySelector("a")).toBeNull();
+  });
+
+  it("keeps keyboard focus in the dialog and restores the prior focus on cleanup", async () => {
+    const returnTarget = document.createElement("button");
+    document.body.append(returnTarget);
+    returnTarget.focus();
+    const container = await mount("install_required");
+    const dialog = container.querySelector<HTMLElement>('[role="dialog"]');
+    const action = container.querySelector<HTMLAnchorElement>("a");
+
+    expect(dialog).not.toBeNull();
+    expect(action).not.toBeNull();
+    expect(document.activeElement).toBe(action);
+
+    for (const shiftKey of [false, true]) {
+      const tab = new KeyboardEvent("keydown", {
+        bubbles: true,
+        cancelable: true,
+        key: "Tab",
+        shiftKey,
+      });
+      await act(async () => action?.dispatchEvent(tab));
+
+      expect(tab.defaultPrevented).toBe(true);
+      expect(document.activeElement).toBe(action);
+    }
+
+    const root = mountedRoots.pop();
+    if (!root) {
+      throw new Error("Expected the onboarding gate root to be mounted");
+    }
+    await act(async () => root.unmount());
+
+    expect(document.activeElement).toBe(returnTarget);
   });
 
   it.each(["/onboarding/install", "/admin/workspaces"])(

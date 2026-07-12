@@ -2,6 +2,7 @@
 
 import { Github, PlugZap } from "lucide-react";
 import { usePathname } from "next/navigation";
+import { useEffect, useRef, type KeyboardEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 import { installationUrl } from "@/lib/auth";
@@ -11,6 +12,9 @@ interface InstallationOnboardingGateProps {
   onboardingState: WorkspaceContext["onboardingState"] | null;
 }
 
+const FOCUSABLE_CONTROL_SELECTOR =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 const gateContent = {
   install_required: {
     title: "GitHub App 설치가 필요합니다",
@@ -19,26 +23,44 @@ const gateContent = {
   },
   reinstall_required: {
     title: "GitHub App을 다시 연결해야 합니다",
-    description: "GitHub App 연결이 더 이상 유효하지 않습니다. 다시 설치해 연결을 복구하세요.",
+    description: "이 워크스페이스의 GitHub App 연결이 해제되었습니다. 다시 연결해 주세요.",
     action: "GitHub에서 다시 연결",
   },
   membership_suspended: {
-    title: "연결이 해제되었습니다",
-    description: "이 워크스페이스의 멤버십이 중지되었습니다. 워크스페이스 관리자에게 문의하세요.",
+    title: "워크스페이스 접근이 제한되었습니다",
+    description: "이 워크스페이스 접근이 정지되었습니다. 워크스페이스 관리자에게 문의하세요.",
     action: undefined,
   },
 } as const;
 
 export function InstallationOnboardingGate({ onboardingState }: InstallationOnboardingGateProps) {
   const pathname = usePathname();
+  const dialogRef = useRef<HTMLElement>(null);
+  const shouldBlock =
+    onboardingState !== null &&
+    onboardingState !== "ready" &&
+    pathname !== "/onboarding/install" &&
+    !pathname.startsWith("/admin");
+
+  useEffect(() => {
+    if (!shouldBlock) {
+      return;
+    }
+    const dialog = dialogRef.current;
+    if (!dialog) {
+      return;
+    }
+    const previouslyFocused =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+    // Blocked routes remain inaccessible to keyboard users until this modal is resolved.
+    (getDialogFocusableControls(dialog)[0] ?? dialog).focus();
+
+    return () => previouslyFocused?.focus();
+  }, [onboardingState, shouldBlock]);
 
   // Keep the setup and support routes available while product routes are blocked.
-  if (
-    onboardingState === null ||
-    onboardingState === "ready" ||
-    pathname === "/onboarding/install" ||
-    pathname.startsWith("/admin")
-  ) {
+  if (!shouldBlock) {
     return null;
   }
 
@@ -47,9 +69,12 @@ export function InstallationOnboardingGate({ onboardingState }: InstallationOnbo
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 p-4 backdrop-blur-sm">
       <section
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="installation-onboarding-title"
+        tabIndex={-1}
+        onKeyDown={trapDialogTabFocus}
         className="w-full max-w-md border bg-card p-5"
       >
         <div className="flex size-9 items-center justify-center rounded-md border text-primary">
@@ -70,4 +95,33 @@ export function InstallationOnboardingGate({ onboardingState }: InstallationOnbo
       </section>
     </div>
   );
+}
+
+function getDialogFocusableControls(dialog: HTMLElement): HTMLElement[] {
+  return Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE_CONTROL_SELECTOR)).filter(
+    (control) => control.tabIndex >= 0,
+  );
+}
+
+function trapDialogTabFocus(event: KeyboardEvent<HTMLElement>): void {
+  if (event.key !== "Tab") {
+    return;
+  }
+  const controls = getDialogFocusableControls(event.currentTarget);
+  if (controls.length === 0) {
+    event.preventDefault();
+    event.currentTarget.focus();
+    return;
+  }
+  const currentIndex = controls.indexOf(document.activeElement as HTMLElement);
+  const nextControl = event.shiftKey ? controls.at(-1) : controls[0];
+
+  if (
+    currentIndex === -1 ||
+    (!event.shiftKey && currentIndex === controls.length - 1) ||
+    (event.shiftKey && currentIndex === 0)
+  ) {
+    event.preventDefault();
+    nextControl?.focus();
+  }
 }

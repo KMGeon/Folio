@@ -414,6 +414,21 @@ describe("WorkspaceClaimFacade", () => {
       expect(resolver.listInstallationsForWorkspace).not.toHaveBeenCalled();
     });
 
+    it("requires installation when a workspace lookup races with a missing membership", async () => {
+      vi.mocked(usersRepo.getById).mockResolvedValue(user());
+      resolver.firstWorkspaceForUser.mockResolvedValue(workspace());
+      vi.mocked(workspaceMembersRepo.getMembership).mockResolvedValue(null);
+      resolver.listInstallationsForWorkspace.mockResolvedValue([installation(null)]);
+      entitlement.canUseFeature.mockResolvedValue({ entitled: true });
+
+      await expect(facade.currentContext("user-1")).resolves.toMatchObject({
+        workspace: { id: "workspace-1", accountLogin: "acme" },
+        role: null,
+        memberStatus: null,
+        onboardingState: "install_required",
+      });
+    });
+
     it("reports membership_suspended before installation availability", async () => {
       vi.mocked(usersRepo.getById).mockResolvedValue(user());
       resolver.firstWorkspaceForUser.mockResolvedValue(workspace());

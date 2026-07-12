@@ -153,7 +153,7 @@ export class WorkspaceClaimFacade {
     const onboardingState =
       membership?.status === MEMBERSHIP_STATUS.SUSPENDED
         ? INSTALLATION_ONBOARDING_STATE.MEMBERSHIP_SUSPENDED
-        : !workspace
+        : !workspace || !membership
           ? INSTALLATION_ONBOARDING_STATE.INSTALL_REQUIRED
           : installations.some((installation) => installation.suspendedAt === null)
             ? INSTALLATION_ONBOARDING_STATE.READY
