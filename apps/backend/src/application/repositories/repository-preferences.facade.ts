@@ -39,8 +39,14 @@ export class RepositoryPreferencesFacade {
     @Inject(RepoAccessService) private readonly repoAccess: RepoAccessService,
   ) {}
 
-  async setPreferences(input: SetRepositoryPreferencesInput): Promise<Repository> {
-    const workspace = await this.workspaceResolver.firstWorkspaceForUser(input.user.id);
+  async setPreferences(
+    input: SetRepositoryPreferencesInput,
+    preferredWorkspaceId?: string,
+  ): Promise<Repository> {
+    const workspace = await this.workspaceResolver.workspaceForUser(
+      input.user.id,
+      preferredWorkspaceId,
+    );
     if (!workspace) {
       throw new CoreException(ErrorType.WorkspaceNotFound);
     }

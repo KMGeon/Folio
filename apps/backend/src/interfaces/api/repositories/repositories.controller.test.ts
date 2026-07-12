@@ -98,14 +98,18 @@ describe("RepositoriesController", () => {
         },
         "repo-1",
         { aiReplyEnabled: false, priority: "high" },
+        { cookies: { folio_workspace: "workspace-organization" } },
       ),
     ).resolves.toEqual({ id: "repo-1", aiReplyEnabled: false, priority: "high" });
-    expect(preferences.setPreferences).toHaveBeenCalledWith({
-      user: { id: "user-1", login: "KMGeon" },
-      repositoryId: "repo-1",
-      aiReplyEnabled: false,
-      priority: "high",
-    });
+    expect(preferences.setPreferences).toHaveBeenCalledWith(
+      {
+        user: { id: "user-1", login: "KMGeon" },
+        repositoryId: "repo-1",
+        aiReplyEnabled: false,
+        priority: "high",
+      },
+      "workspace-organization",
+    );
   });
 
   it("requires the repository activation entitlement on mutations only", () => {
@@ -139,11 +143,11 @@ describe("RepositoriesController", () => {
       isSystemAdmin: false,
     };
 
-    await expect(controller.setPreferences(user, "repo-1", {})).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
     await expect(
-      controller.setPreferences(user, "repo-1", { priority: "urgent" }),
+      controller.setPreferences(user, "repo-1", {}, { cookies: {} }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      controller.setPreferences(user, "repo-1", { priority: "urgent" }, { cookies: {} }),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(preferences.setPreferences).not.toHaveBeenCalled();
   });
