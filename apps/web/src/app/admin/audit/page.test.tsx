@@ -1,7 +1,11 @@
 import React, { isValidElement, type ReactElement, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { AdminAuditClient, type AdminAuditQuery } from "@/components/admin/admin-audit-client";
+import {
+  AdminAuditClient,
+  type AdminAuditFormFilters,
+  type AdminAuditRequestFilters,
+} from "@/components/admin/admin-audit-client";
 
 const { fetchAdminAudit } = vi.hoisted(() => ({ fetchAdminAudit: vi.fn() }));
 
@@ -48,7 +52,7 @@ describe("AdminAuditPage date filters", () => {
       limit: 25,
       cookie: "folio_session=abc",
     });
-    expect(findAuditClient(page)?.props.filters).toEqual({
+    expect(findAuditClient(page)?.props.formFilters).toEqual({
       q: "role change",
       action: "role_change",
       workspaceId: "workspace-1",
@@ -56,6 +60,15 @@ describe("AdminAuditPage date filters", () => {
       targetId: "target-1",
       from: "2026-07-01",
       to: "2026-07-12",
+    });
+    expect(findAuditClient(page)?.props.requestFilters).toEqual({
+      q: "role change",
+      action: "role_change",
+      workspaceId: "workspace-1",
+      actorUserId: "actor-1",
+      targetId: "target-1",
+      from: "2026-07-01T00:00:00.000Z",
+      to: "2026-07-12T23:59:59.999Z",
     });
   });
 
@@ -85,7 +98,10 @@ describe("AdminAuditPage date filters", () => {
   });
 });
 
-function findAuditClient(node: ReactNode): ReactElement<{ filters: AdminAuditQuery }> | null {
+function findAuditClient(node: ReactNode): ReactElement<{
+  formFilters: AdminAuditFormFilters;
+  requestFilters: AdminAuditRequestFilters;
+}> | null {
   if (Array.isArray(node)) {
     for (const child of node) {
       const found = findAuditClient(child);
@@ -99,7 +115,10 @@ function findAuditClient(node: ReactNode): ReactElement<{ filters: AdminAuditQue
     return null;
   }
   if (node.type === AdminAuditClient) {
-    return node as ReactElement<{ filters: AdminAuditQuery }>;
+    return node as ReactElement<{
+      formFilters: AdminAuditFormFilters;
+      requestFilters: AdminAuditRequestFilters;
+    }>;
   }
   return findAuditClient((node.props as { children?: ReactNode }).children);
 }

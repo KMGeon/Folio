@@ -20,14 +20,17 @@ const ACTIONS: { value: AuditAction | ""; label: string }[] = [
   { value: "repo_activation_change", label: "저장소 활성화 변경" },
 ];
 
-export type AdminAuditQuery = Omit<AdminAuditFilters, "cursor" | "limit">;
+export type AdminAuditFormFilters = Omit<AdminAuditFilters, "cursor" | "limit">;
+export type AdminAuditRequestFilters = Omit<AdminAuditFilters, "cursor" | "limit">;
 
 export function AdminAuditClient({
   initialPage,
-  filters,
+  formFilters,
+  requestFilters,
 }: {
   initialPage: AdminAuditPage;
-  filters: AdminAuditQuery;
+  formFilters: AdminAuditFormFilters;
+  requestFilters: AdminAuditRequestFilters;
 }) {
   const [items, setItems] = useState(initialPage.items);
   const [nextCursor, setNextCursor] = useState(initialPage.nextCursor);
@@ -41,7 +44,7 @@ export function AdminAuditClient({
     setNextCursor(initialPage.nextCursor);
     setLoadingMore(false);
     setError(null);
-  }, [filters, initialPage]);
+  }, [formFilters, initialPage, requestFilters]);
 
   const loadMore = async () => {
     if (!nextCursor || loadingMore) {
@@ -51,7 +54,7 @@ export function AdminAuditClient({
     setLoadingMore(true);
     setError(null);
     try {
-      const page = await fetchAdminAudit({ ...filters, limit: 25, cursor: nextCursor });
+      const page = await fetchAdminAudit({ ...requestFilters, limit: 25, cursor: nextCursor });
       if (requestGeneration !== generation.current) {
         return;
       }
@@ -71,7 +74,7 @@ export function AdminAuditClient({
 
   return (
     <div className="space-y-3">
-      <AuditFilters filters={filters} />
+      <AuditFilters filters={formFilters} />
 
       {items.length ? (
         <ul aria-label="감사 로그" className="divide-y divide-border rounded-lg border bg-card">
@@ -118,7 +121,7 @@ export function AdminAuditClient({
   );
 }
 
-function AuditFilters({ filters }: { filters: AdminAuditQuery }) {
+function AuditFilters({ filters }: { filters: AdminAuditFormFilters }) {
   return (
     <form
       action="/admin/audit"

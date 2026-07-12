@@ -1,7 +1,11 @@
 import type { AuditAction } from "@folio/types";
 import { cookies } from "next/headers";
 
-import { AdminAuditClient, type AdminAuditQuery } from "@/components/admin/admin-audit-client";
+import {
+  AdminAuditClient,
+  type AdminAuditFormFilters,
+  type AdminAuditRequestFilters,
+} from "@/components/admin/admin-audit-client";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { fetchAdminAudit } from "@/lib/admin-api";
 
@@ -25,7 +29,7 @@ export default async function AdminAuditPage({
   searchParams: Promise<AuditSearchParams>;
 }) {
   const raw = await searchParams;
-  const filters: AdminAuditQuery = {
+  const formFilters: AdminAuditFormFilters = {
     q: value(raw.q),
     action: actionValue(raw.action),
     workspaceId: value(raw.workspaceId),
@@ -38,11 +42,14 @@ export default async function AdminAuditPage({
     .getAll()
     .map((item) => `${item.name}=${item.value}`)
     .join("; ");
-  // Date inputs stay date-only in the form, while the API contract requires offset-aware instants.
+  // Keep one validated request object shared by the initial fetch and every cursor request.
+  const requestFilters: AdminAuditRequestFilters = {
+    ...formFilters,
+    from: dateBoundary(formFilters.from, "start"),
+    to: dateBoundary(formFilters.to, "end"),
+  };
   const initialPage = await fetchAdminAudit({
-    ...filters,
-    from: dateBoundary(filters.from, "start"),
-    to: dateBoundary(filters.to, "end"),
+    ...requestFilters,
     limit: 25,
     cookie,
   });
@@ -50,7 +57,11 @@ export default async function AdminAuditPage({
   return (
     <section className="mx-auto max-w-6xl">
       <AdminPageHeader title="Audit log" description="관리 작업과 권한 변경 이력을 확인합니다." />
-      <AdminAuditClient initialPage={initialPage} filters={filters} />
+      <AdminAuditClient
+        initialPage={initialPage}
+        formFilters={formFilters}
+        requestFilters={requestFilters}
+      />
     </section>
   );
 }

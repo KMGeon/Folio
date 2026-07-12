@@ -62,3 +62,19 @@
 
 - Passed: 3 test files, 16 tests; web TypeScript check exited 0.
 - No database, E2E, server, browser-runtime, or environment-file command was run.
+
+## Date-filter pagination follow-up
+
+### RED
+
+`SUPABASE_DATABASE_URL= pnpm exec vitest run apps/web/src/components/admin/admin-audit-client.test.tsx`
+
+- Failed: 1 of 5 tests. The pagination request sent form-facing `2026-07-01` and `2026-07-12` values instead of the validated ISO request boundaries.
+
+### GREEN
+
+`SUPABASE_DATABASE_URL= pnpm exec vitest run apps/web/src/app/admin/audit/page.test.tsx apps/web/src/components/admin/admin-audit-client.test.tsx apps/web/src/lib/admin-api.test.ts && SUPABASE_DATABASE_URL= pnpm --filter @folio/web typecheck`
+
+- Passed: 3 test files, 17 tests; web TypeScript check exited 0.
+- The server fetch, load-more, and retry paths share the validated request filters; visible date controls remain date-only, and retry still retains and de-duplicates rows.
+- No database, E2E, server, browser-runtime, or environment-file command was run.

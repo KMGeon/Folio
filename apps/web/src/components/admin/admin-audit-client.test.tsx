@@ -85,12 +85,62 @@ describe("AdminAuditClient", () => {
     }
   });
 
+  it("uses validated date boundaries for pagination while preserving date-only form values", async () => {
+    const formFilters = {
+      q: "role change",
+      action: "role_change" as const,
+      workspaceId: "workspace-1",
+      actorUserId: "actor-1",
+      targetId: "target-1",
+      from: "2026-07-01",
+      to: "2026-07-12",
+    };
+    const requestFilters = {
+      ...formFilters,
+      from: "2026-07-01T00:00:00.000Z",
+      to: "2026-07-12T23:59:59.999Z",
+    };
+    mocks.fetchAudit.mockResolvedValueOnce({
+      items: [auditItem("second", "member_suspend")],
+      nextCursor: null,
+    });
+    const container = await mount(
+      { items: [first], nextCursor: "cursor-1" },
+      formFilters,
+      requestFilters,
+    );
+
+    await click(button(container, "더 보기"));
+
+    expect(mocks.fetchAudit).toHaveBeenCalledWith({
+      ...requestFilters,
+      cursor: "cursor-1",
+      limit: 25,
+    });
+    expect((container.querySelector('input[name="from"]') as HTMLInputElement | null)?.value).toBe(
+      "2026-07-01",
+    );
+    expect((container.querySelector('input[name="to"]') as HTMLInputElement | null)?.value).toBe(
+      "2026-07-12",
+    );
+    expect(container.querySelectorAll("[data-audit-row]")).toHaveLength(2);
+  });
+
   it("retains rows on pagination failure, retries, and de-duplicates overlapping IDs", async () => {
+    const formFilters = { from: "2026-07-01", to: "2026-07-12" };
+    const requestFilters = {
+      from: "2026-07-01T00:00:00.000Z",
+      to: "2026-07-12T23:59:59.999Z",
+    };
     mocks.fetchAudit.mockRejectedValueOnce(new Error("page unavailable")).mockResolvedValueOnce({
       items: [first, auditItem("second", "member_suspend")],
       nextCursor: null,
     });
-    const container = await mount({ items: [first], nextCursor: "cursor-1" });
+    const container = await mount(
+      { items: [first], nextCursor: "cursor-1" },
+      formFilters,
+      requestFilters,
+    );
 
     await click(button(container, "더 보기"));
     expect(container.textContent).toContain("target-first");
@@ -98,9 +148,9 @@ describe("AdminAuditClient", () => {
 
     await click(button(container, "다시 시도"));
     expect(mocks.fetchAudit).toHaveBeenCalledTimes(2);
-    expect(mocks.fetchAudit).toHaveBeenLastCalledWith(
-      expect.objectContaining({ cursor: "cursor-1", limit: 25 }),
-    );
+    const expectedRequest = { ...requestFilters, cursor: "cursor-1", limit: 25 };
+    expect(mocks.fetchAudit).toHaveBeenNthCalledWith(1, expectedRequest);
+    expect(mocks.fetchAudit).toHaveBeenNthCalledWith(2, expectedRequest);
     expect(container.querySelectorAll("[data-audit-row]")).toHaveLength(2);
     expect(container.textContent).toContain("target-second");
   });
@@ -115,14 +165,21 @@ describe("AdminAuditClient", () => {
 
 async function mount(
   initialPage: AdminAuditPage,
-  filters: React.ComponentProps<typeof AdminAuditClient>["filters"] = {},
+  formFilters: React.ComponentProps<typeof AdminAuditClient>["formFilters"] = {},
+  requestFilters: React.ComponentProps<typeof AdminAuditClient>["requestFilters"] = formFilters,
 ): Promise<HTMLDivElement> {
   const container = document.createElement("div");
   document.body.append(container);
   const root = createRoot(container);
   mountedRoots.push(root);
   await act(async () =>
-    root.render(<AdminAuditClient initialPage={initialPage} filters={filters} />),
+    root.render(
+      <AdminAuditClient
+        initialPage={initialPage}
+        formFilters={formFilters}
+        requestFilters={requestFilters}
+      />,
+    ),
   );
   return container;
 }
