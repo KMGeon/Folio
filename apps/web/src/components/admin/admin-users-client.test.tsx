@@ -163,10 +163,53 @@ describe("AdminUsersClient", () => {
     ).toHaveLength(1);
     expect(container.textContent).toContain("next");
   });
+
+  it("reconciles authoritative rows, actions, and pagination after a server rerender", async () => {
+    mocks.fetchUsers
+      .mockRejectedValueOnce(new Error("stale page failure"))
+      .mockResolvedValueOnce({ items: [user("fresh-next", "active")], nextCursor: null });
+    const mounted = await mountRerenderableClient(initialPage);
+
+    await click(button(mounted.container, "더 보기"));
+    expect(mounted.container.querySelector('[role="alert"]')?.textContent).toContain(
+      "stale page failure",
+    );
+
+    const refreshedWaiting = { ...pending, globalStatus: "active" as const };
+    await mounted.rerender({ items: [refreshedWaiting], nextCursor: "fresh-cursor" });
+
+    expect(row(mounted.container, "waiting").textContent).toContain("활성");
+    expect(labels(row(mounted.container, "waiting"))).toEqual(["정지", "관리자 이전"]);
+    expect(mounted.container.querySelector('[role="alert"]')).toBeNull();
+    await click(button(mounted.container, "더 보기"));
+    expect(mocks.fetchUsers).toHaveBeenLastCalledWith({
+      q: "octo",
+      status: "active",
+      limit: 25,
+      cursor: "fresh-cursor",
+    });
+  });
 });
 
 async function mountClient(): Promise<HTMLDivElement> {
   return mount(<AdminUsersClient initialPage={initialPage} q="octo" status="active" />);
+}
+
+async function mountRerenderableClient(initialPage: AdminUserPage): Promise<{
+  container: HTMLDivElement;
+  rerender: (page: AdminUserPage) => Promise<void>;
+}> {
+  const container = document.createElement("div");
+  document.body.append(container);
+  const root = createRoot(container);
+  mountedRoots.push(root);
+  const render = async (page: AdminUserPage) => {
+    await act(async () =>
+      root.render(<AdminUsersClient initialPage={page} q="octo" status="active" />),
+    );
+  };
+  await render(initialPage);
+  return { container, rerender: render };
 }
 
 async function confirmAction(

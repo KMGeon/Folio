@@ -3,7 +3,7 @@
 import type { AdminUserItem, AdminUserPage, AdminUserStatusFilter } from "@folio/types";
 import { Ban, Check, ChevronDown, RotateCcw, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { AdminUserActionDialog, type AdminUserAction } from "./admin-user-action-dialog";
 import { Button } from "@/components/ui/button";
@@ -52,15 +52,29 @@ export function AdminUsersClient({
   } | null>(null);
   const [dialog, setDialog] = useState<PendingDialog | null>(null);
   const [mutating, setMutating] = useState(false);
+  const paginationGeneration = useRef(0);
+
+  useEffect(() => {
+    // A route refresh is authoritative even when React preserves this client instance.
+    paginationGeneration.current += 1;
+    setItems(initialPage.items);
+    setNextCursor(initialPage.nextCursor);
+    setLoadingMore(false);
+    setRequestError(null);
+  }, [initialPage, q, status]);
 
   const loadMore = async () => {
     if (!nextCursor || loadingMore) {
       return;
     }
+    const generation = paginationGeneration.current;
     setLoadingMore(true);
     setRequestError(null);
     try {
       const page = await fetchAdminUsers({ q, status, limit: 25, cursor: nextCursor });
+      if (generation !== paginationGeneration.current) {
+        return;
+      }
       // Cursor pages may overlap when records change between requests.
       setItems((current) => {
         const seen = new Set(current.map((item) => item.id));
@@ -68,9 +82,13 @@ export function AdminUsersClient({
       });
       setNextCursor(page.nextCursor);
     } catch (error) {
-      setRequestError({ message: errorMessage(error), retryPagination: true });
+      if (generation === paginationGeneration.current) {
+        setRequestError({ message: errorMessage(error), retryPagination: true });
+      }
     } finally {
-      setLoadingMore(false);
+      if (generation === paginationGeneration.current) {
+        setLoadingMore(false);
+      }
     }
   };
 
