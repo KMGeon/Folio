@@ -63,6 +63,14 @@ export function transferSystemAdmin(userId: string): Promise<{ ok: true }> {
   return adminMutation("/api/v1/admin/system-admin/transfer", { userId });
 }
 
+export function isGlobalUserConflict(error: unknown): boolean {
+  return (
+    error instanceof ApiError &&
+    error.status === 409 &&
+    error.response.error.code === "global_user_conflict"
+  );
+}
+
 function adminMutation(path: string, body?: unknown): Promise<{ ok: true }> {
   return adminRequest<{ ok: true }>(path, undefined, {
     method: "POST",
