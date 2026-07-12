@@ -12,6 +12,13 @@ import {
 } from "@/components/dashboard/dashboard-project-loader";
 import { fetchDashboardSummary, type DashboardRepo } from "@/lib/dashboard-api";
 
+/** Settings-enabled repositories only, sorted for stable sidebar order. */
+export function selectEnabledDashboardRepos(repos: DashboardRepo[]): DashboardRepo[] {
+  return [...repos]
+    .filter((repo) => repo.folioEnabled)
+    .sort((a, b) => a.fullName.localeCompare(b.fullName));
+}
+
 export function useDashboardProjects(options: DashboardProjectLoadOptions) {
   const { q, ordering, direction, closedRange, showDrafts } = options;
   const [repos, setRepos] = useState<DashboardRepo[]>([]);
@@ -33,7 +40,8 @@ export function useDashboardProjects(options: DashboardProjectLoadOptions) {
         if (!active) {
           return;
         }
-        const sorted = [...summary.repos].sort((a, b) => a.fullName.localeCompare(b.fullName));
+        // Never list every GitHub install — only Folio-enabled repos from Settings.
+        const sorted = selectEnabledDashboardRepos(summary.repos);
         setRepos(sorted);
         setProjects(sorted.map((repo) => emptyDashboardProjectData(repo)));
         setSummaryError(null);
