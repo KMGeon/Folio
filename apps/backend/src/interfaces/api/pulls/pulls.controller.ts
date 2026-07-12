@@ -73,6 +73,23 @@ export class PullsController {
     return this.reviewRequest.enqueue({ owner: body.owner, repo: body.repo, number: body.number });
   }
 
+  /**
+   * Read-only generation lifecycle for the current head SHA.
+   * Lets the missing-review UI show "already processing" without enqueueing again.
+   */
+  @Get(":owner/:repo/:number/generation")
+  @UseGuards(RepositoryPermissionGuard, WorkspaceRoleGuard, EntitlementGuard)
+  @RequireRepositoryPermission("read")
+  @RequireWorkspaceRole(WORKSPACE_ROLE.REVIEWER)
+  @RequireEntitlement(ENTITLEMENT_FEATURE.REVIEW_READ)
+  async getGeneration(
+    @Param("owner") owner: string,
+    @Param("repo") repo: string,
+    @Param("number", ParseIntPipe) number: string | number,
+  ) {
+    return this.reviewRequest.generationStatus({ owner, repo, number: Number(number) });
+  }
+
   @Get(":owner/:repo/:number/review")
   @UseGuards(RepositoryPermissionGuard, WorkspaceRoleGuard, EntitlementGuard)
   @RequireRepositoryPermission("read")

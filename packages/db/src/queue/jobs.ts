@@ -147,6 +147,20 @@ export async function getLatestJobsByDedupeKeys(
   return latest;
 }
 
+/** Active job that blocks another enqueue for the same dedupe key (pending→failed). */
+export async function findActiveJobByDedupeKey(
+  dedupeKey: string,
+  db: Db = getDb(),
+): Promise<Job | null> {
+  const [row] = await db
+    .select()
+    .from(jobs)
+    .where(and(eq(jobs.dedupeKey, dedupeKey), inArray(jobs.status, [...ACTIVE_STATUSES])))
+    .orderBy(desc(jobs.createdAt))
+    .limit(1);
+  return row ?? null;
+}
+
 export interface ClaimJobOptions {
   /** Restrict to these kinds; omit to claim any kind. */
   kinds?: JobKind[];

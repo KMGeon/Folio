@@ -187,10 +187,19 @@ export interface ReviewPayload {
   commitsTruncated: boolean;
 }
 
+export type ReviewAnalysisStatus =
+  | "not_requested"
+  | "processing"
+  | "retrying"
+  | "failed"
+  | "complete";
+
 export interface ReviewGenerationResult {
-  jobId: string;
-  status: string;
+  jobId: string | null;
+  status: string | null;
   deduplicated: boolean;
+  analysisStatus: ReviewAnalysisStatus;
+  headSha: string | null;
 }
 
 export interface FetchReviewOptions {
@@ -227,4 +236,16 @@ export function createReview(
     headers,
     body: JSON.stringify({ owner: org, repo, number }),
   });
+}
+
+export function fetchReviewGeneration(
+  org: string,
+  repo: string,
+  number: number,
+  opts?: FetchReviewOptions,
+): Promise<ReviewGenerationResult> {
+  const path = `/api/v1/pulls/${org}/${repo}/${number}/generation`;
+  return opts?.cookie
+    ? apiRequest<ReviewGenerationResult>(path, { headers: { cookie: opts.cookie } })
+    : apiRequest<ReviewGenerationResult>(path);
 }
