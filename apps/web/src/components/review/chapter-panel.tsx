@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, CheckCircle2, Search } from "lucide-react";
+import { Check, CheckCircle2, ListChecks, Search } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -23,6 +23,8 @@ export function ChapterPanel({
   number,
   showReviewFocus = true,
   onKeyChangeViewedChange,
+  onJumpToKeyChange,
+  jumpNotice,
 }: {
   chapters: ReviewChapter[];
   activeIndex: number;
@@ -33,6 +35,10 @@ export function ChapterPanel({
   number: number;
   showReviewFocus?: boolean;
   onKeyChangeViewedChange?: (chapterIndex: number, keyChangeId: string, viewed: boolean) => void;
+  /** Request scroll/highlight for a key-change's lineRef (wired by parent). */
+  onJumpToKeyChange?: (keyChangeId: string) => void;
+  /** Shown under 검토할 사항 when a jump target cannot be resolved. */
+  jumpNotice?: string | null;
 }) {
   const chapter = chapters.find((c) => c.index === activeIndex) ?? chapters[0];
   const [keyChanges, setKeyChanges] = useState(chapter?.keyChanges ?? []);
@@ -74,56 +80,78 @@ export function ChapterPanel({
           <span className="font-mono text-xs text-diff-add-fg">+ {additions}</span>
         </div>
 
-        <p className="mt-3 text-sm leading-5 text-muted-foreground">{chapter.summary}</p>
+        {/* Approach A: summary is primary reading surface — use foreground, not muted. */}
+        <p className="mt-3 text-sm leading-6 text-foreground">{chapter.summary}</p>
       </div>
 
       {showReviewFocus ? (
         <div className="border-t px-3 py-3">
-          <h3 className="font-mono text-[0.7rem] uppercase tracking-[0.16em] text-muted-foreground">
+          <h3 className="flex items-center gap-1.5 font-semibold text-primary text-xs">
+            <ListChecks className="size-3.5 shrink-0 text-primary" aria-hidden />
             검토할 사항
           </h3>
+          {jumpNotice ? (
+            <p className="mt-2 rounded-md border border-border bg-card px-2.5 py-2 text-muted-foreground text-xs">
+              {jumpNotice}
+            </p>
+          ) : null}
           <div className="mt-3 space-y-2">
             {keyChanges.length > 0 ? (
               keyChanges.map((item) => (
-                <button
+                <div
                   key={item.id}
-                  type="button"
-                  onClick={async () => {
-                    const next = !item.viewed;
-                    setKeyChanges((prev) =>
-                      prev.map((keyChange) =>
-                        keyChange.id === item.id ? { ...keyChange, viewed: next } : keyChange,
-                      ),
-                    );
-                    onKeyChangeViewedChange?.(chapter.index, item.id, next);
-                    try {
-                      await setKeyChangeViewed(org, repo, number, chapter.index, item.id, next);
-                    } catch {
-                      onKeyChangeViewedChange?.(chapter.index, item.id, !next);
-                      setKeyChanges((prev) =>
-                        prev.map((keyChange) =>
-                          keyChange.id === item.id ? { ...keyChange, viewed: !next } : keyChange,
-                        ),
-                      );
-                    }
-                  }}
                   className={cn(
-                    "flex w-full items-start gap-2.5 rounded-md border px-3 py-2.5 text-left text-sm leading-5 transition-colors",
+                    "flex w-full items-start gap-2.5 rounded-md border px-3 py-2.5 text-sm leading-5",
                     item.viewed
-                      ? "border-primary/25 bg-primary/10 text-muted-foreground line-through"
-                      : "border-border bg-background/35 hover:bg-accent",
+                      ? "border-primary/25 bg-primary/10 text-muted-foreground"
+                      : "border-border bg-card text-foreground",
                   )}
                 >
-                  <span
+                  <button
+                    type="button"
+                    role="checkbox"
+                    aria-checked={item.viewed}
+                    aria-label={item.viewed ? "검토 완료 해제" : "검토 완료로 표시"}
+                    onClick={async () => {
+                      const next = !item.viewed;
+                      setKeyChanges((prev) =>
+                        prev.map((keyChange) =>
+                          keyChange.id === item.id ? { ...keyChange, viewed: next } : keyChange,
+                        ),
+                      );
+                      onKeyChangeViewedChange?.(chapter.index, item.id, next);
+                      try {
+                        await setKeyChangeViewed(org, repo, number, chapter.index, item.id, next);
+                      } catch {
+                        onKeyChangeViewedChange?.(chapter.index, item.id, !next);
+                        setKeyChanges((prev) =>
+                          prev.map((keyChange) =>
+                            keyChange.id === item.id ? { ...keyChange, viewed: !next } : keyChange,
+                          ),
+                        );
+                      }
+                    }}
                     className={cn(
                       "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded border",
-                      item.viewed && "border-primary bg-primary text-primary-foreground",
+                      item.viewed
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-foreground/30",
                     )}
                   >
                     {item.viewed ? <Check className="size-3" /> : null}
-                  </span>
-                  <span>{item.content}</span>
-                </button>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onJumpToKeyChange?.(item.id)}
+                    className={cn(
+                      "min-w-0 flex-1 text-left transition-colors hover:text-primary",
+                      item.viewed && "line-through text-muted-foreground",
+                    )}
+                    aria-label="관련 diff로 이동"
+                  >
+                    {item.content}
+                  </button>
+                </div>
               ))
             ) : (
               <p className="text-muted-foreground text-sm">검토할 사항이 없습니다.</p>

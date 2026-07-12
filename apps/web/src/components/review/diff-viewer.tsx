@@ -13,6 +13,7 @@ import { commentTargetForLine } from "./diff-comment-target";
 import type { DiffViewMode } from "./diff-view-mode-switch";
 import { type ActiveDiffLine, FileDiffPanel } from "./review-file-diff-panel";
 import { groupLinesByFile } from "./review-file-state";
+import { diffLineElementId, type JumpTarget } from "./resolve-line-ref";
 
 interface CommentContext {
   org: string;
@@ -27,6 +28,7 @@ export function DiffViewer({
   compact = false,
   commentContext,
   collapsedFiles,
+  jumpTarget = null,
   viewMode,
   onFileViewedChange,
   onFileCollapseChange,
@@ -35,6 +37,7 @@ export function DiffViewer({
   compact?: boolean;
   commentContext?: CommentContext;
   collapsedFiles: Record<string, boolean>;
+  jumpTarget?: JumpTarget | null;
   viewMode: DiffViewMode;
   onFileViewedChange?: (path: string, viewed: boolean) => Promise<void>;
   onFileCollapseChange: (path: string, collapsed: boolean) => void;
@@ -76,6 +79,36 @@ export function DiffViewer({
       cancelled = true;
     };
   }, [lang, chapter.diffLines]);
+
+  // Parent owns clearing jumpTarget (2s highlight window); re-run when token changes.
+  useEffect(() => {
+    if (!jumpTarget || jumpTarget.chapterIndex !== chapter.index) {
+      return;
+    }
+    const line = chapter.diffLines.find(
+      (entry) =>
+        entry.path === jumpTarget.path &&
+        entry.kind === jumpTarget.kind &&
+        entry.n === jumpTarget.lineNumber,
+    );
+    if (!line) {
+      return;
+    }
+    const id = diffLineElementId(chapter.index, line);
+    let cancelled = false;
+    const frame = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (cancelled) {
+          return;
+        }
+        document.getElementById(id)?.scrollIntoView({ block: "center", behavior: "smooth" });
+      });
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frame);
+    };
+  }, [jumpTarget, chapter]);
 
   function renderLine(line: ReviewDiffLine, index: number) {
     const row = tokens?.[index];
@@ -146,6 +179,7 @@ export function DiffViewer({
             created={created}
             error={error}
             file={file}
+            jumpTarget={jumpTarget}
             lines={lines}
             viewMode={viewMode}
             body={body}
