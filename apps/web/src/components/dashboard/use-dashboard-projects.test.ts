@@ -76,6 +76,7 @@ describe("dashboardProjectsForReload", () => {
       fullName: "KMGeon/Folio",
       folioEnabled: true,
       openPrCount: 1,
+      priority: "normal" as const,
     };
     const project: DashboardProjectData = {
       repo,

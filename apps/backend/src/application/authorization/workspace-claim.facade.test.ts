@@ -45,10 +45,12 @@ vi.mock("@folio/db", () => ({
     create: vi.fn(),
     getMembership: vi.fn(),
     getMembershipsForUpdate: vi.fn(),
+    listByUser: vi.fn(),
     listByWorkspace: vi.fn(),
     updateRoleIfCurrent: vi.fn(),
   },
   workspacesRepo: {
+    getById: vi.fn(),
     getByGithubAccountIdForUpdate: vi.fn(),
     upsertByGithubAccountId: vi.fn(),
   },
@@ -61,7 +63,7 @@ const claimInput = {
   installationId: 123,
 };
 
-function workspace(): WorkspaceRow {
+function workspace(overrides: Partial<WorkspaceRow> = {}): WorkspaceRow {
   return {
     id: "workspace-1",
     githubAccountId: 42,
@@ -69,6 +71,7 @@ function workspace(): WorkspaceRow {
     accountType: ACCOUNT_TYPE.ORGANIZATION,
     createdAt: now,
     updatedAt: now,
+    ...overrides,
   };
 }
 
@@ -125,6 +128,7 @@ describe("WorkspaceClaimFacade", () => {
   let resolver: {
     firstWorkspaceForUser: ReturnType<typeof vi.fn>;
     listInstallationsForWorkspace: ReturnType<typeof vi.fn>;
+    workspaceForUser: ReturnType<typeof vi.fn>;
   };
   let installationIdentity: { resolveInstallationIdentity: ReturnType<typeof vi.fn> };
   let facade: WorkspaceClaimFacade;
@@ -141,6 +145,7 @@ describe("WorkspaceClaimFacade", () => {
     resolver = {
       firstWorkspaceForUser: vi.fn(),
       listInstallationsForWorkspace: vi.fn().mockResolvedValue([]),
+      workspaceForUser: vi.fn(),
     };
     installationIdentity = {
       resolveInstallationIdentity: vi.fn().mockResolvedValue({
@@ -405,6 +410,55 @@ describe("WorkspaceClaimFacade", () => {
     });
   });
 
+  describe("workspace selection", () => {
+    it("lists every workspace membership with its server-owned account identity", async () => {
+      const personal = workspace({
+        id: "workspace-2",
+        accountLogin: "octocat",
+        accountType: ACCOUNT_TYPE.USER,
+      });
+      vi.mocked(workspaceMembersRepo.listByUser).mockResolvedValue([
+        member("user-1", WORKSPACE_ROLE.OWNER),
+        { ...member("user-1", WORKSPACE_ROLE.REVIEWER), workspaceId: personal.id },
+      ]);
+      vi.mocked(workspacesRepo.getById)
+        .mockResolvedValueOnce(workspace())
+        .mockResolvedValueOnce(personal);
+
+      await expect(facade.listAvailableWorkspaces("user-1")).resolves.toEqual([
+        {
+          id: "workspace-1",
+          accountLogin: "acme",
+          accountType: ACCOUNT_TYPE.ORGANIZATION,
+          role: WORKSPACE_ROLE.OWNER,
+          memberStatus: MEMBERSHIP_STATUS.ACTIVE,
+        },
+        {
+          id: "workspace-2",
+          accountLogin: "octocat",
+          accountType: ACCOUNT_TYPE.USER,
+          role: WORKSPACE_ROLE.REVIEWER,
+          memberStatus: MEMBERSHIP_STATUS.ACTIVE,
+        },
+      ]);
+    });
+
+    it("selects only an active membership from the authenticated user's list", async () => {
+      vi.mocked(workspaceMembersRepo.listByUser).mockResolvedValue([
+        member("user-1", WORKSPACE_ROLE.OWNER),
+      ]);
+      vi.mocked(workspacesRepo.getById).mockResolvedValue(workspace());
+
+      await expect(facade.selectWorkspace("user-1", "workspace-1")).resolves.toMatchObject({
+        id: "workspace-1",
+        accountLogin: "acme",
+      });
+      await expect(facade.selectWorkspace("user-1", "workspace-2")).rejects.toMatchObject({
+        errorType: ErrorType.WorkspaceNotFound,
+      });
+    });
+  });
+
   describe("currentContext", () => {
     it("returns complete user, membership, workspace, and entitled feature state", async () => {
       vi.mocked(usersRepo.getById).mockResolvedValue(user());
@@ -428,6 +482,19 @@ describe("WorkspaceClaimFacade", () => {
       expect(entitlement.canUseFeature).toHaveBeenCalledTimes(
         Object.values(ENTITLEMENT_FEATURE).length,
       );
+    });
+
+    it("uses a requested workspace only when the resolver finds it in the user's memberships", async () => {
+      vi.mocked(usersRepo.getById).mockResolvedValue(user());
+      resolver.workspaceForUser.mockResolvedValue(workspace());
+      vi.mocked(workspaceMembersRepo.getMembership).mockResolvedValue(member("user-1"));
+      resolver.listInstallationsForWorkspace.mockResolvedValue([installation(null)]);
+      entitlement.canUseFeature.mockResolvedValue({ entitled: true });
+
+      await facade.currentContext("user-1", "workspace-1");
+
+      expect(resolver.workspaceForUser).toHaveBeenCalledWith("user-1", "workspace-1");
+      expect(resolver.firstWorkspaceForUser).not.toHaveBeenCalled();
     });
 
     it("returns null workspace membership state when the user has no membership", async () => {

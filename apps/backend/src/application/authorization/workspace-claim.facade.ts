@@ -17,6 +17,8 @@ import {
   WORKSPACE_ROLE,
   type AccountType,
   type EntitlementFeature,
+  type MembershipStatus,
+  type WorkspaceRole,
 } from "@folio/types";
 import { Inject, Injectable } from "@nestjs/common";
 import { GitHubInstallationIdentityPort } from "../../domain/auth/github-installation-identity.port.js";
@@ -37,6 +39,14 @@ interface ResolvedClaimInput {
   githubAccountId: number;
   accountLogin: string;
   accountType: AccountType;
+}
+
+export interface AvailableWorkspace {
+  id: string;
+  accountLogin: string;
+  accountType: AccountType;
+  role: WorkspaceRole;
+  memberStatus: MembershipStatus;
 }
 
 @Injectable()
@@ -156,12 +166,43 @@ export class WorkspaceClaimFacade {
     });
   }
 
-  async currentContext(userId: string) {
+  async listAvailableWorkspaces(userId: string): Promise<AvailableWorkspace[]> {
+    const memberships = await workspaceMembersRepo.listByUser(userId);
+    const entries = await Promise.all(
+      memberships.map(async (membership) => {
+        const workspace = await workspacesRepo.getById(membership.workspaceId);
+        return workspace
+          ? {
+              id: workspace.id,
+              accountLogin: workspace.accountLogin,
+              accountType: workspace.accountType,
+              role: membership.role,
+              memberStatus: membership.status,
+            }
+          : null;
+      }),
+    );
+    return entries.filter((entry): entry is AvailableWorkspace => entry !== null);
+  }
+
+  async selectWorkspace(userId: string, workspaceId: string): Promise<AvailableWorkspace> {
+    const workspace = (await this.listAvailableWorkspaces(userId)).find(
+      (candidate) => candidate.id === workspaceId,
+    );
+    if (!workspace || workspace.memberStatus !== MEMBERSHIP_STATUS.ACTIVE) {
+      throw new CoreException(ErrorType.WorkspaceNotFound);
+    }
+    return workspace;
+  }
+
+  async currentContext(userId: string, preferredWorkspaceId?: string) {
     const user = await usersRepo.getById(userId);
     if (!user) {
       throw new CoreException(ErrorType.Unauthorized);
     }
-    const workspace = await this.resolver.firstWorkspaceForUser(userId);
+    const workspace = preferredWorkspaceId
+      ? await this.resolver.workspaceForUser(userId, preferredWorkspaceId)
+      : await this.resolver.firstWorkspaceForUser(userId);
     const membership = workspace
       ? await workspaceMembersRepo.getMembership(workspace.id, userId)
       : null;

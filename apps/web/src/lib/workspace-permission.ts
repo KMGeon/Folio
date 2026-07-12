@@ -1,4 +1,5 @@
 import type {
+  AccountType,
   EntitlementFeature,
   GlobalStatus,
   InstallationOnboardingState,
@@ -17,6 +18,14 @@ export interface WorkspaceContext {
   onboardingState: InstallationOnboardingState;
 }
 
+export interface WorkspaceOption {
+  id: string;
+  accountLogin: string;
+  accountType: AccountType;
+  role: WorkspaceRole;
+  memberStatus: MembershipStatus;
+}
+
 export async function getWorkspaceContext(cookie?: string): Promise<WorkspaceContext | null> {
   try {
     return await apiRequest<WorkspaceContext>("/api/v1/workspaces/current", {
@@ -25,6 +34,20 @@ export async function getWorkspaceContext(cookie?: string): Promise<WorkspaceCon
   } catch {
     return null;
   }
+}
+
+export function listAvailableWorkspaces(cookie?: string): Promise<WorkspaceOption[]> {
+  return apiRequest<WorkspaceOption[]>("/api/v1/workspaces", {
+    headers: cookie ? { cookie } : undefined,
+  });
+}
+
+export function selectWorkspace(workspaceId: string): Promise<WorkspaceOption> {
+  return apiRequest<WorkspaceOption>("/api/v1/workspaces/select", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ workspaceId }),
+  });
 }
 
 export function canManageMembers(ctx: WorkspaceContext | null): boolean {

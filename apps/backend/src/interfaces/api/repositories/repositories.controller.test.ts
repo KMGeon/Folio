@@ -32,14 +32,20 @@ describe("RepositoriesController", () => {
     const controller = new RepositoriesController(facade, { setPreferences: vi.fn() } as never);
 
     await expect(
-      controller.list({
-        id: "user-1",
-        login: "KMGeon",
-        avatarUrl: "https://avatars/KMGeon",
-        isSystemAdmin: false,
-      }),
+      controller.list(
+        {
+          id: "user-1",
+          login: "KMGeon",
+          avatarUrl: "https://avatars/KMGeon",
+          isSystemAdmin: false,
+        },
+        { cookies: { folio_workspace: "workspace-1" } },
+      ),
     ).resolves.toEqual(payload);
-    expect(facade.listForUser).toHaveBeenCalledWith({ userId: "user-1", login: "KMGeon" });
+    expect(facade.listForUser).toHaveBeenCalledWith(
+      { userId: "user-1", login: "KMGeon" },
+      "workspace-1",
+    );
   });
 
   it("toggles repository activation", async () => {
@@ -58,13 +64,17 @@ describe("RepositoriesController", () => {
         },
         "repo-1",
         { enabled: true },
+        { cookies: { folio_workspace: "workspace-1" } },
       ),
     ).resolves.toEqual({ id: "repo-1", folioEnabled: true });
-    expect(facade.setEnabled).toHaveBeenCalledWith({
-      user: { id: "user-1", login: "KMGeon" },
-      repositoryId: "repo-1",
-      enabled: true,
-    });
+    expect(facade.setEnabled).toHaveBeenCalledWith(
+      {
+        user: { id: "user-1", login: "KMGeon" },
+        repositoryId: "repo-1",
+        enabled: true,
+      },
+      "workspace-1",
+    );
   });
 
   it("updates repository reply and priority preferences", async () => {
@@ -154,6 +164,7 @@ describe("RepositoriesController", () => {
         },
         "repo-1",
         { enabled: "true" },
+        { cookies: {} },
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(facade.setEnabled).not.toHaveBeenCalled();

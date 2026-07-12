@@ -13,6 +13,7 @@ import { WorkspaceController } from "./workspace.controller.js";
 
 vi.mock("../../../config.js", () => ({
   config: { GITHUB_APP_WEBHOOK_SECRET: "claim-secret" },
+  cookieIsSecure: () => false,
 }));
 
 const user: AuthedUser = {
@@ -23,7 +24,12 @@ const user: AuthedUser = {
 };
 
 function createController() {
-  const facade = { claimAsOwner: vi.fn(), currentContext: vi.fn() };
+  const facade = {
+    claimAsOwner: vi.fn(),
+    currentContext: vi.fn(),
+    listAvailableWorkspaces: vi.fn(),
+    selectWorkspace: vi.fn(),
+  };
   return {
     controller: new WorkspaceController(facade as unknown as WorkspaceClaimFacade),
     facade,
@@ -49,7 +55,9 @@ describe("WorkspaceController", () => {
 
   it.each([
     ["current", "current", RequestMethod.GET],
+    ["list", "/", RequestMethod.GET],
     ["claim", "claim", RequestMethod.POST],
+    ["select", "select", RequestMethod.POST],
   ] as const)("declares %s route metadata", (methodName, path, method) => {
     const handler = WorkspaceController.prototype[methodName];
     expect(Reflect.getMetadata(PATH_METADATA, handler)).toBe(path);
@@ -69,11 +77,57 @@ describe("WorkspaceController", () => {
     };
     facade.currentContext.mockResolvedValue(context);
 
-    await expect(controller.current(user).then(successResponse)).resolves.toEqual({
+    await expect(controller.current(user, { cookies: {} }).then(successResponse)).resolves.toEqual({
       success: true,
       data: context,
     });
     expect(facade.currentContext).toHaveBeenCalledWith("user-1");
+  });
+
+  it("uses the server-held workspace preference for the current context", async () => {
+    const { controller, facade } = createController();
+    facade.currentContext.mockResolvedValue({ workspace: { id: "workspace-1" } });
+
+    await controller.current(user, { cookies: { folio_workspace: "workspace-1" } });
+
+    expect(facade.currentContext).toHaveBeenCalledWith("user-1", "workspace-1");
+  });
+
+  it("lists the authenticated user's available workspaces", async () => {
+    const { controller, facade } = createController();
+    const workspaces = [{ id: "workspace-1", accountLogin: "acme" }];
+    facade.listAvailableWorkspaces.mockResolvedValue(workspaces);
+
+    await expect(controller.list(user)).resolves.toEqual(workspaces);
+
+    expect(facade.listAvailableWorkspaces).toHaveBeenCalledWith("user-1");
+  });
+
+  it("validates a selected workspace and stores only its verified id in a cookie", async () => {
+    const { controller, facade } = createController();
+    const response = { cookie: vi.fn() };
+    const workspace = { id: "6ccdb9ad-2e29-4a08-b531-a00b7bf94411", accountLogin: "acme" };
+    facade.selectWorkspace.mockResolvedValue(workspace);
+
+    await expect(controller.select(user, { workspaceId: workspace.id }, response)).resolves.toBe(
+      workspace,
+    );
+
+    expect(facade.selectWorkspace).toHaveBeenCalledWith("user-1", workspace.id);
+    expect(response.cookie).toHaveBeenCalledWith(
+      "folio_workspace",
+      workspace.id,
+      expect.objectContaining({ httpOnly: true, sameSite: "lax", path: "/" }),
+    );
+  });
+
+  it("rejects an invalid workspace selection body", async () => {
+    const { controller, facade } = createController();
+
+    await expect(
+      controller.select(user, { workspaceId: "not-a-uuid" }, { cookie: vi.fn() }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(facade.selectWorkspace).not.toHaveBeenCalled();
   });
 
   it("passes the verified installation id to the claim facade and clears the proof", async () => {

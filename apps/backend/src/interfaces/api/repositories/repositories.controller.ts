@@ -6,6 +6,7 @@ import {
   Inject,
   Param,
   Patch,
+  Req,
   UseGuards,
 } from "@nestjs/common";
 import { ENTITLEMENT_FEATURE, RepositoryPrioritySchema } from "@folio/types";
@@ -15,7 +16,11 @@ import { RepositoriesFacade } from "../../../application/repositories/repositori
 import { EntitlementGuard } from "../authorization/entitlement.guard.js";
 import { RequireEntitlement } from "../authorization/require-entitlement.decorator.js";
 import { CurrentUser } from "../common/current-user.decorator.js";
-import { type AuthedUser, SessionAuthGuard } from "../common/session-auth.guard.js";
+import {
+  type AuthedRequest,
+  type AuthedUser,
+  SessionAuthGuard,
+} from "../common/session-auth.guard.js";
 
 const ToggleRepositoryBodySchema = z.object({
   enabled: z.boolean(),
@@ -38,8 +43,11 @@ export class RepositoriesController {
   ) {}
 
   @Get()
-  async list(@CurrentUser() user: AuthedUser) {
-    return this.repositoriesFacade.listForUser({ userId: user.id, login: user.login });
+  async list(@CurrentUser() user: AuthedUser, @Req() request: Pick<AuthedRequest, "cookies">) {
+    return this.repositoriesFacade.listForUser(
+      { userId: user.id, login: user.login },
+      selectedWorkspaceId(request),
+    );
   }
 
   @Patch(":id/enabled")
@@ -49,16 +57,20 @@ export class RepositoriesController {
     @CurrentUser() user: AuthedUser,
     @Param("id") id: string,
     @Body() body: unknown,
+    @Req() request: Pick<AuthedRequest, "cookies">,
   ) {
     const parsed = ToggleRepositoryBodySchema.safeParse(body);
     if (!parsed.success) {
       throw new BadRequestException("Repository enabled must be a boolean");
     }
-    return this.repositoriesFacade.setEnabled({
-      user: { id: user.id, login: user.login },
-      repositoryId: id,
-      enabled: parsed.data.enabled,
-    });
+    return this.repositoriesFacade.setEnabled(
+      {
+        user: { id: user.id, login: user.login },
+        repositoryId: id,
+        enabled: parsed.data.enabled,
+      },
+      selectedWorkspaceId(request),
+    );
   }
 
   @Patch(":id/settings")
@@ -79,4 +91,9 @@ export class RepositoriesController {
       ...parsed.data,
     });
   }
+}
+
+function selectedWorkspaceId(request: Pick<AuthedRequest, "cookies">): string | undefined {
+  const value = request.cookies?.folio_workspace;
+  return typeof value === "string" ? value : undefined;
 }
