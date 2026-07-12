@@ -571,27 +571,35 @@ v1 read policy while flag is on: **only repos with `pr_index_status = ready`**.
 
 ### Config
 
-| Variable                    | Default | Behavior                                                                                                                                                                                                              |
-| --------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DASHBOARD_READ_FROM_INDEX` | `false` | When `true`, open/completed dashboard pages read only `pull_request_index` (ready repos). When `false`, legacy live GitHub list path remains. Index **writes** (webhook/backfill) always run regardless of this flag. |
+| Variable                    | Default | Behavior                                                                                                                                                                                                 |
+| --------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DASHBOARD_READ_FROM_INDEX` | `true`  | Board reads `pull_request_index` for **ready** repos only (partial backfill is safe). Set `false` to roll back to live GitHub lists. Index **writes** always run regardless of this flag.               |
 
-### Follow-up implementation (plan Tasks 9–12)
+### Runtime migrations (Drizzle Option 4)
 
-| Spec area                               | Gap                                                                                    |
+Matches [Drizzle migrations Option 4](https://orm.drizzle.team/docs/migrations) (apply SQL at app runtime):
+
+- Backend boot: `applyPendingMigrations("backend")` → `runMigrations()` before listen.
+- Worker boot: same, then auto-enqueue `pr_index_backfill` for folio-enabled repos that are not `ready`.
+- CLI `pnpm db:migrate` remains as an ops escape hatch; normal flow is process restart.
+
+### Follow-up implementation (plan Tasks 9–12 + boot wiring)
+
+| Spec area                               | Status                                                                                 |
 | --------------------------------------- | -------------------------------------------------------------------------------------- |
-| Reconcile ~15 minutes                   | Landed in `833c8e5`; worker runs bounded sequential GitHub ↔ index rounds              |
-| Bulk backfill for already-enabled repos | Landed in `c4771a5`; operations command exists but has not been run on production      |
-| Production flag default `true`          | Ops cutover after ready coverage                                                       |
-| Index-path facade regression tests      | Landed in `2268291`; flag-on path proves zero Octokit creation and ready-only reads    |
-| Delete GitHub list cache from reads     | Only required after flag is permanently on; legacy path still uses it when flag is off |
+| Reconcile ~15 minutes                   | Landed (`833c8e5`); worker bounded rounds                                              |
+| Bulk backfill for already-enabled repos | Landed (`c4771a5` + worker boot auto-enqueue in `5bed67a`)                             |
+| Boot-time Drizzle migrate               | Landed (`5bed67a`)                                                                     |
+| Flag default `true`                     | Landed (`5bed67a`); ready-only reads                                                   |
+| Index-path facade regression tests      | Landed (`2268291`)                                                                     |
+| Delete GitHub list cache from reads     | Optional after flag stays permanently on                                               |
 
-### Cutover (summary)
+### Day-to-day flow (no manual migrate)
 
-1. Apply migration `0013`.
-2. Run API + worker; bulk-enqueue `pr_index_backfill` for folio-enabled repos; wait until `pr_index_status = ready`.
-3. Set `DASHBOARD_READ_FROM_INDEX=true` and restart API.
-4. Smoke: fast board load, SSE update on PR open/edit, REST still works without SSE.
-5. Rollback: set flag `false` and restart API (index continues to update in background).
+1. Pull / deploy code; start **API** + **worker** (migrate runs on boot).
+2. Worker enqueues not-ready PR index backfills; wait until useful repos are `ready`.
+3. Dashboard uses index path by default; smoke load + SSE.
+4. Rollback: `DASHBOARD_READ_FROM_INDEX=false` + restart API.
 
 ### Related modules (code map)
 
