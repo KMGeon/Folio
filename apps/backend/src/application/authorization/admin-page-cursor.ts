@@ -27,9 +27,15 @@ export function decodeAdminPageCursor(value?: string): AdminPageCursor | undefin
   }
 
   try {
-    const parsed = CursorPayloadSchema.parse(
-      JSON.parse(Buffer.from(value, "base64url").toString("utf8")),
-    );
+    if (!/^[A-Za-z0-9_-]+$/.test(value)) {
+      throw new Error("Invalid base64url alphabet");
+    }
+    const decoded = Buffer.from(value, "base64url");
+    // Re-encoding rejects non-canonical encodings that Buffer would otherwise tolerate.
+    if (decoded.toString("base64url") !== value) {
+      throw new Error("Non-canonical base64url encoding");
+    }
+    const parsed = CursorPayloadSchema.parse(JSON.parse(decoded.toString("utf8")));
     return { createdAt: new Date(parsed.createdAt), id: parsed.id };
   } catch {
     throw new CoreException(ErrorType.InvalidAdminCursor);

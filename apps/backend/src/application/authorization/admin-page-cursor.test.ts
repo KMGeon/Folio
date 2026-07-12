@@ -18,6 +18,14 @@ describe("admin page cursor", () => {
     expect(decodeAdminPageCursor()).toBeUndefined();
   });
 
+  it("rejects non-canonical base64url even when its decoded payload is valid", () => {
+    const encoded = encodeAdminPageCursor({ createdAt, id });
+
+    expect(() => decodeAdminPageCursor(`${encoded}!`)).toThrowError(
+      expect.objectContaining({ errorType: ErrorType.InvalidAdminCursor }),
+    );
+  });
+
   it.each([
     "not-valid-base64!",
     Buffer.from("not json").toString("base64url"),

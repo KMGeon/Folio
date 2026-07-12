@@ -41,8 +41,11 @@ export class GlobalUsersFacade {
 
     await getDb().transaction(async (transaction) => {
       const { actor, target } = await this.lockCommandUsers(command, transaction);
-      if (!actor || !target) {
+      if (!target) {
         this.userNotFound();
+      }
+      if (!actor) {
+        this.conflict();
       }
       if (
         actor.globalStatus !== GLOBAL_STATUS.ACTIVE ||

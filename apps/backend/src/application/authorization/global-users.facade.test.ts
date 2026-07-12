@@ -338,17 +338,34 @@ describe("GlobalUsersFacade", () => {
       expect(dbDouble.transaction).not.toHaveBeenCalled();
     });
 
-    it.each([
-      ["actor", null, user("user-1", GLOBAL_STATUS.ACTIVE)],
-      ["target", user("admin-1", GLOBAL_STATUS.ACTIVE, true), null],
-    ] as const)("throws UserNotFound when the %s is missing", async (_label, actor, target) => {
-      arrangeLockedUsers(...([actor, target].filter(Boolean) as UserRow[]));
+    it("throws GlobalUserConflict when the authorized actor disappears before locking", async () => {
+      arrangeLockedUsers(user("user-1", GLOBAL_STATUS.ACTIVE));
+
+      const error = await facade
+        .transferSystemAdmin({ actorUserId: "admin-1", targetUserId: "user-1" })
+        .catch((caught: unknown) => caught);
+
+      expectCoreError(error, ErrorType.GlobalUserConflict);
+      expect(usersRepo.getByIdsForUpdate).toHaveBeenCalledWith(
+        ["admin-1", "user-1"],
+        transactionHandle,
+      );
+      expect(usersRepo.setSystemAdminIfCurrent).not.toHaveBeenCalled();
+      expect(auditLogsRepo.record).not.toHaveBeenCalled();
+    });
+
+    it("throws UserNotFound when the transfer target is missing", async () => {
+      arrangeLockedUsers(user("admin-1", GLOBAL_STATUS.ACTIVE, true));
 
       const error = await facade
         .transferSystemAdmin({ actorUserId: "admin-1", targetUserId: "user-1" })
         .catch((caught: unknown) => caught);
 
       expectCoreError(error, ErrorType.UserNotFound);
+      expect(usersRepo.getByIdsForUpdate).toHaveBeenCalledWith(
+        ["admin-1", "user-1"],
+        transactionHandle,
+      );
       expect(usersRepo.setSystemAdminIfCurrent).not.toHaveBeenCalled();
       expect(auditLogsRepo.record).not.toHaveBeenCalled();
     });
