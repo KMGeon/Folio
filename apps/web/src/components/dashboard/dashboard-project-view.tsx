@@ -8,6 +8,7 @@ import {
   type DashboardProjectData,
   type DashboardQueueFocus,
 } from "@/components/dashboard/dashboard-project-desk-model";
+import { DashboardNoEnabledRepos } from "@/components/dashboard/dashboard-no-enabled-repos";
 import { DashboardNextUp, DashboardProjectEmpty } from "@/components/dashboard/dashboard-next-up";
 import type {
   DashboardCardProperty,
@@ -28,9 +29,9 @@ export function DashboardProjectView({
   visibleProperties: DashboardCardProperty[];
   onRetryReview: (pull: DashboardPull) => void;
 }) {
+  // `projects` is Settings-enabled only; empty list ⇒ nothing toggled on.
   if (projects.length === 0) {
-    // projects[] is already Settings-enabled only — empty means none toggled on.
-    return <DashboardProjectEmpty scopeName="All projects" focus={focus} noEnabledRepos />;
+    return <DashboardNoEnabledRepos />;
   }
 
   if (activeRepoId) {
@@ -103,7 +104,7 @@ function ProjectDesk({
       <div
         className={
           focused
-            ? "grid gap-5 p-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,1fr)]"
+            ? "grid gap-5 p-4 sm:p-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(300px,0.9fr)]"
             : "grid gap-4 p-4 lg:grid-cols-2"
         }
       >

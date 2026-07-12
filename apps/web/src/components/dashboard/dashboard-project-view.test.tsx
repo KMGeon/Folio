@@ -28,7 +28,7 @@ describe("DashboardProjectView", () => {
     expect(html).not.toContain("docs 큐가 비어 있습니다");
   });
 
-  it("guides to Settings when no repositories are Folio-enabled", () => {
+  it("renders the dedicated no-enabled-repos panel when the list is empty", () => {
     const html = renderToStaticMarkup(
       <DashboardProjectView
         projects={[]}
@@ -39,8 +39,8 @@ describe("DashboardProjectView", () => {
       />,
     );
 
+    expect(html).toContain('aria-label="No enabled repositories"');
     expect(html).toContain("활성화된 레포가 없습니다");
-    expect(html).toContain("/settings/repositories");
   });
 
   function render(activeRepoId: string | null) {
