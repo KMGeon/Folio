@@ -10,17 +10,18 @@ export { isJumpLine } from "./resolve-line-ref";
 /**
  * Diff row styling for focus links.
  * Do NOT use primary green here — it collides with addition (diff-add) green.
- * - linked focus (always-on): amber warning rail
- * - active jump (검토할 사항 selected): same amber family, slightly stronger so it
- *   “points” without a blue selection block that reads as multi-line focus chrome
+ * - linked focus (always-on): thin amber left rail only (no fill) so multi-line
+ *   ranges stay readable while reviewing
+ * - active jump: single anchor row only — amber rail + light fill + ring to “point”
  */
 export function focusRowClass(isFocus: boolean, isJump: boolean, isActive: boolean): string {
   return cn(
     // Comment selection only — keep quiet; never use blue for 검토할 사항 jumps.
     isActive && !isJump && !isFocus && "bg-muted/40",
-    isFocus && !isJump && "border-l-[3px] border-warning bg-warning/15",
-    // Active jump: amber pointer (not info blue range). Stronger fill than passive focus.
-    isJump && "border-l-[3px] border-warning bg-warning/25 ring-1 ring-inset ring-warning/45",
+    // Linked range: rail only — full-row amber wash makes long diffs unreadable.
+    isFocus && !isJump && "border-l-[3px] border-warning/70",
+    // Active jump is one row (anchor); keep fill light so code stays legible.
+    isJump && "border-l-[3px] border-warning bg-warning/18 ring-1 ring-inset ring-warning/40",
   );
 }
 

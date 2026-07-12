@@ -203,7 +203,11 @@ export function isFocusMarkerLine(
   );
 }
 
-/** True when this diff row falls inside any active jump range. */
+/**
+ * True only for the jump **anchor** row (scroll target), not the full lineRef range.
+ * Painting whole ranges in amber washes out the diff and makes review harder — point
+ * at one row instead; ranges stay in JumpTarget for resolution / future use.
+ */
 export function isJumpLine(
   target: JumpTarget | null | undefined,
   line: ReviewDiffLine,
@@ -212,17 +216,9 @@ export function isJumpLine(
   if (!target || target.chapterIndex !== chapterIndex) {
     return false;
   }
-  for (const range of target.ranges) {
-    if (line.path !== range.path) {
-      continue;
-    }
-    const num = lineNumberForSide(line, range.side);
-    if (num === null) {
-      continue;
-    }
-    if (num >= range.startLine && num <= range.endLine) {
-      return true;
-    }
-  }
-  return false;
+  return (
+    line.path === target.anchor.path &&
+    line.kind === target.anchor.kind &&
+    line.n === target.anchor.lineNumber
+  );
 }
