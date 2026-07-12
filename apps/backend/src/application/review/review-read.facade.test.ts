@@ -98,7 +98,11 @@ describe("ReviewReadFacade", () => {
     expect(payload).not.toBeNull();
     expect(payload?.pr.title).toBe("PR");
     expect(payload?.pr.body).toContain("Summary");
-    expect(payload?.prologue).toEqual({ ...storedPrologue, diagram: null });
+    expect(payload?.prologue).toEqual({
+      ...storedPrologue,
+      plainSummary: null,
+      diagram: null,
+    });
     expect(payload?.comments).toEqual([
       {
         id: 101,

@@ -5,15 +5,14 @@ import type { ReviewChapter } from "@/lib/review-api";
 
 import {
   collectFocusLineMarkers,
-  jumpTargetFromResolved,
-  selectFirstResolvableLineRef,
+  jumpTargetFromKeyChange,
   type FocusLineMarker,
   type JumpTarget,
 } from "./resolve-line-ref";
 import { filePanelId, setFilePathsCollapsed, type CollapsedFileState } from "./review-file-state";
 
-/** Active jump stays visible long enough to read the linked row. */
-const JUMP_HIGHLIGHT_MS = 4500;
+/** Active jump stays visible long enough to scan a multi-line range. */
+const JUMP_HIGHLIGHT_MS = 6000;
 const JUMP_NOTICE_MS = 3000;
 
 export function useKeyChangeJump(
@@ -72,8 +71,9 @@ export function useKeyChangeJump(
         return;
       }
 
-      const resolved = selectFirstResolvableLineRef(openChapter, keyChange.lineRefs);
-      if (!resolved) {
+      jumpTokenRef.current += 1;
+      const target = jumpTargetFromKeyChange(openChapter, keyChange, jumpTokenRef.current);
+      if (!target) {
         setJumpNotice("연결된 diff 줄을 찾지 못했습니다.");
         setJumpTarget(null);
         const fallbackPath = keyChange.lineRefs.find((ref) =>
@@ -92,9 +92,9 @@ export function useKeyChangeJump(
       }
 
       setJumpNotice(null);
-      jumpTokenRef.current += 1;
-      setCollapsedFiles((current) => setFilePathsCollapsed(current, [resolved.line.path], false));
-      setJumpTarget(jumpTargetFromResolved(openChapter.index, resolved, jumpTokenRef.current));
+      const paths = [...new Set(target.ranges.map((range) => range.path))];
+      setCollapsedFiles((current) => setFilePathsCollapsed(current, paths, false));
+      setJumpTarget(target);
     },
     [openChapter, setCollapsedFiles],
   );

@@ -22,8 +22,8 @@ describe("ReviewView source", () => {
     expect(chapterCardsSource).toContain("검토할 사항");
     expect(chapterCardsSource).toContain("FOCUS_PREVIEW_LIMIT");
     expect(topBarSource).toContain("font-sans text-xl");
-    expect(topBarSource).toContain("px-4 pt-2.5 md:px-6");
-    expect(source).toContain("overflow-y-auto px-4 py-3 md:px-6");
+    expect(topBarSource).toContain("px-6 pt-3 md:px-10");
+    expect(source).toContain("overflow-y-auto px-6 py-6 md:px-10 md:py-8");
   });
 
   it("can collapse and expand every file from the chapter toolbar", () => {
@@ -68,9 +68,10 @@ describe("ReviewView source", () => {
   });
 
   it("allows both overview grid columns to shrink on narrow screens", () => {
-    expect(source).toContain("lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.35fr)]");
+    expect(source).toContain("lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]");
+    expect(source).toContain("lg:gap-10");
     expect(source).toContain('<section className="min-w-0">\n                <ReviewPrologue');
-    expect(source).toContain('<section className="min-w-0">\n                <div className="mb-3');
+    expect(source).toContain('<section className="min-w-0">\n                <div className="mb-5');
   });
 
   it("keeps the chapter panel dense so the diff stays primary", () => {
@@ -147,7 +148,7 @@ describe("ReviewView source", () => {
     expect(source).toContain("jumpTarget");
     expect(source).toContain("focusMarkers");
     expect(source).toContain("activeKeyChangeId");
-    expect(keyChangeJumpSource).toContain("selectFirstResolvableLineRef");
+    expect(keyChangeJumpSource).toContain("jumpTargetFromKeyChange");
     expect(keyChangeJumpSource).toContain("collectFocusLineMarkers");
     expect(keyChangeJumpSource).toContain("이 질문에 연결된 diff 줄이 없습니다.");
     expect(keyChangeJumpSource).toContain("연결된 diff 줄을 찾지 못했습니다.");
@@ -160,8 +161,9 @@ describe("ReviewView source", () => {
     expect(chapterPanelSource).toContain("text-sm leading-6 text-foreground");
     expect(chapterPanelSource).toContain("ListChecks");
     expect(chapterPanelSource).toContain("font-semibold text-primary text-xs");
-    // Focus rows use a distinctive warning rail when open, primary when active.
-    expect(chapterPanelSource).toContain("shadow-warning/80");
+    // Focus rows: amber when open, info blue when active (not primary green).
+    expect(chapterPanelSource).toContain("shadow-warning");
+    expect(chapterPanelSource).toContain("shadow-info");
     expect(chapterPanelSource).toContain("activeKeyChangeId");
     expect(chapterPanelSource).not.toContain("bg-background/35");
   });

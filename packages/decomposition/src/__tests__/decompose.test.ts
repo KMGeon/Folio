@@ -21,6 +21,7 @@ describe("decompose — LLM happy path (mocked Codex)", () => {
       {
         chapters: [fullCoverageChapter(diff)],
         prologue: {
+          plainSummary: "코드를 나누어 읽기 쉽게 만듭니다.",
           motivation: "Refactor for clarity.",
           outcome: "add() lives in its own module now.",
           diagram: null,

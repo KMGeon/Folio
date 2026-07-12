@@ -12,10 +12,11 @@ import { cn } from "@/lib/utils";
 import { CommentButton, CommentRows } from "./diff-comment-controls";
 import type { DiffViewMode } from "./diff-view-mode-switch";
 import { filePanelId } from "./review-file-state";
-import { EMPTY_FOCUS_MARKERS, focusRowClass, isJumpLine } from "./focus-line-styles";
+import { EMPTY_FOCUS_MARKERS, focusMarkerDotClass, focusRowClass } from "./focus-line-styles";
 import {
   diffLineElementId,
   isFocusMarkerLine,
+  isJumpLine,
   type FocusLineMarker,
   type JumpTarget,
 } from "./resolve-line-ref";
@@ -231,11 +232,10 @@ function UnifiedDiffTable({
                   <div className="flex flex-col items-center gap-1 pt-0.5">
                     {isFocus || isJump ? (
                       <span
-                        className={cn(
-                          "inline-flex size-2 rounded-full",
-                          isJump ? "bg-primary shadow-[0_0_0_3px] shadow-primary/30" : "bg-warning",
-                        )}
-                        title="검토할 사항에 연결된 줄"
+                        className={focusMarkerDotClass(isJump)}
+                        title={
+                          isJump ? "지금 선택된 검토 사항 연결 구간" : "검토할 사항에 연결된 줄"
+                        }
                         aria-hidden
                       />
                     ) : null}
