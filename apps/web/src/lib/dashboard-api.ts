@@ -120,6 +120,7 @@ export interface DashboardPullPageQuery {
   direction?: DashboardDirection;
   closedRange?: DashboardClosedRange;
   showDrafts?: boolean;
+  repository?: string;
 }
 
 export type DashboardOpenPullPagesQuery = Omit<
@@ -207,6 +208,9 @@ export function dashboardOpenPullPagesPath(query: DashboardOpenPullPagesQuery): 
   if (typeof query.showDrafts === "boolean") {
     params.set("showDrafts", String(query.showDrafts));
   }
+  if (query.repository) {
+    params.set("repository", query.repository);
+  }
   return `/api/v1/dashboard/pulls/open?${params.toString()}`;
 }
 
@@ -233,6 +237,9 @@ export function dashboardPullPagePath(query: DashboardPullPageQuery): string {
   }
   if (typeof query.showDrafts === "boolean") {
     params.set("showDrafts", String(query.showDrafts));
+  }
+  if (query.repository) {
+    params.set("repository", query.repository);
   }
   return `/api/v1/dashboard/pulls?${params.toString()}`;
 }

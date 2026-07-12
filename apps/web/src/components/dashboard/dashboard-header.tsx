@@ -10,10 +10,12 @@ export function DashboardHeader({
   login,
   avatarUrl,
   counts,
+  scopeName,
 }: {
   login: string;
   avatarUrl: string;
   counts: DashboardHeaderCounts;
+  scopeName: string;
 }) {
   return (
     <header className="space-y-3">
@@ -49,7 +51,7 @@ export function DashboardHeader({
       </div>
 
       <p className="text-sm leading-relaxed text-muted-foreground sm:pl-12">
-        {dashboardHeaderStandfirst(counts)}
+        {dashboardHeaderStandfirst(counts, scopeName)}
       </p>
     </header>
   );
@@ -82,15 +84,18 @@ function MetricChip({
 }
 
 /** Status-aware standfirst so the masthead reflects the queue, not a fixed slogan. */
-export function dashboardHeaderStandfirst(counts: DashboardHeaderCounts): string {
+export function dashboardHeaderStandfirst(
+  counts: DashboardHeaderCounts,
+  scopeName = "All projects",
+): string {
   if (counts.ready > 0) {
-    return `리뷰 ${counts.ready}건이 대기 중입니다. 챕터 순서로 읽어 내려가세요.`;
+    return `${scopeName} 범위에 리뷰 ${counts.ready}건이 대기 중입니다. 챕터 순서로 읽어 내려가세요.`;
   }
   if (counts.yours > 0) {
-    return `열린 PR ${counts.yours}건이 있습니다. 상태를 확인하세요.`;
+    return `${scopeName} 범위에 열린 PR ${counts.yours}건이 있습니다. 상태를 확인하세요.`;
   }
   if (counts.completed > 0) {
-    return "오늘은 대기 중인 리뷰가 없습니다. 최근 완료 작업을 확인하세요.";
+    return `${scopeName} 범위에는 대기 중인 리뷰가 없습니다. 최근 완료 작업을 확인하세요.`;
   }
-  return "풀리퀘스트를 챕터 순서로 읽어 내려가며 리뷰하세요.";
+  return `${scopeName} 범위의 풀리퀘스트를 챕터 순서로 읽어 내려가며 리뷰하세요.`;
 }

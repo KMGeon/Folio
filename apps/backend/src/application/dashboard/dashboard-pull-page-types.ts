@@ -28,6 +28,7 @@ export interface DashboardPullPageQuery {
   direction?: DashboardDirection;
   closedRange?: DashboardClosedRange;
   showDrafts?: boolean;
+  repository?: string;
 }
 
 export type DashboardOpenBucket = Exclude<DashboardBucket, "completed">;

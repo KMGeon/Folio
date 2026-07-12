@@ -35,6 +35,7 @@ import {
   loadDashboardWorkspaceScope,
 } from "./dashboard-workspace-scope.js";
 import { config } from "../../config.js";
+import { dashboardScopeForRepository } from "./dashboard-repository-scope.js";
 
 export type {
   DashboardBucket,
@@ -229,10 +230,13 @@ export class DashboardFacade {
   }
 
   async getPullPageForUser(user: { id: string; login: string }, input: DashboardPullPageQuery) {
-    const scope = await this.loadWorkspaceScope(user, {
-      boardRead: true,
-      indexRead: config.DASHBOARD_READ_FROM_INDEX,
-    });
+    const scope = dashboardScopeForRepository(
+      await this.loadWorkspaceScope(user, {
+        boardRead: true,
+        indexRead: config.DASHBOARD_READ_FROM_INDEX,
+      }),
+      input.repository,
+    );
     if (config.DASHBOARD_READ_FROM_INDEX) {
       return getDashboardPullPageFromIndex(user, input, scope);
     }
@@ -252,10 +256,13 @@ export class DashboardFacade {
     user: { id: string; login: string },
     input: DashboardOpenPullPageQuery,
   ) {
-    const scope = await this.loadWorkspaceScope(user, {
-      boardRead: true,
-      indexRead: config.DASHBOARD_READ_FROM_INDEX,
-    });
+    const scope = dashboardScopeForRepository(
+      await this.loadWorkspaceScope(user, {
+        boardRead: true,
+        indexRead: config.DASHBOARD_READ_FROM_INDEX,
+      }),
+      input.repository,
+    );
     if (config.DASHBOARD_READ_FROM_INDEX) {
       return getDashboardOpenPullPagesFromIndex(user, input, scope);
     }

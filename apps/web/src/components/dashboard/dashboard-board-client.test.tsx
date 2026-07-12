@@ -15,7 +15,6 @@ import {
   resetDashboardRequestScope,
 } from "./dashboard-request-scope";
 import { columnLoadingStateForReset, hasActiveReviewJobs } from "./dashboard-board-stream";
-import { dashboardOpenPullPagesPath, dashboardPullPagePath } from "@/lib/dashboard-api";
 
 describe("DashboardBoardClient", () => {
   it("polls only while a visible review job is active", () => {
@@ -53,54 +52,6 @@ describe("DashboardBoardClient", () => {
       error: null,
     });
   });
-  it("builds paginated pull URLs with only supported server-backed filters", () => {
-    const query = {
-      bucket: "ready",
-      limit: 20,
-      cursor: "cursor-1",
-      q: "repo smoke",
-      ordering: "lines",
-      direction: "asc",
-      closedRange: "30d",
-      grouping: "repository",
-      showDrafts: false,
-    } as const;
-    const path = dashboardPullPagePath(query);
-    const url = new URL(path, "https://folio.test");
-
-    expect(url.pathname).toBe("/api/v1/dashboard/pulls");
-    expect(url.searchParams.get("bucket")).toBe("ready");
-    expect(url.searchParams.get("limit")).toBe("20");
-    expect(url.searchParams.get("cursor")).toBe("cursor-1");
-    expect(url.searchParams.get("q")).toBe("repo smoke");
-    expect(url.searchParams.get("ordering")).toBe("lines");
-    expect(url.searchParams.get("direction")).toBe("asc");
-    expect(url.searchParams.get("closedRange")).toBe("30d");
-    expect(url.searchParams.has("grouping")).toBe(false);
-    expect(url.searchParams.get("showDrafts")).toBe("false");
-  });
-
-  it("builds the combined open pull URL without completed-only fields", () => {
-    const query = {
-      limit: 20,
-      q: "repo smoke",
-      ordering: "updated",
-      direction: "desc",
-      grouping: "responsibility",
-      showDrafts: false,
-    } as const;
-    const path = dashboardOpenPullPagesPath(query);
-    const url = new URL(path, "https://folio.test");
-
-    expect(url.pathname).toBe("/api/v1/dashboard/pulls/open");
-    expect(url.searchParams.get("limit")).toBe("20");
-    expect(url.searchParams.get("q")).toBe("repo smoke");
-    expect(url.searchParams.get("showDrafts")).toBe("false");
-    expect(url.searchParams.has("bucket")).toBe(false);
-    expect(url.searchParams.has("closedRange")).toBe(false);
-    expect(url.searchParams.has("grouping")).toBe(false);
-  });
-
   it("keeps newer in-flight request guards when older requests finish", () => {
     const inFlight = new Map<string, symbol>();
     const older = beginDashboardRequest(inFlight, "ready", "reset");
@@ -163,17 +114,18 @@ describe("DashboardBoardClient", () => {
     expect(boardClient).toContain("initialDashboardFilters");
     const config = await readFile(new URL("./dashboard-board-config.ts", import.meta.url), "utf8");
     expect(config).toContain('closedRange: "1d"');
-    expect(config).toContain("showEmptyColumns: false");
-    expect(source).toContain("Layout");
-    expect(source).toContain("Grouping");
+    expect(config).toContain('grouping: "repository"');
+    expect(source).not.toContain('label="Layout"');
+    expect(source).not.toContain('label="Grouping"');
     expect(source).toContain("Ordering");
     expect(source).toContain("Closed reviews");
     expect(source).toContain("Last 24 hours");
     expect(source).toContain("Show drafts");
-    expect(source).toContain("Show empty columns");
-    expect(source).toContain("Highlight my PRs");
+    expect(source).not.toContain("Show empty columns");
+    expect(source).not.toContain("Highlight my PRs");
     expect(source).toContain("Display properties");
     expect(source).toContain("aria-pressed");
+    expect(source).not.toContain('<option value="responsibility">');
   });
 
   it("wires independent open and completed reset effects", async () => {
@@ -203,6 +155,7 @@ describe("DashboardBoardClient", () => {
     const stream = await readFile(new URL("./dashboard-board-stream.ts", import.meta.url), "utf8");
 
     expect(stream).toContain("void input.loadOpenBuckets(openEpoch, { soft: true })");
+    expect(stream).toContain("input.onRefresh?.();");
     expect(stream).toContain("let hasOpened = false");
     expect(stream).toContain("if (!hasOpened)");
     expect(stream).toContain("hasOpened = true");

@@ -32,7 +32,9 @@ export type OpenCandidate = {
   pr: GitHubPullSummary;
   status: PullStatus;
 };
-export type NormalizedQuery = Required<Omit<DashboardPullPageQuery, "cursor" | "q">> & {
+export type NormalizedQuery = Required<
+  Omit<DashboardPullPageQuery, "cursor" | "q" | "repository">
+> & {
   cursor?: string;
   q?: string;
 };
