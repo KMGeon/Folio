@@ -1,7 +1,15 @@
-import { bigint, boolean, pgTable, text, uuid } from "drizzle-orm/pg-core";
+import { bigint, boolean, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { baseColumns } from "./columns.js";
 import { installations } from "./installations.js";
 import { workspaces } from "./workspaces.js";
+
+export const PR_INDEX_STATUS = {
+  IDLE: "idle",
+  BACKFILLING: "backfilling",
+  READY: "ready",
+  ERROR: "error",
+} as const;
+export type PrIndexStatus = (typeof PR_INDEX_STATUS)[keyof typeof PR_INDEX_STATUS];
 
 export const repositories = pgTable("repositories", {
   ...baseColumns(),
@@ -18,6 +26,18 @@ export const repositories = pgTable("repositories", {
   defaultBranch: text("default_branch").notNull(),
   githubAccessActive: boolean("github_access_active").notNull().default(true),
   folioEnabled: boolean("folio_enabled").notNull().default(false),
+  // Dashboard open-board projection readiness (webhook/backfill).
+  prIndexStatus: text("pr_index_status", {
+    enum: [
+      PR_INDEX_STATUS.IDLE,
+      PR_INDEX_STATUS.BACKFILLING,
+      PR_INDEX_STATUS.READY,
+      PR_INDEX_STATUS.ERROR,
+    ],
+  })
+    .notNull()
+    .default(PR_INDEX_STATUS.IDLE),
+  prIndexBackfilledAt: timestamp("pr_index_backfilled_at", { withTimezone: true, mode: "date" }),
 });
 
 export type RepositoryRow = typeof repositories.$inferSelect;

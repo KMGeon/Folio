@@ -1,14 +1,20 @@
 /**
- * Folio decomposition worker.
+ * Folio worker.
  *
- * Claims `review_pull` jobs from the Postgres SKIP-LOCKED queue (enqueued by the
- * GitHub webhook on PR open/sync), runs the PR → chapters decomposition via
- * ReviewPullFacade (fetch diff → decompose → persist → comment), and marks the
- * job succeeded/failed. Crashed-worker leases are reclaimed by reclaimExpiredJobs.
+ * Claims jobs from the Postgres SKIP-LOCKED queue:
+ * - `review_pull`: PR → chapters decomposition via ReviewPullFacade
+ * - `pr_index_backfill`: populate pull_request_index for a repository
+ * - periodic reconcile: converge GitHub opens with pull_request_index
  */
 import "reflect-metadata";
 import { JOB_KIND, type Job, claimJob, completeJob, failJob, reclaimExpiredJobs } from "@folio/db";
+import { BoardEventHub } from "./application/dashboard/board-event-hub.js";
+import { enqueueBackfillForEnabledRepositories } from "./application/dashboard/pull-request-index-backfill-all.js";
+import { PullRequestIndexBackfill } from "./application/dashboard/pull-request-index-backfill.js";
+import { PullRequestIndexReconcile } from "./application/dashboard/pull-request-index-reconcile.js";
+import { PullRequestIndexWriter } from "./application/dashboard/pull-request-index-writer.js";
 import { ReviewPullFacade } from "./application/review/review-pull.facade.js";
+import { applyPendingMigrations } from "./infrastructure/persistence/apply-pending-migrations.js";
 import { bootstrapGitHub } from "./internal/github/github-bootstrap.js";
 
 const WORKER_ID = `worker-${process.pid}`;
@@ -16,22 +22,31 @@ const WORKER_ID = `worker-${process.pid}`;
 // the reaper only reclaims work from genuinely dead workers, not slow ones.
 const LEASE_MS = 10 * 60_000;
 const POLL_MS = 2_000;
+const RECONCILE_MS = 15 * 60_000;
+const RECONCILE_REPO_LIMIT = 50;
 
 export interface ProcessJobDeps {
   runReview: (input: { owner: string; repo: string; number: number }) => Promise<unknown>;
+  runIndexBackfill: (repositoryId: string) => Promise<unknown>;
   complete: (jobId: string, result: unknown) => Promise<void>;
   fail: (jobId: string, error: string) => Promise<void>;
 }
 
-/** Run one claimed review_pull job to terminal state. Never throws. */
-export async function processReviewPullJob(job: Job, deps: ProcessJobDeps): Promise<void> {
+/** Run one claimed job to terminal state. Never throws. */
+export async function processWorkerJob(job: Job, deps: ProcessJobDeps): Promise<void> {
   try {
-    if (job.payload.kind !== JOB_KIND.REVIEW_PULL) {
-      throw new Error(`worker received unexpected job kind: ${job.payload.kind}`);
+    if (job.payload.kind === JOB_KIND.REVIEW_PULL) {
+      const { owner, repo, number } = job.payload;
+      const result = await deps.runReview({ owner, repo, number });
+      await deps.complete(job.id, result);
+      return;
     }
-    const { owner, repo, number } = job.payload;
-    const result = await deps.runReview({ owner, repo, number });
-    await deps.complete(job.id, result);
+    if (job.payload.kind === JOB_KIND.PR_INDEX_BACKFILL) {
+      const result = await deps.runIndexBackfill(job.payload.repositoryId);
+      await deps.complete(job.id, result ?? { ok: true });
+      return;
+    }
+    throw new Error(`worker received unexpected job kind: ${job.payload.kind}`);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[folio] worker job ${job.id} failed: ${message}`);
@@ -39,31 +54,76 @@ export async function processReviewPullJob(job: Job, deps: ProcessJobDeps): Prom
   }
 }
 
+/** @deprecated use processWorkerJob */
+export async function processReviewPullJob(job: Job, deps: ProcessJobDeps): Promise<void> {
+  return processWorkerJob(job, deps);
+}
+
+export async function runScheduledReconcileIfDue(
+  now: number,
+  nextReconcileAt: number,
+  runRound: (input: { limitRepos: number }) => Promise<unknown>,
+): Promise<number> {
+  if (now < nextReconcileAt) {
+    return nextReconcileAt;
+  }
+  const nextAt = now + RECONCILE_MS;
+  try {
+    await runRound({ limitRepos: RECONCILE_REPO_LIMIT });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[folio] pull request index reconcile round failed: ${message}`);
+  }
+  return nextAt;
+}
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function loop(): Promise<void> {
+  // Worker-only deploys still need schema; journal makes concurrent migrate with API a no-op.
+  await applyPendingMigrations("worker");
   bootstrapGitHub();
   const facade = new ReviewPullFacade();
+  const hub = new BoardEventHub();
+  const writer = new PullRequestIndexWriter(hub);
+  const backfill = new PullRequestIndexBackfill(writer, hub);
+  const reconcile = new PullRequestIndexReconcile(writer, hub);
   const deps: ProcessJobDeps = {
     runReview: (input) => facade.run(input),
+    runIndexBackfill: (repositoryId) => backfill.runForRepository(repositoryId),
     complete: (jobId, result) => completeJob(jobId, result),
     fail: (jobId, error) => failJob(jobId, error),
   };
 
+  // Fill index for folio-enabled repos that are not ready yet (idempotent job dedupe).
+  try {
+    const { enqueued, skippedReady } = await enqueueBackfillForEnabledRepositories(backfill);
+    console.log(
+      `[folio] worker boot PR index backfill enqueue: enqueued=${enqueued} alreadyReady=${skippedReady}`,
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[folio] worker boot PR index backfill enqueue failed: ${message}`);
+  }
+
   console.log(`[folio] worker started (${WORKER_ID})`);
+  let nextReconcileAt = Date.now();
   for (;;) {
     await reclaimExpiredJobs();
     const job = await claimJob({
-      kinds: [JOB_KIND.REVIEW_PULL],
+      kinds: [JOB_KIND.REVIEW_PULL, JOB_KIND.PR_INDEX_BACKFILL],
       leaseMs: LEASE_MS,
       workerId: WORKER_ID,
     });
     if (!job) {
+      nextReconcileAt = await runScheduledReconcileIfDue(Date.now(), nextReconcileAt, (input) =>
+        reconcile.runRound(input),
+      );
       await sleep(POLL_MS);
       continue;
     }
     console.log(`[folio] worker claimed job ${job.id} (${job.payload.kind})`);
-    await processReviewPullJob(job, deps);
+    await processWorkerJob(job, deps);
   }
 }
 

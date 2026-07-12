@@ -1,18 +1,22 @@
 services:
   backend:
     image: ${ECR_REGISTRY}/${ECR_REPOSITORY}:backend-${IMAGE_TAG}
+    # Boot runs Drizzle migrate before listen (see applyPendingMigrations in index.ts).
     env_file:
       - .env
     environment:
       APP_PROFILE: prd
       NODE_ENV: production
       PORT: 8080
+      # Index-backed board; set false in .env to roll back to live GitHub lists.
+      DASHBOARD_READ_FROM_INDEX: ${DASHBOARD_READ_FROM_INDEX:-true}
     restart: unless-stopped
     ports:
       - "127.0.0.1:8080:8080"
 
   worker:
     image: ${ECR_REGISTRY}/${ECR_REPOSITORY}:worker-${IMAGE_TAG}
+    # Boot migrates (no-op if API already did) and enqueues not-ready PR index backfills.
     command: ["pnpm", "--filter", "@folio/backend", "exec", "tsx", "src/worker.ts"]
     env_file:
       - .env
@@ -24,6 +28,8 @@ services:
     volumes:
       - /home/ubuntu/.codex:/home/ubuntu/.codex
     restart: unless-stopped
+    depends_on:
+      - backend
 
   web:
     image: ${ECR_REGISTRY}/${ECR_REPOSITORY}:web-${IMAGE_TAG}

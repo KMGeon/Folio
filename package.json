@@ -10,6 +10,8 @@
     "start:backend:prd": "pnpm --filter @folio/backend start:prd",
     "start:web:dev": "pnpm --filter @folio/web start:dev",
     "start:web:prd": "pnpm --filter @folio/web start:prd",
+    "db:migrate": "pnpm --filter @folio/db db:migrate",
+    "worker": "pnpm --filter @folio/backend worker",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "lint": "oxlint",

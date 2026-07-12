@@ -11,6 +11,7 @@
     "start:prd": "APP_PROFILE=prd NODE_ENV=production node dist/index.js",
     "worker": "APP_PROFILE=dev NODE_ENV=development tsx src/worker.ts",
     "worker:prd": "APP_PROFILE=prd NODE_ENV=production node dist/worker.js",
+    "enqueue:pr-index-backfill": "tsx src/scripts/enqueue-pr-index-backfill.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },

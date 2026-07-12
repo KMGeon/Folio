@@ -22,25 +22,19 @@ import {
 } from "@/components/dashboard/dashboard-request-scope";
 import { DashboardSearchBar } from "@/components/dashboard/dashboard-search-bar";
 import {
+  connectDashboardBoardStream,
+  hasActiveReviewJobs,
+  initialColumns,
+  type ColumnStateMap,
+} from "@/components/dashboard/dashboard-board-stream";
+import {
   type DashboardBucket,
-  type DashboardCompletedPull,
   type DashboardOpenBucket,
   type DashboardPull,
   fetchDashboardOpenPullPages,
   fetchDashboardPullPage,
 } from "@/lib/dashboard-api";
 import { createReview } from "@/lib/review-api";
-
-interface ColumnLoadState {
-  items: (DashboardPull | DashboardCompletedPull)[];
-  count: number;
-  nextCursor: string | null;
-  isInitialLoading: boolean;
-  isLoadingMore: boolean;
-  error: string | null;
-}
-
-type ColumnStateMap = Record<DashboardBucket, ColumnLoadState>;
 
 const openBuckets = ["ready", "yours", "other"] satisfies DashboardOpenBucket[];
 
@@ -69,26 +63,6 @@ const initialFilters: DashboardFilterState = {
   highlightMyPrs: true,
   visibleProperties: ["Repository", "ID", "Author", "Labels", "Lines changed", "Updated date"],
 };
-
-function emptyColumn(): ColumnLoadState {
-  return {
-    items: [],
-    count: 0,
-    nextCursor: null,
-    isInitialLoading: true,
-    isLoadingMore: false,
-    error: null,
-  };
-}
-
-function initialColumns(): ColumnStateMap {
-  return {
-    ready: emptyColumn(),
-    yours: emptyColumn(),
-    other: emptyColumn(),
-    completed: emptyColumn(),
-  };
-}
 
 export function DashboardBoardClient({
   labels = defaultDashboardBoardLabels,
@@ -276,6 +250,15 @@ export function DashboardBoardClient({
   }, [debouncedQuery, filters.direction, filters.ordering, filters.showDrafts, loadOpenBuckets]);
 
   useEffect(() => {
+    return connectDashboardBoardStream({
+      inFlightRef,
+      requestEpochsRef,
+      loadOpenBuckets,
+      setColumns,
+    });
+  }, [loadOpenBuckets]);
+
+  useEffect(() => {
     const activeObservers = observers.current;
     const completedEpoch = resetDashboardRequestScope(
       inFlightRef.current,
@@ -405,10 +388,4 @@ export function DashboardBoardClient({
   );
 }
 
-export function hasActiveReviewJobs(columns: ColumnStateMap): boolean {
-  return Object.values(columns).some((column) =>
-    column.items.some(
-      (item) => item.analysisStatus === "processing" || item.analysisStatus === "retrying",
-    ),
-  );
-}
+export { hasActiveReviewJobs } from "@/components/dashboard/dashboard-board-stream";

@@ -16,6 +16,10 @@ import {
   getDashboardOpenPullPagesForUser,
   getDashboardPullPageForUser,
 } from "./dashboard-pull-page.js";
+import {
+  getDashboardOpenPullPagesFromIndex,
+  getDashboardPullPageFromIndex,
+} from "./dashboard-index-pull-page.js";
 import { getDashboardSummaryForUser } from "./dashboard-summary.js";
 import type {
   CompletedCandidate,
@@ -29,6 +33,7 @@ import {
   type DashboardResolvedRepositoryBatchAuthorizer,
   loadDashboardWorkspaceScope,
 } from "./dashboard-workspace-scope.js";
+import { config } from "../../config.js";
 
 export type {
   DashboardBucket,
@@ -222,6 +227,10 @@ export class DashboardFacade {
   }
 
   async getPullPageForUser(user: { id: string; login: string }, input: DashboardPullPageQuery) {
+    const scope = await this.loadWorkspaceScope(user);
+    if (config.DASHBOARD_READ_FROM_INDEX) {
+      return getDashboardPullPageFromIndex(user, input, scope);
+    }
     return getDashboardPullPageForUser(
       user,
       input,
@@ -230,7 +239,7 @@ export class DashboardFacade {
         listPulls: listDashboardPulls,
         resolveStatus: resolveDashboardPullStatus,
       },
-      await this.loadWorkspaceScope(user),
+      scope,
     );
   }
 
@@ -238,6 +247,10 @@ export class DashboardFacade {
     user: { id: string; login: string },
     input: DashboardOpenPullPageQuery,
   ) {
+    const scope = await this.loadWorkspaceScope(user);
+    if (config.DASHBOARD_READ_FROM_INDEX) {
+      return getDashboardOpenPullPagesFromIndex(user, input, scope);
+    }
     return getDashboardOpenPullPagesForUser(
       user,
       input,
@@ -246,7 +259,7 @@ export class DashboardFacade {
         listPulls: listDashboardPulls,
         resolveStatus: resolveDashboardPullStatus,
       },
-      await this.loadWorkspaceScope(user),
+      scope,
     );
   }
 

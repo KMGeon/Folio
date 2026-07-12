@@ -59,6 +59,8 @@ const repository = {
   defaultBranch: "main",
   folioEnabled: false,
   githubAccessActive: true,
+  prIndexStatus: "idle" as const,
+  prIndexBackfilledAt: null,
   createdAt: now,
   updatedAt: now,
 };
@@ -214,6 +216,8 @@ describe("RepositoriesFacade", () => {
     vi.mocked(repositoriesRepo.getByIdForUpdate).mockResolvedValue({
       ...repository,
       githubAccessActive: false,
+      prIndexStatus: "idle" as const,
+      prIndexBackfilledAt: null,
       folioEnabled: false,
     });
 

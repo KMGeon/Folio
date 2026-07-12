@@ -9,6 +9,8 @@ export const JOB_KIND = {
   // Carries the GitHub coordinates (not prId/revisionId) because the worker
   // creates those rows itself via ReviewPullFacade.
   REVIEW_PULL: "review_pull",
+  // Populate pull_request_index for one folio-enabled repository.
+  PR_INDEX_BACKFILL: "pr_index_backfill",
 } as const;
 export type JobKind = (typeof JOB_KIND)[keyof typeof JOB_KIND];
 
@@ -54,11 +56,18 @@ export const ReviewPullJobPayloadSchema = z.object({
 });
 export type ReviewPullJobPayload = z.infer<typeof ReviewPullJobPayloadSchema>;
 
+export const PrIndexBackfillJobPayloadSchema = z.object({
+  kind: z.literal(JOB_KIND.PR_INDEX_BACKFILL),
+  repositoryId: z.string(),
+});
+export type PrIndexBackfillJobPayload = z.infer<typeof PrIndexBackfillJobPayloadSchema>;
+
 export const JobPayloadSchema = z.discriminatedUnion("kind", [
   DecomposeJobPayloadSchema,
   ReChapterJobPayloadSchema,
   SyncCommentsJobPayloadSchema,
   ReviewPullJobPayloadSchema,
+  PrIndexBackfillJobPayloadSchema,
 ]);
 export type JobPayload = z.infer<typeof JobPayloadSchema>;
 

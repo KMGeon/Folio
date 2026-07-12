@@ -6,6 +6,7 @@ export { repositoriesRepo } from "./repositories.js";
 export { usersRepo } from "./users.js";
 export { sessionsRepo } from "./sessions.js";
 export { pullRequestsRepo } from "./pull-requests.js";
+export { pullRequestIndexRepo } from "./pull-request-index.js";
 export { revisionsRepo } from "./revisions.js";
 export { chaptersRepo } from "./chapters.js";
 export { reviewStateRepo } from "./review-state.js";

@@ -1,5 +1,14 @@
-import { BadRequestException, Controller, Get, Inject, Query, UseGuards } from "@nestjs/common";
+import {
+  BadRequestException,
+  Controller,
+  Get,
+  Inject,
+  Query,
+  Res,
+  UseGuards,
+} from "@nestjs/common";
 import { ENTITLEMENT_FEATURE } from "@folio/types";
+import type { Response } from "express";
 import {
   type DashboardBucket,
   type DashboardClosedRange,
@@ -7,6 +16,9 @@ import {
   DashboardFacade,
   type DashboardOrdering,
 } from "../../../application/dashboard/dashboard.facade.js";
+import { BoardEventHub } from "../../../application/dashboard/board-event-hub.js";
+import { loadDashboardWorkspaceScope } from "../../../application/dashboard/dashboard-workspace-scope.js";
+import { RepoAccessService } from "../../../domain/auth/repo-access.service.js";
 import { CurrentUser } from "../common/current-user.decorator.js";
 import { type AuthedUser, SessionAuthGuard } from "../common/session-auth.guard.js";
 import { EntitlementGuard } from "../authorization/entitlement.guard.js";
@@ -70,6 +82,8 @@ export class DashboardController {
   constructor(
     // Explicit @Inject token because vitest doesn't emit decorator metadata.
     @Inject(DashboardFacade) private readonly dashboard: DashboardFacade,
+    @Inject(BoardEventHub) private readonly boardEvents: BoardEventHub,
+    @Inject(RepoAccessService) private readonly repoAccess: RepoAccessService,
   ) {}
 
   /** Live open PRs across the user's installed repos, with DB review status. */
@@ -139,5 +153,48 @@ export class DashboardController {
         showDrafts: parseBoolean(showDrafts),
       },
     );
+  }
+
+  /**
+   * Server-Sent Events stream for near-real-time board updates.
+   * Bypasses the JSON envelope interceptor by writing to the raw response.
+   */
+  @Get("stream")
+  async stream(@CurrentUser() user: AuthedUser, @Res() res: Response): Promise<void> {
+    const scope = await loadDashboardWorkspaceScope(user.id, user.login, (input) =>
+      this.repoAccess.filterReadableResolvedRepositories(input),
+    );
+    const repoIds = new Set((scope?.repositories ?? []).map((repo) => repo.id));
+
+    res.status(200);
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
+    res.flushHeaders?.();
+    res.write(`: connected\n\n`);
+
+    const heartbeat = setInterval(() => {
+      res.write(`: heartbeat\n\n`);
+    }, 20_000);
+
+    const unsubscribe = this.boardEvents.subscribe({
+      userId: user.id,
+      repoIds,
+      send: (event, eventId) => {
+        res.write(`id: ${eventId}\n`);
+        res.write(`event: ${event.type}\n`);
+        res.write(`data: ${JSON.stringify(event)}\n\n`);
+      },
+      close: () => {
+        clearInterval(heartbeat);
+        res.end();
+      },
+    });
+
+    res.on("close", () => {
+      clearInterval(heartbeat);
+      unsubscribe();
+    });
   }
 }

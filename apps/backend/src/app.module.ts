@@ -33,6 +33,7 @@ import { CoreExceptionFilter } from "./support/error/core-exception.filter.js";
     GitHubWebhookAdapter,
     InstallationSyncFacade,
     ReviewJobQueue,
+    // PullRequestIndexWriter is provided/exported by DashboardModule for webhook index upserts.
     {
       provide: APP_FILTER,
       useClass: CoreExceptionFilter,

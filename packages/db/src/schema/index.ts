@@ -7,6 +7,7 @@ export * from "./repositories.js";
 export * from "./users.js";
 export * from "./sessions.js";
 export * from "./pull-requests.js";
+export * from "./pull-request-index.js";
 export * from "./revisions.js";
 export * from "./chapters.js";
 export * from "./chapter-files.js";

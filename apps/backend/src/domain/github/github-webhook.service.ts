@@ -1,6 +1,7 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable, Optional } from "@nestjs/common";
 import { repositoriesRepo } from "@folio/db";
 import type { AccountType } from "@folio/types";
+import { PullRequestIndexWriter } from "../../application/dashboard/pull-request-index-writer.js";
 import { InstallationSyncFacade } from "../../application/github/installation-sync.facade.js";
 import { config } from "../../config.js";
 import { GitHubWebhookAdapter } from "../../infrastructure/github/github-webhook.adapter.js";
@@ -13,6 +14,18 @@ import type { GitHubWebhookCommand, GitHubWebhookResult } from "./github-webhook
 
 // pull_request actions that change the diff worth re-decomposing.
 const REVIEWABLE_PR_ACTIONS = new Set(["opened", "synchronize", "reopened", "ready_for_review"]);
+// Board index tracks meta changes even when decomposition is unnecessary.
+const INDEX_PR_ACTIONS = new Set([
+  "opened",
+  "synchronize",
+  "reopened",
+  "ready_for_review",
+  "converted_to_draft",
+  "edited",
+  "closed",
+  "labeled",
+  "unlabeled",
+]);
 // installation actions that (re)grant access and warrant a repository sync.
 const INSTALL_SYNC_ACTIONS = new Set(["created", "new_permissions_accepted", "unsuspend"]);
 const INSTALL_DISCONNECT_ACTIONS = new Set(["suspend", "deleted"]);
@@ -24,6 +37,9 @@ export class GitHubWebhookService {
     @Inject(ReviewJobQueue) private readonly reviewJobQueue: ReviewJobQueue,
     @Inject(InstallationSyncFacade) private readonly installationSync: InstallationSyncFacade,
     @Inject(LOGGER_PORT) private readonly logger: LoggerPort,
+    @Optional()
+    @Inject(PullRequestIndexWriter)
+    private readonly indexWriter?: PullRequestIndexWriter,
   ) {}
 
   async accept(command: GitHubWebhookCommand): Promise<GitHubWebhookResult> {
@@ -132,7 +148,7 @@ export class GitHubWebhookService {
         return;
       }
 
-      if (event.name === "pull_request" && REVIEWABLE_PR_ACTIONS.has(event.action)) {
+      if (event.name === "pull_request" && INDEX_PR_ACTIONS.has(event.action)) {
         const repository = event.payload.repository;
         if (!repository) {
           return;
@@ -145,12 +161,50 @@ export class GitHubWebhookService {
           });
           return;
         }
-        await this.reviewJobQueue.enqueueReviewPull({
-          owner: repository.owner.login,
-          repo: repository.name,
-          number: event.payload.pull_request.number,
-          headSha: event.payload.pull_request.head.sha,
-        });
+
+        // Index upsert is best-effort and must not block review enqueue.
+        try {
+          const repoRow = await repositoriesRepo.getByFullName(repository.full_name);
+          if (repoRow && this.indexWriter) {
+            await this.indexWriter.applyPull({
+              repoId: repoRow.id,
+              owner: repository.owner.login,
+              repo: repository.name,
+              pull: event.payload.pull_request as {
+                number: number;
+                title: string;
+                user?: { login?: string | null } | null;
+                head: { ref: string; sha?: string | null };
+                base: { ref: string };
+                draft?: boolean;
+                state?: string;
+                merged_at?: string | null;
+                closed_at?: string | null;
+                updated_at: string;
+                html_url?: string | null;
+                additions?: number | null;
+                deletions?: number | null;
+                changed_files?: number | null;
+                labels?: ({ name?: string; color?: string } | string)[] | null;
+              },
+            });
+          }
+        } catch (indexErr) {
+          this.logger.error("[folio] pull_request index upsert failed", indexErr, {
+            deliveryId,
+            repository: repository.full_name,
+            action: event.action,
+          });
+        }
+
+        if (REVIEWABLE_PR_ACTIONS.has(event.action)) {
+          await this.reviewJobQueue.enqueueReviewPull({
+            owner: repository.owner.login,
+            repo: repository.name,
+            number: event.payload.pull_request.number,
+            headSha: event.payload.pull_request.head.sha,
+          });
+        }
       }
     } catch (err) {
       this.logger.error("[folio] webhook side-effect failed", err, {

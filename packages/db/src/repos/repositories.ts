@@ -1,6 +1,12 @@
 import { and, eq, inArray, notInArray } from "drizzle-orm";
 import { type Db, getDb } from "../client.js";
-import { type RepositoryInsert, type RepositoryRow, repositories } from "../schema/repositories.js";
+import {
+  PR_INDEX_STATUS,
+  type PrIndexStatus,
+  type RepositoryInsert,
+  type RepositoryRow,
+  repositories,
+} from "../schema/repositories.js";
 import { installationsRepo } from "./installations.js";
 
 export interface RepositorySyncInput {
@@ -72,6 +78,13 @@ export const repositoriesRepo = {
       .where(
         and(eq(repositories.installationId, installationId), eq(repositories.folioEnabled, true)),
       );
+  },
+
+  async listFolioEnabledWithGithubAccess(db: Db = getDb()): Promise<RepositoryRow[]> {
+    return db
+      .select()
+      .from(repositories)
+      .where(and(eq(repositories.folioEnabled, true), eq(repositories.githubAccessActive, true)));
   },
 
   async listByInstallationIds(
@@ -178,7 +191,13 @@ export const repositoriesRepo = {
   async setFolioEnabled(id: string, enabled: boolean, db: Db = getDb()): Promise<RepositoryRow> {
     const [row] = await db
       .update(repositories)
-      .set({ folioEnabled: enabled, updatedAt: new Date() })
+      .set({
+        folioEnabled: enabled,
+        // Disabling clears index readiness; enabling waits for backfill job.
+        prIndexStatus: enabled ? PR_INDEX_STATUS.IDLE : PR_INDEX_STATUS.IDLE,
+        prIndexBackfilledAt: enabled ? undefined : null,
+        updatedAt: new Date(),
+      })
       .where(
         enabled
           ? and(eq(repositories.id, id), eq(repositories.githubAccessActive, true))
@@ -187,6 +206,27 @@ export const repositoriesRepo = {
       .returning();
     if (!row) {
       throw new Error("repositoriesRepo.setFolioEnabled: repository not found or ineligible");
+    }
+    return row;
+  },
+
+  async setPrIndexStatus(
+    id: string,
+    status: PrIndexStatus,
+    opts: { backfilledAt?: Date | null } = {},
+    db: Db = getDb(),
+  ): Promise<RepositoryRow> {
+    const [row] = await db
+      .update(repositories)
+      .set({
+        prIndexStatus: status,
+        prIndexBackfilledAt: opts.backfilledAt === undefined ? undefined : opts.backfilledAt,
+        updatedAt: new Date(),
+      })
+      .where(eq(repositories.id, id))
+      .returning();
+    if (!row) {
+      throw new Error("repositoriesRepo.setPrIndexStatus: repository not found");
     }
     return row;
   },
