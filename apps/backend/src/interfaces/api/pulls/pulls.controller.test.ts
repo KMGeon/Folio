@@ -29,6 +29,7 @@ const user: AuthedUser = {
 
 async function buildController(overrides: {
   enqueue?: ReturnType<typeof vi.fn>;
+  generationStatus?: ReturnType<typeof vi.fn>;
   getReview?: ReturnType<typeof vi.fn>;
   setChapterViewed?: ReturnType<typeof vi.fn>;
   setFileViewed?: ReturnType<typeof vi.fn>;
@@ -38,7 +39,13 @@ async function buildController(overrides: {
   const moduleRef = await Test.createTestingModule({
     controllers: [PullsController],
     providers: [
-      { provide: ReviewRequestFacade, useValue: { enqueue: overrides.enqueue ?? vi.fn() } },
+      {
+        provide: ReviewRequestFacade,
+        useValue: {
+          enqueue: overrides.enqueue ?? vi.fn(),
+          generationStatus: overrides.generationStatus ?? vi.fn(),
+        },
+      },
       { provide: ReviewReadFacade, useValue: { getReview: overrides.getReview ?? vi.fn() } },
       {
         provide: ReviewStateFacade,
@@ -71,6 +78,7 @@ async function buildController(overrides: {
 describe("PullsController", () => {
   it.each([
     ["createReview", "write", ENTITLEMENT_FEATURE.PR_ANALYSIS],
+    ["getGeneration", "read", ENTITLEMENT_FEATURE.REVIEW_READ],
     ["getReview", "read", ENTITLEMENT_FEATURE.REVIEW_READ],
     ["setChapterViewed", "read", ENTITLEMENT_FEATURE.REVIEW_STATE_MUTATION],
     ["setFileViewed", "read", ENTITLEMENT_FEATURE.REVIEW_STATE_MUTATION],
@@ -108,12 +116,29 @@ describe("PullsController", () => {
   });
 
   it("POST enqueues an asynchronous review", async () => {
-    const enqueue = vi.fn(async () => ({ jobId: "job-1", status: "pending" }));
+    const enqueue = vi.fn(async () => ({ jobId: "job-1", status: "pending", deduplicated: false }));
     const controller = await buildController({ enqueue });
 
     const result = await controller.createReview({ owner: "acme", repo: "widget", number: 7 });
     expect(enqueue).toHaveBeenCalledWith({ owner: "acme", repo: "widget", number: 7 });
     expect(result.jobId).toBe("job-1");
+  });
+
+  it("GET generation returns the current head-SHA lifecycle", async () => {
+    const generationStatus = vi.fn(async () => ({
+      jobId: "job-1",
+      status: "running",
+      deduplicated: true,
+      analysisStatus: "processing",
+      headSha: "abc",
+    }));
+    const controller = await buildController({ generationStatus });
+
+    await expect(controller.getGeneration("acme", "widget", "7")).resolves.toMatchObject({
+      analysisStatus: "processing",
+      deduplicated: true,
+    });
+    expect(generationStatus).toHaveBeenCalledWith({ owner: "acme", repo: "widget", number: 7 });
   });
 
   it("GET returns the review payload scoped to the current user", async () => {

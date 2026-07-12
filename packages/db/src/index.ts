@@ -22,6 +22,7 @@ export {
   enqueueJob,
   enqueueJobWithOutcome,
   getLatestJobsByDedupeKeys,
+  findActiveJobByDedupeKey,
   claimJob,
   renewJobLease,
   completeJob,

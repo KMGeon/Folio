@@ -1,4 +1,10 @@
-import { adminAuditRepo, adminJobsRepo, adminUsersRepo, adminWorkspacesRepo } from "@folio/db";
+import {
+  adminAuditRepo,
+  adminHealthRepo,
+  adminJobsRepo,
+  adminUsersRepo,
+  adminWorkspacesRepo,
+} from "@folio/db";
 import type { AdminOverviewPayload } from "@folio/types";
 import { Injectable } from "@nestjs/common";
 import { projectAdminAuditRow } from "./admin-audit.facade.js";
@@ -6,11 +12,12 @@ import { projectAdminAuditRow } from "./admin-audit.facade.js";
 @Injectable()
 export class AdminOverviewFacade {
   async get(): Promise<AdminOverviewPayload> {
-    const [pendingUsers, auditPage, workspaceCounts, queueCounts] = await Promise.all([
+    const [pendingUsers, auditPage, workspaceCounts, queueCounts, health] = await Promise.all([
       adminUsersRepo.countPending(),
       adminAuditRepo.list({ limit: 5 }),
       adminWorkspacesRepo.countOverview(),
       adminJobsRepo.countOverview(),
+      adminHealthRepo.getProjection(),
     ]);
 
     const attention = [] as AdminOverviewPayload["attention"];
@@ -25,6 +32,13 @@ export class AdminOverviewFacade {
     }
     if (queueCounts.distressedJobs > 0) {
       attention.push({ kind: "distressed_jobs", count: queueCounts.distressedJobs });
+    }
+    if (health.worker.status === "stale") {
+      attention.push({ kind: "worker_stale", count: Math.max(1, health.worker.workers.length) });
+    }
+    // unknown is noisy in empty dev DBs — only alert in prd.
+    if (health.worker.status === "unknown" && process.env.APP_PROFILE === "prd") {
+      attention.push({ kind: "worker_unknown", count: 1 });
     }
 
     return {

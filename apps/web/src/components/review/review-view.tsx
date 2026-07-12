@@ -43,6 +43,8 @@ import {
 import { cn } from "@/lib/utils";
 import type { Prologue } from "@folio/types";
 
+import { useKeyChangeJump } from "./use-key-change-jump";
+
 type ChapterPanelTab = "chapters" | "activity";
 
 export function ReviewView({
@@ -68,7 +70,7 @@ export function ReviewView({
   // null = the graph+cards overview; a number = that chapter's in-place diff review.
   const [openIndex, setOpenIndex] = useState<number | null>(initialChapterIndex ?? null);
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
-  const [fileQuery, setFileQuery] = useState("");
+  const [filesTabQuery, setFilesTabQuery] = useState("");
   const [diffViewMode, setDiffViewMode] = useState<DiffViewMode>("split");
   const [preferences, setPreferences] = useState<ReviewPreferences>(DEFAULT_REVIEW_PREFERENCES);
   const [collapsedFiles, setCollapsedFiles] = useState(() => viewedFileCollapseState(chapters));
@@ -104,7 +106,12 @@ export function ReviewView({
   const totalAdditions = files.reduce((sum, file) => sum + file.additions, 0);
   const totalDeletions = files.reduce((sum, file) => sum + file.deletions, 0);
 
-  const openChapter = openIndex === null ? null : reviewChapters.find((c) => c.index === openIndex);
+  const openChapter =
+    openIndex === null ? null : (reviewChapters.find((c) => c.index === openIndex) ?? null);
+  const { handleJumpToKeyChange, jumpNotice, jumpTarget } = useKeyChangeJump(
+    openChapter,
+    setCollapsedFiles,
+  );
   const openChapterPosition = openChapter
     ? reviewChapters.findIndex((chapter) => chapter.index === openChapter.index)
     : -1;
@@ -270,6 +277,7 @@ export function ReviewView({
               <DiffViewer
                 chapter={openChapter}
                 collapsedFiles={collapsedFiles}
+                jumpTarget={jumpTarget}
                 viewMode={diffViewMode}
                 onFileViewedChange={updateFileViewed}
                 onFileCollapseChange={updateFileCollapsed}
@@ -289,6 +297,8 @@ export function ReviewView({
                 number={pr.number}
                 showReviewFocus={preferences.showReviewFocus}
                 onKeyChangeViewedChange={updateKeyChangeViewed}
+                onJumpToKeyChange={handleJumpToKeyChange}
+                jumpNotice={jumpNotice}
               />
             </div>
           </div>
@@ -342,16 +352,17 @@ export function ReviewView({
                 <Search className="-translate-y-1/2 absolute top-1/2 left-2.5 size-3.5 text-muted-foreground" />
                 <input
                   type="text"
-                  value={fileQuery}
-                  onChange={(event) => setFileQuery(event.target.value)}
+                  value={filesTabQuery}
+                  onChange={(event) => setFilesTabQuery(event.target.value)}
                   placeholder="파일 필터링..."
-                  className="h-7 w-full rounded-md border bg-transparent pr-2 pl-8 text-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30"
+                  aria-label="파일 필터링"
+                  className="h-9 w-full rounded-md border bg-background/55 pr-2 pl-8 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30"
                 />
               </div>
             </div>
             <FileTree
               files={files}
-              query={fileQuery}
+              query={filesTabQuery}
               selectedPath={selectedFile?.path ?? ""}
               onSelect={setSelectedFilePath}
             />

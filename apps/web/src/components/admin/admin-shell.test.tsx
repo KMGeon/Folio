@@ -28,6 +28,7 @@ describe("AdminShell", () => {
     ).toBe(true);
     expect(linkLabels(container)).toEqual([
       "Overview",
+      "Health",
       "Users",
       "Workspaces",
       "Audit log",

@@ -14,6 +14,7 @@ import { PullRequestIndexBackfill } from "./application/dashboard/pull-request-i
 import { PullRequestIndexReconcile } from "./application/dashboard/pull-request-index-reconcile.js";
 import { PullRequestIndexWriter } from "./application/dashboard/pull-request-index-writer.js";
 import { ReviewPullFacade } from "./application/review/review-pull.facade.js";
+import { startWorkerHeartbeat } from "./application/worker/worker-heartbeat.js";
 import { applyPendingMigrations } from "./infrastructure/persistence/apply-pending-migrations.js";
 import { bootstrapGitHub } from "./internal/github/github-bootstrap.js";
 
@@ -107,6 +108,8 @@ async function loop(): Promise<void> {
   }
 
   console.log(`[folio] worker started (${WORKER_ID})`);
+  // Parallel to the claim loop so long jobs still refresh Admin Health liveness.
+  startWorkerHeartbeat(WORKER_ID);
   let nextReconcileAt = Date.now();
   for (;;) {
     await reclaimExpiredJobs();

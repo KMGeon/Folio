@@ -1,6 +1,13 @@
 "use client";
 
-import { Activity, ClipboardList, LayoutDashboard, Users, Workflow } from "lucide-react";
+import {
+  Activity,
+  ClipboardList,
+  HeartPulse,
+  LayoutDashboard,
+  Users,
+  Workflow,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -8,6 +15,7 @@ import { cn } from "@/lib/utils";
 
 const adminItems = [
   { href: "/admin/overview", label: "Overview", icon: LayoutDashboard },
+  { href: "/admin/health", label: "Health", icon: HeartPulse },
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/workspaces", label: "Workspaces", icon: Workflow },
   { href: "/admin/audit", label: "Audit log", icon: ClipboardList },

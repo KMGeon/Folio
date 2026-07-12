@@ -23,4 +23,16 @@ describe("DiffViewer source", () => {
     expect(filePanelSource).toContain("buildSplitDiffRows(props.lines)");
     expect(diffViewerSource).toContain("commentTargetForLine(activeLine.line)");
   });
+
+  it("accepts a jumpTarget prop for key-change navigation", () => {
+    expect(diffViewerSource).toContain("jumpTarget");
+    expect(diffViewerSource).toContain("diffLineElementId");
+    expect(diffViewerSource).toContain("scrollIntoView");
+  });
+
+  it("anchors and highlights jump target rows in the file diff panel", () => {
+    expect(filePanelSource).toContain("diffLineElementId");
+    expect(filePanelSource).toContain("bg-primary/20");
+    expect(filePanelSource).toContain("ring-1 ring-inset ring-primary/40");
+  });
 });

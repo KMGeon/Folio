@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const source = readFileSync(resolve(__dirname, "review-view.tsx"), "utf8");
+const keyChangeJumpSource = readFileSync(resolve(__dirname, "use-key-change-jump.ts"), "utf8");
 const chapterPanelSource = readFileSync(resolve(__dirname, "chapter-panel.tsx"), "utf8");
 const changedFileTreeSource = readFileSync(resolve(__dirname, "changed-file-tree.tsx"), "utf8");
 const chapterCardsSource = readFileSync(resolve(__dirname, "chapter-cards.tsx"), "utf8");
@@ -80,15 +81,6 @@ describe("ReviewView source", () => {
     expect(changedFileTreeSource).toContain("min-h-0 flex-1 overflow-y-auto p-3");
   });
 
-  it("wires a real files-tab filter into FileTree", () => {
-    expect(source).toContain('useState("")');
-    expect(source).toContain("fileQuery");
-    expect(source).toContain("setFileQuery");
-    expect(source).toContain("query={fileQuery}");
-    expect(source).toContain('placeholder="파일 필터링..."');
-    expect(source).not.toContain("Filter files...");
-  });
-
   it("uses shared RiskPill and Korean chapter CTA copy", () => {
     expect(chapterCardsSource).toContain('from "@/components/status-pill"');
     expect(chapterCardsSource).toContain("리뷰 시작");
@@ -116,5 +108,29 @@ describe("ReviewView source", () => {
     expect(chapterPanelSource).not.toContain('aria-label="다음 장"');
     expect(chapterPanelSource).not.toContain("nextChapter");
     expect(source).toContain('aria-label="다음 장"');
+  });
+
+  it("orchestrates key-change lineRef jumps from the chapter panel", () => {
+    expect(source).toContain("onJumpToKeyChange");
+    expect(source).toContain("jumpTarget");
+    expect(keyChangeJumpSource).toContain("selectFirstResolvableLineRef");
+    expect(keyChangeJumpSource).toContain("이 질문에 연결된 diff 줄이 없습니다.");
+    expect(keyChangeJumpSource).toContain("연결된 diff 줄을 찾지 못했습니다.");
+    expect(keyChangeJumpSource).toContain("JUMP_HIGHLIGHT_MS");
+  });
+
+  it("uses Approach A contrast for chapter summary and review questions", () => {
+    expect(chapterPanelSource).toContain("text-sm leading-6 text-foreground");
+    expect(chapterPanelSource).toContain("ListChecks");
+    expect(chapterPanelSource).toContain("font-semibold text-primary text-xs");
+    expect(chapterPanelSource).toContain("bg-card text-foreground");
+    expect(chapterPanelSource).not.toContain("bg-background/35");
+  });
+
+  it("filters the Files tab tree with a real input", () => {
+    expect(source).toContain("filesTabQuery");
+    expect(source).toContain('aria-label="파일 필터링"');
+    expect(source).toContain("query={filesTabQuery}");
+    expect(source).not.toContain("<span>Filter files...</span>");
   });
 });

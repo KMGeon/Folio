@@ -6,16 +6,18 @@ import { describe, expect, it } from "vitest";
 const adminRoot = resolve(__dirname);
 
 describe("admin routes", () => {
-  it("exposes the ready Phase 3 routes including Operations", () => {
+  it("exposes the ready admin routes including Health and Operations", () => {
     const shell = readFileSync(
       resolve(adminRoot, "../../components/admin/admin-shell.tsx"),
       "utf8",
     );
     expect(shell).toContain('href: "/admin/overview"');
+    expect(shell).toContain('href: "/admin/health"');
     expect(shell).toContain('href: "/admin/users"');
     expect(shell).toContain('href: "/admin/audit"');
     expect(shell).toContain('href: "/admin/operations"');
     expect(existsSync(resolve(adminRoot, "workspaces", "page.tsx"))).toBe(true);
+    expect(existsSync(resolve(adminRoot, "health", "page.tsx"))).toBe(true);
     expect(existsSync(resolve(adminRoot, "operations", "page.tsx"))).toBe(true);
     expect(existsSync(resolve(adminRoot, "operations", "jobs", "[jobId]", "page.tsx"))).toBe(true);
 

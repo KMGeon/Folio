@@ -14,5 +14,6 @@ export * from "./chapter-files.js";
 export * from "./review-state.js";
 export * from "./comments.js";
 export * from "./jobs.js";
+export * from "./worker-heartbeats.js";
 export * from "./subscriptions.js";
 export * from "./foliant.js";

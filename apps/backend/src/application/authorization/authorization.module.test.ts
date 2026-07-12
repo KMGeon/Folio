@@ -16,6 +16,7 @@ import { GlobalStatusGuard } from "../../interfaces/api/authorization/global-sta
 import { SystemAdminGuard } from "../../interfaces/api/authorization/system-admin.guard.js";
 import { WorkspaceRoleGuard } from "../../interfaces/api/authorization/workspace-role.guard.js";
 import { AdminAuditController } from "../../interfaces/api/admin/admin-audit.controller.js";
+import { AdminHealthController } from "../../interfaces/api/admin/admin-health.controller.js";
 import { AdminJobsController } from "../../interfaces/api/admin/admin-jobs.controller.js";
 import { AdminOverviewController } from "../../interfaces/api/admin/admin-overview.controller.js";
 import { AdminUsersController } from "../../interfaces/api/admin/admin-users.controller.js";
@@ -24,6 +25,7 @@ import { WorkspaceController } from "../../interfaces/api/workspaces/workspace.c
 import { AuthModule } from "../auth/auth.module.js";
 import { AuthorizationModule } from "./authorization.module.js";
 import { AdminAuditFacade } from "./admin-audit.facade.js";
+import { AdminHealthFacade } from "./admin-health.facade.js";
 import { AdminJobsFacade } from "./admin-jobs.facade.js";
 import { AdminOverviewFacade } from "./admin-overview.facade.js";
 import { AdminUsersFacade } from "./admin-users.facade.js";
@@ -40,6 +42,7 @@ const services = [
   AdminAuditFacade,
   AdminOverviewFacade,
   AdminJobsFacade,
+  AdminHealthFacade,
   WorkspaceMembersFacade,
   WorkspaceClaimFacade,
   EntitlementService,
@@ -70,6 +73,7 @@ describe("AuthorizationModule", () => {
         AdminAuditFacade,
         AdminOverviewFacade,
         AdminJobsFacade,
+        AdminHealthFacade,
         WorkspaceMembersFacade,
         WorkspaceClaimFacade,
         { provide: EntitlementService, useClass: AlwaysEntitledService },
@@ -85,6 +89,7 @@ describe("AuthorizationModule", () => {
         AdminAuditController,
         AdminOverviewController,
         AdminJobsController,
+        AdminHealthController,
       ]),
     );
     expect(controllers).toContain(WorkspaceController);
@@ -103,6 +108,7 @@ describe("AuthorizationModule", () => {
       AdminAuditFacade,
       AdminOverviewFacade,
       AdminJobsFacade,
+      AdminHealthFacade,
       WorkspaceMembersFacade,
       WorkspaceClaimFacade,
       ...guards,
@@ -113,6 +119,7 @@ describe("AuthorizationModule", () => {
     expect(moduleRef.get(AdminAuditController)).toBeInstanceOf(AdminAuditController);
     expect(moduleRef.get(AdminOverviewController)).toBeInstanceOf(AdminOverviewController);
     expect(moduleRef.get(AdminJobsController)).toBeInstanceOf(AdminJobsController);
+    expect(moduleRef.get(AdminHealthController)).toBeInstanceOf(AdminHealthController);
     expect(moduleRef.get(WorkspaceController)).toBeInstanceOf(WorkspaceController);
 
     await moduleRef.close();
