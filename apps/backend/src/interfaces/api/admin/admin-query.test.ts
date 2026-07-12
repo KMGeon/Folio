@@ -3,6 +3,7 @@ import { BadRequestException } from "@nestjs/common";
 import { describe, expect, it } from "vitest";
 import {
   parseAdminAuditQuery,
+  parseAdminJobsQuery,
   parseAdminUsersQuery,
   parseAdminWorkspacesQuery,
 } from "./admin-query.js";
@@ -48,6 +49,25 @@ describe("admin query parsing", () => {
     });
   });
 
+  it("parses job filters and exact UUID search", () => {
+    const id = "123e4567-e89b-42d3-a456-426614174000";
+    expect(
+      parseAdminJobsQuery({
+        q: id,
+        status: "failed",
+        kind: "review_pull",
+        distressed: "true",
+      }),
+    ).toEqual({
+      limit: 25,
+      status: "failed",
+      kind: "review_pull",
+      distressed: true,
+      jobId: id,
+    });
+    expect(parseAdminJobsQuery({ q: "not-a-uuid" })).toEqual({ limit: 25 });
+  });
+
   it.each([
     [parseAdminUsersQuery, { limit: 0 }],
     [parseAdminUsersQuery, { limit: 101 }],
@@ -59,6 +79,8 @@ describe("admin query parsing", () => {
     [parseAdminAuditQuery, { action: "unknown" }],
     [parseAdminAuditQuery, { workspaceId: "not-a-uuid" }],
     [parseAdminWorkspacesQuery, { installationState: "unknown" }],
+    [parseAdminJobsQuery, { status: "unknown" }],
+    [parseAdminJobsQuery, { kind: "unknown" }],
   ] as const)("turns invalid input into BadRequestException", (parse, value) => {
     expect(() => parse(value)).toThrow(BadRequestException);
   });

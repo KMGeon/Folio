@@ -1,4 +1,6 @@
 import {
+  AdminJobKindSchema,
+  AdminJobStatusSchema,
   AdminUserStatusFilterSchema,
   AdminWorkspaceInstallationStateSchema,
   AuditActionSchema,
@@ -32,9 +34,36 @@ const AdminWorkspacesQuerySchema = z.object({
   installationState: AdminWorkspaceInstallationStateSchema.optional(),
 });
 
+const AdminJobsQuerySchema = z
+  .object({
+    ...ListQueryFields,
+    status: AdminJobStatusSchema.optional(),
+    kind: AdminJobKindSchema.optional(),
+    distressed: z
+      .union([z.literal("true"), z.literal("false"), z.boolean()])
+      .optional()
+      .transform((value) => value === true || value === "true"),
+  })
+  .transform((value) => {
+    const jobId =
+      value.q &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.q)
+        ? value.q
+        : undefined;
+    return {
+      limit: value.limit,
+      cursor: value.cursor,
+      status: value.status,
+      kind: value.kind,
+      distressed: value.distressed || undefined,
+      jobId,
+    };
+  });
+
 export type AdminUsersQuery = z.infer<typeof AdminUsersQuerySchema>;
 export type AdminAuditQuery = z.infer<typeof AdminAuditQuerySchema>;
 export type AdminWorkspacesQuery = z.infer<typeof AdminWorkspacesQuerySchema>;
+export type AdminJobsQuery = z.infer<typeof AdminJobsQuerySchema>;
 
 export function parseAdminUsersQuery(value: unknown): AdminUsersQuery {
   return parseQuery(AdminUsersQuerySchema, value);
@@ -46,6 +75,10 @@ export function parseAdminAuditQuery(value: unknown): AdminAuditQuery {
 
 export function parseAdminWorkspacesQuery(value: unknown): AdminWorkspacesQuery {
   return parseQuery(AdminWorkspacesQuerySchema, value);
+}
+
+export function parseAdminJobsQuery(value: unknown): AdminJobsQuery {
+  return parseQuery(AdminJobsQuerySchema, value);
 }
 
 function parseQuery<TSchema extends z.ZodTypeAny>(

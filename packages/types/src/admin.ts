@@ -6,6 +6,7 @@ import {
   WorkspaceRoleSchema,
 } from "./authorization.js";
 import { IsoDateTimeSchema } from "./common.js";
+import { JOB_KIND, JOB_STATUS } from "./job.js";
 
 export const AdminUserStatusFilterSchema = z.enum(["all", "pending", "active", "suspended"]);
 export type AdminUserStatusFilter = z.infer<typeof AdminUserStatusFilterSchema>;
@@ -156,6 +157,75 @@ export const AdminWorkspaceDetailSchema = AdminWorkspaceItemSchema.extend({
 }).strict();
 export type AdminWorkspaceDetail = z.infer<typeof AdminWorkspaceDetailSchema>;
 
+export const AdminJobKindSchema = z.enum([
+  JOB_KIND.DECOMPOSE,
+  JOB_KIND.RE_CHAPTER,
+  JOB_KIND.SYNC_COMMENTS,
+  JOB_KIND.REVIEW_PULL,
+  JOB_KIND.PR_INDEX_BACKFILL,
+]);
+export type AdminJobKind = z.infer<typeof AdminJobKindSchema>;
+
+export const AdminJobStatusSchema = z.enum([
+  JOB_STATUS.PENDING,
+  JOB_STATUS.CLAIMED,
+  JOB_STATUS.RUNNING,
+  JOB_STATUS.SUCCEEDED,
+  JOB_STATUS.FAILED,
+  JOB_STATUS.DEAD,
+]);
+export type AdminJobStatus = z.infer<typeof AdminJobStatusSchema>;
+
+const AdminJobRepositorySchema = z
+  .object({
+    id: z.string().uuid().nullable(),
+    fullName: z.string().min(1),
+  })
+  .strict()
+  .nullable();
+
+// Safe queue projection only — never payload, result, dedupeKey, or raw lastError.
+export const AdminJobItemSchema = z
+  .object({
+    id: z.string().uuid(),
+    kind: AdminJobKindSchema,
+    status: AdminJobStatusSchema,
+    attempts: z.number().int().nonnegative(),
+    maxAttempts: z.number().int().positive(),
+    runAfter: IsoDateTimeSchema,
+    leaseExpiresAt: IsoDateTimeSchema.nullable(),
+    lockedBy: z.string().min(1).nullable(),
+    repository: AdminJobRepositorySchema,
+    errorSummary: z.string().min(1).max(200).nullable(),
+    isDistressed: z.boolean(),
+    createdAt: IsoDateTimeSchema,
+    updatedAt: IsoDateTimeSchema,
+  })
+  .strict();
+export type AdminJobItem = z.infer<typeof AdminJobItemSchema>;
+
+export const AdminJobPageSchema = z
+  .object({
+    items: z.array(AdminJobItemSchema),
+    nextCursor: z.string().min(1).nullable(),
+  })
+  .strict();
+export type AdminJobPage = z.infer<typeof AdminJobPageSchema>;
+
+export const AdminJobDetailSchema = AdminJobItemSchema;
+export type AdminJobDetail = z.infer<typeof AdminJobDetailSchema>;
+
+export const AdminQueueSnapshotSchema = z
+  .object({
+    pending: z.number().int().nonnegative(),
+    running: z.number().int().nonnegative(),
+    retrying: z.number().int().nonnegative(),
+    succeededLast24h: z.number().int().nonnegative(),
+    deadLast24h: z.number().int().nonnegative(),
+  })
+  .strict();
+export type AdminQueueSnapshot = z.infer<typeof AdminQueueSnapshotSchema>;
+
 export const AdminOverviewPayloadSchema = z
   .object({
     metrics: z
@@ -163,6 +233,7 @@ export const AdminOverviewPayloadSchema = z
         pendingUsers: z.number().int().nonnegative(),
         workspaces: z.number().int().nonnegative(),
         enabledRepositories: z.number().int().nonnegative(),
+        distressedJobs: z.number().int().nonnegative(),
       })
       .strict(),
     attention: z.array(
@@ -174,8 +245,15 @@ export const AdminOverviewPayloadSchema = z
             count: z.number().int().positive(),
           })
           .strict(),
+        z
+          .object({
+            kind: z.literal("distressed_jobs"),
+            count: z.number().int().positive(),
+          })
+          .strict(),
       ]),
     ),
+    queueSnapshot: AdminQueueSnapshotSchema,
     recentAudit: z.array(AdminAuditItemSchema).max(5),
   })
   .strict();

@@ -18,6 +18,14 @@ export {
   type AdminUserPageRow,
 } from "./admin-users.js";
 export {
+  adminJobsRepo,
+  type AdminJobCursor,
+  type AdminJobListInput,
+  type AdminJobSummary,
+  type AdminQueueCounts,
+} from "./admin-jobs.js";
+export { isAdminJobDistressed, summarizeAdminJobError } from "./admin-job-error-summary.js";
+export {
   adminWorkspacesRepo,
   type AdminWorkspaceCursor,
   type AdminWorkspaceDetailRow,

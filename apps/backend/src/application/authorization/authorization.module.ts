@@ -12,11 +12,13 @@ import { WorkspaceRoleGuard } from "../../interfaces/api/authorization/workspace
 import { AdminAuditController } from "../../interfaces/api/admin/admin-audit.controller.js";
 import { AdminOverviewController } from "../../interfaces/api/admin/admin-overview.controller.js";
 import { AdminUsersController } from "../../interfaces/api/admin/admin-users.controller.js";
+import { AdminJobsController } from "../../interfaces/api/admin/admin-jobs.controller.js";
 import { AdminWorkspacesController } from "../../interfaces/api/admin/admin-workspaces.controller.js";
 import { WorkspaceMembersController } from "../../interfaces/api/workspaces/workspace-members.controller.js";
 import { WorkspaceController } from "../../interfaces/api/workspaces/workspace.controller.js";
 import { AuthModule } from "../auth/auth.module.js";
 import { AdminAuditFacade } from "./admin-audit.facade.js";
+import { AdminJobsFacade } from "./admin-jobs.facade.js";
 import { AdminOverviewFacade } from "./admin-overview.facade.js";
 import { AdminUsersFacade } from "./admin-users.facade.js";
 import { AdminWorkspacesFacade } from "./admin-workspaces.facade.js";
@@ -36,6 +38,7 @@ import { WorkspaceClaimFacade } from "./workspace-claim.facade.js";
     AdminAuditFacade,
     AdminOverviewFacade,
     AdminWorkspacesFacade,
+    AdminJobsFacade,
     WorkspaceMembersFacade,
     WorkspaceClaimFacade,
     { provide: EntitlementService, useClass: AlwaysEntitledService },
@@ -51,6 +54,7 @@ import { WorkspaceClaimFacade } from "./workspace-claim.facade.js";
     AdminAuditController,
     AdminOverviewController,
     AdminWorkspacesController,
+    AdminJobsController,
   ],
   exports: [
     WorkspaceResolver,
@@ -60,6 +64,7 @@ import { WorkspaceClaimFacade } from "./workspace-claim.facade.js";
     AdminAuditFacade,
     AdminOverviewFacade,
     AdminWorkspacesFacade,
+    AdminJobsFacade,
     WorkspaceMembersFacade,
     WorkspaceClaimFacade,
     EntitlementService,

@@ -1,6 +1,6 @@
 "use client";
 
-import { ClipboardList, LayoutDashboard, Users, Workflow } from "lucide-react";
+import { Activity, ClipboardList, LayoutDashboard, Users, Workflow } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -11,6 +11,7 @@ const adminItems = [
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/workspaces", label: "Workspaces", icon: Workflow },
   { href: "/admin/audit", label: "Audit log", icon: ClipboardList },
+  { href: "/admin/operations", label: "Operations", icon: Activity },
 ];
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
