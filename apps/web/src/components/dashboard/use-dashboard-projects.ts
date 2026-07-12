@@ -33,6 +33,31 @@ export function appendDashboardProjectPullPage<T extends DashboardPull | Dashboa
   return [...existing, ...incoming.filter((pull) => !seen.has(pull.id))];
 }
 
+export function dashboardProjectsForReload(
+  repos: DashboardRepo[],
+  projects: DashboardProjectData[],
+  background: boolean,
+): DashboardProjectData[] {
+  const previous = new Map(projects.map((project) => [project.repo.id, project]));
+  return repos.map((repo) => {
+    const project = previous.get(repo.id);
+    if (!project) {
+      return emptyDashboardProjectData(repo);
+    }
+    return {
+      ...project,
+      repo,
+      // Polling must not exchange an actionable card for a skeleton between responses.
+      isLoading: !background,
+      error: null,
+    };
+  });
+}
+
+type DashboardProjectReloadOptions = {
+  soft?: boolean;
+};
+
 export function useDashboardProjects(options: DashboardProjectLoadOptions) {
   const { q, ordering, direction, closedRange, showDrafts } = options;
   const [repos, setRepos] = useState<DashboardRepo[]>([]);
@@ -44,6 +69,7 @@ export function useDashboardProjects(options: DashboardProjectLoadOptions) {
   const loadVersion = useRef(0);
   const completedLoadsInFlight = useRef(new Set<string>());
   const projectsRef = useRef(projects);
+  const backgroundRefreshRef = useRef(false);
 
   useEffect(() => {
     projectsRef.current = projects;
@@ -82,15 +108,10 @@ export function useDashboardProjects(options: DashboardProjectLoadOptions) {
       return;
     }
     const version = ++loadVersion.current;
+    const background = backgroundRefreshRef.current;
+    backgroundRefreshRef.current = false;
     const previous = new Map(projectsRef.current.map((project) => [project.repo.id, project]));
-    setProjects(
-      repos.map((repo) => ({
-        ...(previous.get(repo.id) ?? emptyDashboardProjectData(repo)),
-        repo,
-        isLoading: true,
-        error: null,
-      })),
-    );
+    setProjects(dashboardProjectsForReload(repos, projectsRef.current, background));
 
     void Promise.all(
       repos.map(async (repo) => {
@@ -119,7 +140,10 @@ export function useDashboardProjects(options: DashboardProjectLoadOptions) {
     });
   }, [closedRange, direction, ordering, q, showDrafts, refreshVersion, repos]);
 
-  const reload = useCallback(() => setRefreshVersion((version) => version + 1), []);
+  const reload = useCallback((options: DashboardProjectReloadOptions = {}) => {
+    backgroundRefreshRef.current = options.soft === true;
+    setRefreshVersion((version) => version + 1);
+  }, []);
   const loadMoreCompleted = useCallback(
     async (repoId: string) => {
       if (completedLoadsInFlight.current.has(repoId)) {

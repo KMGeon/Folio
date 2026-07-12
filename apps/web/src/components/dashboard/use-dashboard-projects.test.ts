@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
+import type { DashboardProjectData } from "./dashboard-project-desk-model";
 import {
   appendDashboardProjectPullPage,
+  dashboardProjectsForReload,
   selectEnabledDashboardRepos,
 } from "./use-dashboard-projects";
 
@@ -33,6 +35,36 @@ describe("selectEnabledDashboardRepos", () => {
     ]);
 
     expect(next.map((pull) => pull.id)).toEqual(["pull-1", "pull-2", "pull-3"]);
+  });
+});
+
+describe("dashboardProjectsForReload", () => {
+  it("keeps an already loaded project visible during a background refresh", () => {
+    const repo = {
+      id: "repo-folio",
+      fullName: "KMGeon/Folio",
+      folioEnabled: true,
+      openPrCount: 1,
+    };
+    const project: DashboardProjectData = {
+      repo,
+      pages: {
+        ready: { items: [], count: 0, nextCursor: null },
+        yours: { items: [], count: 0, nextCursor: null },
+        other: {
+          items: [{ id: "pr-141", title: "Install app", analysisStatus: "processing" }] as never,
+          count: 1,
+          nextCursor: null,
+        },
+        completed: { items: [], count: 0, nextCursor: null },
+      },
+      isLoading: false,
+      error: null,
+    };
+
+    expect(dashboardProjectsForReload([repo], [project], true)).toEqual([
+      { ...project, repo, isLoading: false, error: null },
+    ]);
   });
 });
 

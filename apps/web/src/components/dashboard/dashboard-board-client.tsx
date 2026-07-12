@@ -262,7 +262,7 @@ export function DashboardBoardClient({ user }: { user: { login: string; avatarUr
       requestEpochsRef,
       loadOpenBuckets,
       setColumns,
-      onRefresh: reloadProjects,
+      onRefresh: () => reloadProjects({ soft: true }),
     });
   }, [loadOpenBuckets, reloadProjects]);
 
@@ -304,7 +304,7 @@ export function DashboardBoardClient({ user }: { user: { login: string; avatarUr
       // Quiet poll while review jobs run — keep cards visible.
       void loadOpenBuckets(openEpoch, { soft: true });
       void loadBucket("completed", "reset", completedEpoch, { soft: true });
-      reloadProjects();
+      reloadProjects({ soft: true });
     }, 3000);
     return () => window.clearInterval(interval);
   }, [hasActiveReviews, loadBucket, loadOpenBuckets, reloadProjects]);
@@ -326,7 +326,7 @@ export function DashboardBoardClient({ user }: { user: { login: string; avatarUr
         loadOpenBuckets(openEpoch),
         loadBucket("completed", "reset", completedEpoch),
       ]);
-      reloadProjects();
+      reloadProjects({ soft: true });
     },
     [loadBucket, loadOpenBuckets, reloadProjects],
   );
