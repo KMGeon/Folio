@@ -46,6 +46,7 @@ const baseContext: WorkspaceContext = {
   globalStatus: "active",
   isSystemAdmin: false,
   entitlements: ["review_read", "repo_activation"],
+  onboardingState: "ready",
 };
 const restrictedContexts: [WorkspaceContext, string][] = [
   [{ ...baseContext, memberStatus: "suspended" }, "활성 워크스페이스 멤버만 변경할 수 있습니다."],
