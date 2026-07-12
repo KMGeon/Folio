@@ -77,11 +77,27 @@ export function AdminAuditClient({
       <AuditFilters filters={formFilters} />
 
       {items.length ? (
-        <ul aria-label="감사 로그" className="divide-y divide-border rounded-lg border bg-card">
-          {items.map((item) => (
-            <AuditRow key={item.id} item={item} />
-          ))}
-        </ul>
+        <div className="overflow-x-auto rounded-lg border bg-card">
+          <table aria-label="감사 로그" className="w-full min-w-[52rem] text-left text-xs">
+            <thead className="border-b bg-muted/30 text-muted-foreground">
+              <tr>
+                <th className="w-10 px-3 py-2" scope="col">
+                  <span className="sr-only">세부 정보</span>
+                </th>
+                <th className="px-3 py-2 font-medium">행위자</th>
+                <th className="px-3 py-2 font-medium">작업</th>
+                <th className="px-3 py-2 font-medium">대상</th>
+                <th className="px-3 py-2 font-medium">범위</th>
+                <th className="px-3 py-2 text-right font-medium">시각</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {items.map((item) => (
+                <AuditRow key={item.id} item={item} />
+              ))}
+            </tbody>
+          </table>
+        </div>
       ) : (
         <div className="rounded-lg border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
           감사 로그가 없습니다
@@ -189,38 +205,46 @@ function FilterInput({
 function AuditRow({ item }: { item: AdminAuditItem }) {
   const [expanded, setExpanded] = useState(false);
   return (
-    <li data-audit-row className="px-3 py-2.5">
-      <div className="flex items-start gap-3">
-        <button
-          type="button"
-          aria-expanded={expanded}
-          className="mt-0.5 inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          onClick={() => setExpanded((current) => !current)}
-        >
-          {expanded ? <ChevronDown aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}
-          <span className="sr-only">세부 정보</span>
-        </button>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-            <span className="font-medium text-foreground">{item.actor.login}</span>
-            <span className="font-mono text-primary">{item.action}</span>
-            <span className="truncate text-foreground">{item.target.label}</span>
-            <span className="text-muted-foreground">{item.target.type}</span>
-          </div>
-          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-            <span>{item.workspace?.accountLogin ?? "전역"}</span>
-            <time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString()}</time>
-          </div>
-        </div>
-      </div>
-      {expanded ? <AuditSnapshots item={item} /> : null}
-    </li>
+    <>
+      <tr data-audit-row className="transition-colors hover:bg-muted/30">
+        <td className="px-3 py-2">
+          <button
+            type="button"
+            aria-expanded={expanded}
+            className="mt-0.5 inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            onClick={() => setExpanded((current) => !current)}
+          >
+            {expanded ? <ChevronDown aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}
+            <span className="sr-only">세부 정보</span>
+          </button>
+        </td>
+        <td className="px-3 py-2 font-medium text-foreground">{item.actor.login}</td>
+        <td className="px-3 py-2 font-mono text-primary">{item.action}</td>
+        <td className="max-w-56 truncate px-3 py-2 text-foreground">
+          {item.target.label}
+          <span className="ml-2 text-muted-foreground">{item.target.type}</span>
+        </td>
+        <td className="px-3 py-2 text-muted-foreground">
+          {item.workspace?.accountLogin ?? "전역"}
+        </td>
+        <td className="whitespace-nowrap px-3 py-2 text-right text-muted-foreground">
+          <time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString()}</time>
+        </td>
+      </tr>
+      {expanded ? (
+        <tr className="bg-muted/20">
+          <td colSpan={6} className="px-3 py-2">
+            <AuditSnapshots item={item} />
+          </td>
+        </tr>
+      ) : null}
+    </>
   );
 }
 
 function AuditSnapshots({ item }: { item: AdminAuditItem }) {
   return (
-    <div className="mt-2 grid gap-2 pl-9 md:grid-cols-2">
+    <div className="grid gap-2 md:grid-cols-2">
       <Snapshot label="Before" value={item.before} />
       <Snapshot label="After" value={item.after} />
     </div>

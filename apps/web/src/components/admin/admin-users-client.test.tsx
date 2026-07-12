@@ -177,7 +177,9 @@ describe("AdminUsersClient", () => {
     await click(button(container, "더 보기"));
 
     expect(
-      [...container.querySelectorAll("li")].filter((item) => item.textContent?.includes("active")),
+      [...container.querySelectorAll("tbody tr")].filter((item) =>
+        item.textContent?.includes("active"),
+      ),
     ).toHaveLength(1);
     expect(container.textContent).toContain("next");
   });
@@ -272,8 +274,8 @@ function user(
   };
 }
 
-function row(container: ParentNode, login: string): HTMLLIElement {
-  const match = [...container.querySelectorAll<HTMLLIElement>("li")].find((item) =>
+function row(container: ParentNode, login: string): HTMLTableRowElement {
+  const match = [...container.querySelectorAll<HTMLTableRowElement>("tbody tr")].find((item) =>
     item.textContent?.includes(login),
   );
   if (!match) {

@@ -1,9 +1,13 @@
 import type { AdminUserStatusFilter } from "@folio/types";
 
+import {
+  AdminAnalyticsPanel,
+  AdminAnalyticsRange,
+} from "@/components/admin/analytics/admin-analytics-panel";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { AdminUsersClient } from "@/components/admin/admin-users-client";
 import { Button } from "@/components/ui/button";
-import { fetchAdminUsers } from "@/lib/admin-api";
+import { fetchAdminAnalytics, fetchAdminUsers } from "@/lib/admin-api";
 import { getAdminServerAccess, readAdminServerData } from "../admin-server-access";
 
 const STATUS_FILTERS: { value: AdminUserStatusFilter; label: string }[] = [
@@ -16,22 +20,35 @@ const STATUS_FILTERS: { value: AdminUserStatusFilter; label: string }[] = [
 export default async function AdminUsersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string | string[]; status?: string | string[] }>;
+  searchParams: Promise<{
+    q?: string | string[];
+    status?: string | string[];
+    range?: string | string[];
+  }>;
 }) {
   const raw = await searchParams;
   const q = singleValue(raw.q)?.trim() || undefined;
   const status = statusFilter(singleValue(raw.status));
+  const range = singleValue(raw.range) === "30d" ? "30d" : "7d";
   const access = await getAdminServerAccess();
-  const initialPage = await readAdminServerData(access, (cookie) =>
-    fetchAdminUsers({ q, status, limit: 25, cookie }),
-  );
+  const [initialPage, analytics] = await Promise.all([
+    readAdminServerData(access, (cookie) => fetchAdminUsers({ q, status, limit: 25, cookie })),
+    readAdminServerData(access, (cookie) => fetchAdminAnalytics({ range, cookie })),
+  ]);
 
   return (
     <section className="mx-auto max-w-5xl">
       <AdminPageHeader
         title="Users"
         description="전역 사용자 상태와 시스템 관리자 권한을 관리합니다."
+        actions={
+          <AdminAnalyticsRange range={range} pathname="/admin/users" query={{ q, status }} />
+        }
       />
+
+      <div className="mb-3">
+        <AdminAnalyticsPanel analytics={analytics} section="users" />
+      </div>
 
       <form
         method="GET"

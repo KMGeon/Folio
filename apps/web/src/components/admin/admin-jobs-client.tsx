@@ -53,11 +53,24 @@ export function AdminJobsClient({
 
   return (
     <div className="space-y-3">
-      <ul aria-label="작업 목록" className="divide-y divide-border rounded-lg border bg-card">
-        {items.map((job) => (
-          <JobRow key={job.id} job={job} />
-        ))}
-      </ul>
+      <div className="overflow-x-auto rounded-lg border bg-card">
+        <table aria-label="작업 목록" className="w-full min-w-[45rem] text-left text-xs">
+          <thead className="border-b bg-muted/30 text-muted-foreground">
+            <tr>
+              <th className="px-3 py-2 font-medium">작업</th>
+              <th className="px-3 py-2 font-medium">상태</th>
+              <th className="px-3 py-2 font-medium">저장소</th>
+              <th className="px-3 py-2 text-right font-medium">시도</th>
+              <th className="px-3 py-2 text-right font-medium">업데이트</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {items.map((job) => (
+              <JobRow key={job.id} job={job} />
+            ))}
+          </tbody>
+        </table>
+      </div>
       {error ? (
         <p role="alert" className="text-xs text-destructive">
           {error}
@@ -74,26 +87,33 @@ export function AdminJobsClient({
 
 function JobRow({ job }: { job: AdminJobItem }) {
   return (
-    <li className="flex min-h-14 items-center gap-3 px-3 py-2">
-      <div className="min-w-0 flex-1">
+    <tr className="transition-colors hover:bg-muted/30">
+      <td className="min-w-0 px-3 py-2">
         <Link
           href={`/admin/operations/jobs/${job.id}`}
           className="font-mono text-sm font-medium text-foreground hover:text-primary"
         >
           {job.kind}
         </Link>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          {job.status}
-          {job.isDistressed ? " · distressed" : ""}
-          {" · "}
-          시도 {job.attempts}/{job.maxAttempts}
-          {job.repository ? ` · ${job.repository.fullName}` : ""}
-        </p>
-      </div>
-      <time className="shrink-0 text-xs text-muted-foreground" dateTime={job.updatedAt}>
-        {new Date(job.updatedAt).toLocaleString()}
-      </time>
-    </li>
+      </td>
+      <td
+        className={
+          job.isDistressed ? "px-3 py-2 text-destructive" : "px-3 py-2 text-muted-foreground"
+        }
+      >
+        {job.status}
+        {job.isDistressed ? " · distressed" : ""}
+      </td>
+      <td className="max-w-56 truncate px-3 py-2 text-muted-foreground">
+        {job.repository?.fullName ?? "—"}
+      </td>
+      <td className="px-3 py-2 text-right font-mono text-foreground">
+        {job.attempts}/{job.maxAttempts}
+      </td>
+      <td className="whitespace-nowrap px-3 py-2 text-right text-muted-foreground">
+        <time dateTime={job.updatedAt}>{new Date(job.updatedAt).toLocaleString()}</time>
+      </td>
+    </tr>
   );
 }
 

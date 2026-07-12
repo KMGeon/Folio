@@ -1,8 +1,12 @@
 import type { AdminJobKind, AdminJobStatus } from "@folio/types";
+import {
+  AdminAnalyticsPanel,
+  AdminAnalyticsRange,
+} from "@/components/admin/analytics/admin-analytics-panel";
 import { AdminJobsClient } from "@/components/admin/admin-jobs-client";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { Button } from "@/components/ui/button";
-import { fetchAdminJobs } from "@/lib/admin-api";
+import { fetchAdminAnalytics, fetchAdminJobs } from "@/lib/admin-api";
 import { getAdminServerAccess, readAdminServerData } from "../admin-server-access";
 
 const STATUSES: { value: "" | AdminJobStatus; label: string }[] = [
@@ -32,6 +36,7 @@ export default async function AdminOperationsPage({
     status?: string | string[];
     kind?: string | string[];
     distressed?: string | string[];
+    range?: string | string[];
   }>;
 }) {
   const params = await searchParams;
@@ -39,17 +44,31 @@ export default async function AdminOperationsPage({
   const status = asStatus(single(params.status));
   const kind = asKind(single(params.kind));
   const distressed = single(params.distressed) === "true" ? true : undefined;
+  const range = single(params.range) === "30d" ? "30d" : "7d";
   const access = await getAdminServerAccess();
-  const initialPage = await readAdminServerData(access, (cookie) =>
-    fetchAdminJobs({ q, status, kind, distressed, limit: 25, cookie }),
-  );
+  const [initialPage, analytics] = await Promise.all([
+    readAdminServerData(access, (cookie) =>
+      fetchAdminJobs({ q, status, kind, distressed, limit: 25, cookie }),
+    ),
+    readAdminServerData(access, (cookie) => fetchAdminAnalytics({ range, cookie })),
+  ]);
 
   return (
     <section className="mx-auto max-w-5xl">
       <AdminPageHeader
         title="Operations"
         description="큐 작업 상태를 읽기 전용으로 관찰합니다. 재시도·취소·워커 제어는 제공하지 않습니다."
+        actions={
+          <AdminAnalyticsRange
+            range={range}
+            pathname="/admin/operations"
+            query={{ q, status, kind, distressed: distressed ? "true" : undefined }}
+          />
+        }
       />
+      <div className="mb-3">
+        <AdminAnalyticsPanel analytics={analytics} section="operations" />
+      </div>
       <form method="GET" className="mb-3 flex flex-wrap gap-2 rounded-lg border bg-card p-2">
         <input
           type="search"

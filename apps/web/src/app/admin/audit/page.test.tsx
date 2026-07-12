@@ -7,7 +7,10 @@ import {
   type AdminAuditRequestFilters,
 } from "@/components/admin/admin-audit-client";
 
-const { fetchAdminAudit } = vi.hoisted(() => ({ fetchAdminAudit: vi.fn() }));
+const { fetchAdminAnalytics, fetchAdminAudit } = vi.hoisted(() => ({
+  fetchAdminAnalytics: vi.fn(),
+  fetchAdminAudit: vi.fn(),
+}));
 
 vi.mock("next/headers", () => ({
   cookies: async () => ({
@@ -16,7 +19,7 @@ vi.mock("next/headers", () => ({
   headers: async () => ({ get: () => "/admin/audit" }),
 }));
 
-vi.mock("@/lib/admin-api", () => ({ fetchAdminAudit }));
+vi.mock("@/lib/admin-api", () => ({ fetchAdminAnalytics, fetchAdminAudit }));
 
 import AdminAuditPage from "./page";
 
@@ -24,11 +27,13 @@ Object.assign(globalThis, { React });
 
 afterEach(() => {
   fetchAdminAudit.mockReset();
+  fetchAdminAnalytics.mockReset();
 });
 
 describe("AdminAuditPage date filters", () => {
   it("normalizes date-only filters at the API boundary while preserving form values", async () => {
     fetchAdminAudit.mockResolvedValue({ items: [], nextCursor: null });
+    fetchAdminAnalytics.mockResolvedValue(analytics());
 
     const page = await AdminAuditPage({
       searchParams: Promise.resolve({
@@ -80,6 +85,7 @@ describe("AdminAuditPage date filters", () => {
     ["2026-07-01T00:00:00Z", "not-a-date"],
   ])("omits absent or invalid date filters safely", async (from, to) => {
     fetchAdminAudit.mockResolvedValue({ items: [], nextCursor: null });
+    fetchAdminAnalytics.mockResolvedValue(analytics());
 
     await AdminAuditPage({
       searchParams: Promise.resolve({ q: "audit", action: "user_approve", from, to }),
@@ -122,4 +128,12 @@ function findAuditClient(node: ReactNode): ReactElement<{
     }>;
   }
   return findAuditClient((node.props as { children?: ReactNode }).children);
+}
+
+function analytics() {
+  return {
+    range: "7d",
+    days: [],
+    distributions: { jobs: [], users: [], installations: [], audit: [], jobKinds: [] },
+  };
 }

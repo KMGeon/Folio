@@ -52,14 +52,24 @@ export function AdminWorkspacesClient({
   }
   return (
     <div className="space-y-3">
-      <ul
-        aria-label="워크스페이스 목록"
-        className="divide-y divide-border rounded-lg border bg-card"
-      >
-        {items.map((workspace) => (
-          <WorkspaceRow key={workspace.id} workspace={workspace} />
-        ))}
-      </ul>
+      <div className="overflow-x-auto rounded-lg border bg-card">
+        <table aria-label="워크스페이스 목록" className="w-full min-w-[48rem] text-left text-xs">
+          <thead className="border-b bg-muted/30 text-muted-foreground">
+            <tr>
+              <th className="px-3 py-2 font-medium">워크스페이스</th>
+              <th className="px-3 py-2 text-right font-medium">구성원</th>
+              <th className="px-3 py-2 text-right font-medium">저장소</th>
+              <th className="px-3 py-2 font-medium">설치 상태</th>
+              <th className="px-3 py-2 text-right font-medium">최근 활동</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {items.map((workspace) => (
+              <WorkspaceRow key={workspace.id} workspace={workspace} />
+            ))}
+          </tbody>
+        </table>
+      </div>
       {error ? (
         <p role="alert" className="text-xs text-destructive">
           {error}
@@ -76,28 +86,30 @@ export function AdminWorkspacesClient({
 
 function WorkspaceRow({ workspace }: { workspace: AdminWorkspaceItem }) {
   return (
-    <li className="flex min-h-14 items-center gap-3 px-3 py-2">
-      <div className="min-w-0 flex-1">
+    <tr className="transition-colors hover:bg-muted/30">
+      <td className="min-w-0 px-3 py-2">
         <Link
           href={`/admin/workspaces/${workspace.id}`}
           className="text-sm font-medium text-foreground hover:text-primary"
         >
           {workspace.accountLogin}
         </Link>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          구성원 {workspace.memberCount} · 저장소 {workspace.enabledRepositoryCount}/
-          {workspace.repositoryCount} · 설치 {workspace.installationState}
-        </p>
-      </div>
-      <time
-        className="shrink-0 text-xs text-muted-foreground"
-        dateTime={workspace.recentActivityAt ?? workspace.createdAt}
-      >
-        {workspace.recentActivityAt
-          ? new Date(workspace.recentActivityAt).toLocaleString()
-          : "활동 없음"}
-      </time>
-    </li>
+      </td>
+      <td className="px-3 py-2 text-right font-mono text-foreground">{workspace.memberCount}</td>
+      <td className="px-3 py-2 text-right font-mono text-foreground">
+        {workspace.enabledRepositoryCount}/{workspace.repositoryCount}
+      </td>
+      <td className="px-3 py-2 text-muted-foreground">{workspace.installationState}</td>
+      <td className="whitespace-nowrap px-3 py-2 text-right text-muted-foreground">
+        {workspace.recentActivityAt ? (
+          <time dateTime={workspace.recentActivityAt}>
+            {new Date(workspace.recentActivityAt).toLocaleString()}
+          </time>
+        ) : (
+          "활동 없음"
+        )}
+      </td>
+    </tr>
   );
 }
 
