@@ -110,4 +110,19 @@ describe("ReviewView source", () => {
     expect(keyChangeJumpSource).toContain("연결된 diff 줄을 찾지 못했습니다.");
     expect(keyChangeJumpSource).toContain("JUMP_HIGHLIGHT_MS");
   });
+
+  it("uses Approach A contrast for chapter summary and review questions", () => {
+    expect(chapterPanelSource).toContain("text-sm leading-6 text-foreground");
+    expect(chapterPanelSource).toContain("ListChecks");
+    expect(chapterPanelSource).toContain("font-semibold text-primary text-xs");
+    expect(chapterPanelSource).toContain("bg-card text-foreground");
+    expect(chapterPanelSource).not.toContain("bg-background/35");
+  });
+
+  it("filters the Files tab tree with a real input", () => {
+    expect(source).toContain("filesTabQuery");
+    expect(source).toContain('aria-label="파일 필터링"');
+    expect(source).toContain("query={filesTabQuery}");
+    expect(source).not.toContain("<span>Filter files...</span>");
+  });
 });

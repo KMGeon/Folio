@@ -110,6 +110,33 @@ describe("ChapterPanel key-change controls", () => {
     expect(container.textContent).toContain("검토할 사항");
     expect(container.textContent).toContain("연결된 diff 줄을 찾지 못했습니다.");
   });
+
+  it("renders summary and open questions with Approach A contrast classes", async () => {
+    const container = await mount(
+      <ChapterPanel
+        chapters={[chapter]}
+        activeIndex={1}
+        prPath="/o/r/pull/1"
+        org="o"
+        repo="r"
+        number={1}
+      />,
+    );
+
+    const summary = [...container.querySelectorAll("p")].find(
+      (node) => node.textContent === "요약",
+    );
+    expect(summary?.className).toContain("text-foreground");
+    expect(summary?.className).not.toContain("text-muted-foreground");
+
+    const heading = [...container.querySelectorAll("h3")].find((node) =>
+      node.textContent?.includes("검토할 사항"),
+    );
+    expect(heading?.className).toContain("text-primary");
+
+    const openRow = container.querySelector(".bg-card");
+    expect(openRow).toBeTruthy();
+  });
 });
 
 async function mount(element: React.ReactNode): Promise<HTMLDivElement> {

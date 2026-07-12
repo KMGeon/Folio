@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, CheckCircle2, Search } from "lucide-react";
+import { Check, CheckCircle2, ListChecks, Search } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -80,12 +80,14 @@ export function ChapterPanel({
           <span className="font-mono text-xs text-diff-add-fg">+ {additions}</span>
         </div>
 
-        <p className="mt-3 text-sm leading-5 text-muted-foreground">{chapter.summary}</p>
+        {/* Approach A: summary is primary reading surface — use foreground, not muted. */}
+        <p className="mt-3 text-sm leading-6 text-foreground">{chapter.summary}</p>
       </div>
 
       {showReviewFocus ? (
         <div className="border-t px-3 py-3">
-          <h3 className="font-mono text-[0.7rem] uppercase tracking-[0.16em] text-muted-foreground">
+          <h3 className="flex items-center gap-1.5 font-semibold text-primary text-xs">
+            <ListChecks className="size-3.5 shrink-0 text-primary" aria-hidden />
             검토할 사항
           </h3>
           {jumpNotice ? (
@@ -102,7 +104,7 @@ export function ChapterPanel({
                     "flex w-full items-start gap-2.5 rounded-md border px-3 py-2.5 text-sm leading-5",
                     item.viewed
                       ? "border-primary/25 bg-primary/10 text-muted-foreground"
-                      : "border-border bg-background/35",
+                      : "border-border bg-card text-foreground",
                   )}
                 >
                   <button
@@ -131,7 +133,9 @@ export function ChapterPanel({
                     }}
                     className={cn(
                       "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded border",
-                      item.viewed && "border-primary bg-primary text-primary-foreground",
+                      item.viewed
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-foreground/30",
                     )}
                   >
                     {item.viewed ? <Check className="size-3" /> : null}
