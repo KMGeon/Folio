@@ -4,8 +4,6 @@ import { describe, expect, it } from "vitest";
 
 import type { Prologue } from "@folio/types";
 
-import type { ReviewChapter } from "@/lib/review-api";
-
 import { ReviewPrologue } from "./review-prologue.js";
 
 globalThis.React = React;
@@ -42,61 +40,30 @@ const prologue: Prologue = {
   complexity: { level: "medium", reasoning: "API와 브라우저 렌더링이 함께 바뀝니다." },
 };
 
-const chapter: ReviewChapter = {
-  index: 1,
-  title: "앵커 행으로 점프 강조",
-  summary: "키 변경으로 연결된 줄만 강조합니다.",
-  files: [],
-  diffLines: [],
-  keyChanges: [
-    {
-      id: "anchor-row",
-      content: "점프 강조를 앵커 행으로 제한",
-      lineRefs: [],
-      viewed: false,
-    },
-  ],
-  viewed: false,
-};
-
 describe("ReviewPrologue", () => {
-  it("renders the paired summary and review table first", () => {
+  it("renders the prior independent summary card first", () => {
     const markup = renderToStaticMarkup(
-      <ReviewPrologue
-        pr={pr}
-        prologue={prologue}
-        comments={[]}
-        chapters={[chapter]}
-        onSelectChapter={() => {}}
-      />,
+      <ReviewPrologue pr={pr} prologue={prologue} comments={[]} />,
     );
 
     expect(markup).toContain("요약");
     expect(markup).toContain("설명");
     expect(markup).toContain("댓글 0");
-    expect(markup).toContain("변경 요약");
-    expect(markup).toContain("리뷰");
-    expect(markup).toContain("점프 강조를 앵커 행으로 제한");
     expect(markup).toContain("한눈에 보기");
     expect(markup).toContain(prologue.plainSummary);
     expect(markup).toContain("왜 이 PR인가?");
+    expect(markup).toContain("무엇을 하는가");
     expect(markup).toContain("핵심 변경");
     expect(markup).toContain("리뷰 포커스");
     expect(markup).toContain(prologue.motivation);
+    expect(markup).toContain("space-y-4 rounded-lg border bg-card p-4");
+    expect(markup).not.toContain("변경 요약");
 
     expect(markup).not.toContain(pr.body);
   });
 
   it("omits Summary and starts with Description without a prologue", () => {
-    const markup = renderToStaticMarkup(
-      <ReviewPrologue
-        pr={pr}
-        prologue={null}
-        comments={[]}
-        chapters={[]}
-        onSelectChapter={() => {}}
-      />,
-    );
+    const markup = renderToStaticMarkup(<ReviewPrologue pr={pr} prologue={null} comments={[]} />);
 
     expect(markup).not.toContain("요약");
     expect(markup).toContain("설명");

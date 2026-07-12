@@ -3,6 +3,7 @@
 import { ArrowRight, ChevronLeft, ChevronRight, ChevronsDown, ChevronsUp } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { ChapterCards } from "@/components/review/chapter-cards";
 import { getChapterNavigationShortcut } from "@/components/review/chapter-navigation-shortcut";
 import {
   aggregateChangedFiles,
@@ -322,14 +323,10 @@ export function ReviewView({
           </div>
         ) : (
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 md:px-6 md:py-5">
-            <div className="space-y-4">
-              <ReviewPrologue
-                pr={pr}
-                prologue={prologue}
-                comments={comments}
-                chapters={reviewChapters}
-                onSelectChapter={setOpenIndex}
-              />
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:gap-8">
+              <section className="min-w-0">
+                <ReviewPrologue pr={pr} prologue={prologue} comments={comments} />
+              </section>
               <section className="min-w-0">
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <h2 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
@@ -368,6 +365,7 @@ export function ReviewView({
                         </span>
                       </button>
                     ) : null}
+                    <ChapterCards chapters={reviewChapters} onSelect={setOpenIndex} />
                   </div>
                 ) : (
                   <div className="rounded-lg border bg-card p-2">
