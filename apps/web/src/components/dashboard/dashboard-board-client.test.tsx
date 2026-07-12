@@ -128,6 +128,38 @@ describe("DashboardBoardClient", () => {
     expect(source).not.toContain('<option value="responsibility">');
   });
 
+  it("stages dashboard filters in an anchored, accessible menu", async () => {
+    const panel = await readFile(new URL("./dashboard-filter-panel.tsx", import.meta.url), "utf8");
+    const searchBar = await readFile(
+      new URL("./dashboard-search-bar.tsx", import.meta.url),
+      "utf8",
+    );
+    const desk = await readFile(new URL("./dashboard-desk.tsx", import.meta.url), "utf8");
+    const boardClient = await readFile(
+      new URL("./dashboard-board-client.tsx", import.meta.url),
+      "utf8",
+    );
+
+    expect(panel).toContain("draftFilters");
+    expect(panel).toContain("onSave(draftFilters)");
+    expect(panel).toContain('id="dashboard-filter-menu"');
+    expect(panel).toContain('role="dialog"');
+    expect(panel).toContain('aria-label="Filters and ordering"');
+    expect(panel).toContain("Save changes");
+    expect(panel).toContain("Cancel");
+    expect(panel).toContain('event.key === "Escape"');
+    expect(panel).toContain('document.addEventListener("pointerdown"');
+    expect(panel).toContain("triggerRef.current?.focus()");
+    expect(panel).toContain("w-[min(22rem,calc(100vw-2rem))]");
+    expect(searchBar).toContain("aria-expanded={filterOpen}");
+    expect(searchBar).toContain('aria-controls="dashboard-filter-menu"');
+    expect(searchBar).toContain("ref={filterTriggerRef}");
+    expect(desk).toContain("relative");
+    expect(desk).toContain("filterTriggerRef");
+    expect(boardClient).toContain("useRef<HTMLButtonElement | null>(null)");
+    expect(boardClient).toContain("onFiltersSave={setFilters}");
+  });
+
   it("uses cockpit priority until a user selects a desk state", async () => {
     const boardClient = await readFile(
       new URL("./dashboard-board-client.tsx", import.meta.url),

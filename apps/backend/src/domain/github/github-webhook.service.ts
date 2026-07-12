@@ -127,14 +127,14 @@ export class GitHubWebhookService {
         INSTALL_SYNC_ACTIONS.has(event.action) &&
         event.payload.installation
       ) {
-        const account = event.payload.installation.account;
+        const account = event.payload.installation.account as
+          | { id: number; login: string; type: AccountType }
+          | undefined;
         await this.installationSync.sync({
           githubInstallationId: event.payload.installation.id,
-          account: {
-            githubAccountId: account.id,
-            login: account.login,
-            type: account.type,
-          },
+          account: account
+            ? { githubAccountId: account.id, login: account.login, type: account.type }
+            : undefined,
         });
         return;
       }

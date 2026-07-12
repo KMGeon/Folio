@@ -278,9 +278,34 @@ describe("auth routes", () => {
     await app.close();
   });
 
+  it("completes GitHub automatic installation OAuth without a state parameter", async () => {
+    upsertByGithubId.mockResolvedValue({
+      id: "u1",
+      login: "octocat",
+      avatarUrl: "https://avatars/octocat",
+      status: "approved",
+      globalStatus: "active",
+    });
+    const app = await createServer();
+    const { cookie } = await initiateInstallation(app);
+    const res = await request(app.getHttpServer())
+      .get("/api/v1/auth/github/callback?code=good&installation_id=123&setup_action=install")
+      .set("Cookie", cookie);
+
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toBe(
+      "http://localhost:5173/onboarding/install?installation_id=123",
+    );
+    expect(githubMocks.verifyUserInstallationAccess).toHaveBeenCalledWith({
+      accessToken: "gho_secret",
+      installationId: 123,
+    });
+    await app.close();
+  });
+
   it.each([
     ["manual callback without setup action", "&state=valid", "valid"],
-    ["callback with missing installation state", "&setup_action=install", "valid"],
+    ["callback without an installation initiation cookie", "&setup_action=install", ""],
     ["callback with missing installation state cookie", "&setup_action=install&state=valid", ""],
     ["callback with mismatched installation state", "&setup_action=install&state=wrong", "valid"],
     ["update callback", "&setup_action=update&state=valid", "valid"],

@@ -3,6 +3,7 @@ import {
   auditLogsRepo,
   getDb,
   installationsRepo,
+  repositoriesRepo,
   usersRepo,
   workspaceMembersRepo,
   workspacesRepo,
@@ -98,6 +99,23 @@ export class WorkspaceClaimFacade {
       const actor = await usersRepo.getByIdForUpdate(input.userId, transaction);
       if (!actor || actor.globalStatus !== GLOBAL_STATUS.ACTIVE) {
         throw new CoreException(ErrorType.Forbidden);
+      }
+      const installation = await installationsRepo.getByGithubIdForUpdate(
+        input.installationId,
+        transaction,
+      );
+      if (installation) {
+        // Webhooks can arrive before the user claims, so repair those synced rows while claiming.
+        await installationsRepo.setGithubAccountId(
+          installation.id,
+          input.githubAccountId,
+          transaction,
+        );
+        await repositoriesRepo.assignWorkspaceToInstallation(
+          installation.id,
+          workspace.id,
+          transaction,
+        );
       }
       const members = await workspaceMembersRepo.listByWorkspace(workspace.id, transaction);
       const hasOwner = members.some((member) => member.role === WORKSPACE_ROLE.OWNER);

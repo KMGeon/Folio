@@ -1,6 +1,7 @@
 "use client";
 
 import { ListFilter, Search, SlidersHorizontal } from "lucide-react";
+import type { RefObject } from "react";
 
 import { Button } from "@/components/ui/button";
 
@@ -9,12 +10,16 @@ export function DashboardSearchBar({
   onQueryChange,
   onFilterClick,
   onSortClick,
+  filterOpen,
+  filterTriggerRef,
   placeholder = "Search pull requests...",
 }: {
   query: string;
   onQueryChange: (value: string) => void;
   onFilterClick: () => void;
   onSortClick: () => void;
+  filterOpen: boolean;
+  filterTriggerRef: RefObject<HTMLButtonElement | null>;
   placeholder?: string;
 }) {
   return (
@@ -32,9 +37,12 @@ export function DashboardSearchBar({
       <Button
         type="button"
         aria-label="Filter pull requests"
+        aria-expanded={filterOpen}
+        aria-controls="dashboard-filter-menu"
         variant="ghost"
         size="icon"
         className="size-9 shrink-0 text-muted-foreground"
+        ref={filterTriggerRef}
         onClick={onFilterClick}
       >
         <ListFilter className="size-4" />

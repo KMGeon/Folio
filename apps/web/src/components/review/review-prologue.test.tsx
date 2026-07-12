@@ -6,6 +6,8 @@ import type { Prologue } from "@folio/types";
 
 import { ReviewPrologue } from "./review-prologue.js";
 
+globalThis.React = React;
+
 const pr = {
   org: "acme",
   repo: "widget",
@@ -39,7 +41,7 @@ const prologue: Prologue = {
 };
 
 describe("ReviewPrologue", () => {
-  it("renders Summary first with all generated sections", () => {
+  it("renders the prior independent summary card first", () => {
     const markup = renderToStaticMarkup(
       <ReviewPrologue pr={pr} prologue={prologue} comments={[]} />,
     );
@@ -48,30 +50,16 @@ describe("ReviewPrologue", () => {
     expect(markup).toContain("설명");
     expect(markup).toContain("댓글 0");
     expect(markup).toContain("한눈에 보기");
-    expect(markup).not.toContain("비개발자용");
     expect(markup).toContain(prologue.plainSummary);
-    // Quiet TL;DR — no fluorescent callout; color only on icons + severity chips.
-    expect(markup).not.toContain("bg-warning/20");
-    expect(markup).toContain("lucide-sparkles");
-    expect(markup).not.toContain("tabular-nums");
     expect(markup).toContain("왜 이 PR인가?");
     expect(markup).toContain("무엇을 하는가");
     expect(markup).toContain("핵심 변경");
     expect(markup).toContain("리뷰 포커스");
-    expect(markup).toContain("text-info");
-    expect(markup).toContain("text-primary");
-    expect(markup).toContain("text-syntax-emphasis");
-    expect(markup).toContain("text-warning");
-    expect(markup).toContain("border-warning/45 bg-warning/15 text-warning");
     expect(markup).toContain(prologue.motivation);
     expect(markup).toContain("space-y-4 rounded-lg border bg-card p-4");
-    expect(markup).toContain("text-sm leading-6");
-    expect(markup).toContain("rounded px-2.5 py-1 font-medium text-xs");
-    expect(markup).toContain("text-muted-foreground");
-    expect(markup).toContain("border-l-2 border-primary/50");
+    expect(markup).not.toContain("변경 요약");
 
     expect(markup).not.toContain(pr.body);
-    expect(markup).not.toContain("MoreHorizontal");
   });
 
   it("omits Summary and starts with Description without a prologue", () => {

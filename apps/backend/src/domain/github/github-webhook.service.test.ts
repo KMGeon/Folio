@@ -122,7 +122,7 @@ describe("GitHubWebhookService", () => {
       name: "installation",
       action,
       payload: {
-        installation: { id: 123, account: { login: "acme", type: "Organization" } },
+        installation: { id: 123, account: { id: 42, login: "acme", type: "Organization" } },
       },
     });
 

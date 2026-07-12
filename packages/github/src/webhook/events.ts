@@ -65,6 +65,7 @@ export interface InstallationEventPayload extends BasePayload {
   action: string;
   installation: InstallationRefPayload & {
     account: { id: number; login: string; type: "User" | "Organization" };
+    [key: string]: unknown;
   };
 }
 
