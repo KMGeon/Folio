@@ -53,6 +53,7 @@ export const installationsRepo = {
       .onConflictDoUpdate({
         target: installations.githubInstallationId,
         set: {
+          githubAccountId: input.githubAccountId,
           accountLogin: input.accountLogin,
           accountType: input.accountType,
           suspendedAt: input.suspendedAt ?? null,

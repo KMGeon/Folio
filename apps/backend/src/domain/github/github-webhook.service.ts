@@ -1,7 +1,6 @@
 import { Inject, Injectable, Optional } from "@nestjs/common";
 import { repositoriesRepo } from "@folio/db";
 import { createInstallationOctokit, createIssueReaction } from "@folio/github";
-import type { AccountType } from "@folio/types";
 import { PullRequestIndexWriter } from "../../application/dashboard/pull-request-index-writer.js";
 import { InstallationSyncFacade } from "../../application/github/installation-sync.facade.js";
 import { config } from "../../config.js";
@@ -128,12 +127,14 @@ export class GitHubWebhookService {
         INSTALL_SYNC_ACTIONS.has(event.action) &&
         event.payload.installation
       ) {
-        const account = event.payload.installation.account as
-          | { login: string; type: AccountType }
-          | undefined;
+        const account = event.payload.installation.account;
         await this.installationSync.sync({
           githubInstallationId: event.payload.installation.id,
-          account: account ? { login: account.login, type: account.type } : undefined,
+          account: {
+            githubAccountId: account.id,
+            login: account.login,
+            type: account.type,
+          },
         });
         return;
       }

@@ -97,6 +97,26 @@ describe("GitHubWebhookService", () => {
     },
   );
 
+  it("syncs the created installation with its account identity", async () => {
+    const { service, installationSync } = makeService({
+      name: "installation",
+      action: "created",
+      payload: {
+        installation: {
+          id: 123,
+          account: { id: 42, login: "acme", type: "Organization" },
+        },
+      },
+    });
+
+    await accept(service);
+
+    expect(installationSync.sync).toHaveBeenCalledWith({
+      githubInstallationId: 123,
+      account: { githubAccountId: 42, login: "acme", type: "Organization" },
+    });
+  });
+
   it.each(["suspend", "deleted"])("disconnects repositories on installation %s", async (action) => {
     const { service, installationSync } = makeService({
       name: "installation",
