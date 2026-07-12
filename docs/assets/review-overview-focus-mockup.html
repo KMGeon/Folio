@@ -1,0 +1,589 @@
+<!doctype html>
+<html lang="ko" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Folio — Overview 검토 사항 가시화 목업</title>
+    <style>
+      :root {
+        --bg: oklch(0.145 0 0);
+        --fg: oklch(0.903 0.014 60.6);
+        --card: oklch(0.192 0.002 17.3);
+        --muted: oklch(0.22 0.002 17.3);
+        --muted-fg: oklch(0.726 0.004 67.8);
+        --border: oklch(1 0 0 / 0.08);
+        --primary: oklch(0.58 0.13 145);
+        --primary-fg: oklch(0.98 0 0);
+        --add: oklch(0.72 0.15 145);
+        --del: oklch(0.68 0.18 25);
+        --warning: oklch(0.85 0.14 85);
+        --radius: 0.625rem;
+        font-family:
+          "Geist",
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font-size: 13px;
+        line-height: 1.45;
+      }
+      .page {
+        max-width: 920px;
+        margin: 0 auto;
+        padding: 28px 20px 48px;
+      }
+      h1 {
+        font-size: 18px;
+        font-weight: 600;
+        margin: 0 0 6px;
+      }
+      .lead {
+        color: var(--muted-fg);
+        margin: 0 0 28px;
+        max-width: 58ch;
+      }
+      .section {
+        margin-bottom: 36px;
+      }
+      .label {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 10px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--muted-fg);
+        margin-bottom: 10px;
+      }
+      .grid {
+        display: grid;
+        gap: 16px;
+      }
+      @media (min-width: 860px) {
+        .grid-2 {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 2px 8px;
+        font-size: 11px;
+      }
+      .badge.risk {
+        border-color: color-mix(in oklch, var(--warning) 40%, transparent);
+        color: var(--warning);
+        background: color-mix(in oklch, var(--warning) 12%, transparent);
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        border: 1px solid var(--border);
+        background: color-mix(in oklch, var(--muted) 70%, transparent);
+        border-radius: 6px;
+        padding: 4px 8px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 11px;
+        color: var(--muted-fg);
+        tabular-nums: true;
+      }
+      .chip.ok {
+        border-color: color-mix(in oklch, var(--primary) 35%, transparent);
+        background: color-mix(in oklch, var(--primary) 12%, transparent);
+        color: var(--primary);
+      }
+      .add {
+        color: var(--add);
+      }
+      .del {
+        color: var(--del);
+      }
+      .num {
+        width: 24px;
+        height: 24px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 11px;
+        color: var(--muted-fg);
+        flex-shrink: 0;
+      }
+      .cta {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 32px;
+        padding: 0 12px;
+        border-radius: 8px;
+        background: var(--primary);
+        color: var(--primary-fg);
+        font-weight: 500;
+        font-size: 12px;
+        white-space: nowrap;
+      }
+      .arrow {
+        color: var(--muted-fg);
+        flex-shrink: 0;
+      }
+      .note {
+        margin-top: 10px;
+        color: var(--muted-fg);
+        font-size: 12px;
+      }
+      .callout {
+        border: 1px solid color-mix(in oklch, var(--primary) 30%, transparent);
+        background: color-mix(in oklch, var(--primary) 10%, transparent);
+        border-radius: var(--radius);
+        padding: 12px 14px;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .callout .title {
+        color: var(--primary);
+        font-size: 11px;
+        font-weight: 600;
+      }
+
+      /* BEFORE — cramped single row */
+      .before-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px;
+        border-bottom: 1px solid var(--border);
+      }
+      .before-row:last-child {
+        border-bottom: 0;
+      }
+      .before-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 8px;
+        margin-top: 4px;
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 11px;
+        color: var(--muted-fg);
+      }
+      .before-title {
+        font-size: 13px;
+        font-weight: 500;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      /* AFTER — scannable with focus items */
+      .after-row {
+        display: flex;
+        gap: 12px;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--border);
+        text-align: left;
+        width: 100%;
+        background: transparent;
+        color: inherit;
+        border-left: 0;
+        border-right: 0;
+        border-top: 0;
+        cursor: pointer;
+        font: inherit;
+      }
+      .after-row:last-child {
+        border-bottom: 0;
+      }
+      .after-row:hover {
+        background: color-mix(in oklch, var(--muted) 55%, transparent);
+      }
+      .after-main {
+        min-width: 0;
+        flex: 1;
+      }
+      .after-top {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+      }
+      .after-title {
+        font-size: 13.5px;
+        font-weight: 550;
+        line-height: 1.35;
+        margin: 0 0 8px;
+      }
+      .after-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-bottom: 10px;
+      }
+      .after-summary {
+        color: var(--muted-fg);
+        font-size: 12.5px;
+        line-height: 1.5;
+        margin: 0 0 12px;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+      .focus-box {
+        border: 1px solid var(--border);
+        background: color-mix(in oklch, var(--bg) 55%, var(--card));
+        border-radius: 8px;
+        padding: 10px 12px;
+      }
+      .focus-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--primary);
+        margin-bottom: 8px;
+      }
+      .focus-head span.count {
+        font-family: ui-monospace, Menlo, monospace;
+        font-weight: 500;
+        color: var(--muted-fg);
+        background: var(--muted);
+        border-radius: 999px;
+        padding: 1px 7px;
+      }
+      .focus-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 6px;
+      }
+      .focus-item {
+        display: flex;
+        gap: 8px;
+        align-items: flex-start;
+        font-size: 12.5px;
+        line-height: 1.45;
+        color: var(--fg);
+      }
+      .focus-item .box {
+        width: 14px;
+        height: 14px;
+        margin-top: 2px;
+        border-radius: 3px;
+        border: 1px solid color-mix(in oklch, var(--fg) 28%, transparent);
+        flex-shrink: 0;
+        background: transparent;
+      }
+      .focus-item.done {
+        color: var(--muted-fg);
+        text-decoration: line-through;
+      }
+      .focus-item.done .box {
+        border-color: color-mix(in oklch, var(--primary) 40%, transparent);
+        background: color-mix(in oklch, var(--primary) 18%, transparent);
+      }
+      .focus-more {
+        margin-top: 8px;
+        font-size: 11px;
+        color: var(--muted-fg);
+      }
+      .side {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+      .legend {
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin-top: 18px;
+        color: var(--muted-fg);
+        font-size: 12px;
+      }
+      .legend b {
+        color: var(--fg);
+        font-weight: 550;
+      }
+      .tag {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        font-size: 10px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--muted-fg);
+      }
+      .tag.bad {
+        color: var(--del);
+        border-color: color-mix(in oklch, var(--del) 35%, transparent);
+      }
+      .tag.good {
+        color: var(--primary);
+        border-color: color-mix(in oklch, var(--primary) 35%, transparent);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <h1>Overview 챕터 리스트 — 검토 사항 가시화</h1>
+      <p class="lead">
+        첫 페이지(개요)에서 챕터마다 <b>무엇을 검토해야 하는지</b>가 한 줄 카운트가 아니라
+        <b>실제 질문 문장</b>으로 보이게 하는 방향입니다. 패널 spacing 개선과 같은 호흡을 카드에
+        적용합니다.
+      </p>
+
+      <div class="section">
+        <div class="label">Before — 지금 (압축 한 줄)</div>
+        <div class="card">
+          <div class="before-row">
+            <span class="num">1</span>
+            <div style="min-width: 0; flex: 1">
+              <div class="before-title">Files 탭 검색에 맞춰 파일 수와 선택 파일을 갱신한다</div>
+              <div class="before-meta">
+                <span class="badge risk">중간 위험</span>
+                <span class="add">+83</span>
+                <span class="del">-7</span>
+                <span>📄 4</span>
+                <span>✓ 0/3</span>
+              </div>
+            </div>
+            <span class="cta">리뷰 시작 →</span>
+          </div>
+          <div class="before-row">
+            <span class="num">2</span>
+            <div style="min-width: 0; flex: 1">
+              <div class="before-title">챕터 패널 완료 CTA 강화</div>
+              <div class="before-meta">
+                <span class="badge risk">중간 위험</span>
+                <span class="add">+69</span>
+                <span class="del">-17</span>
+                <span>📄 2</span>
+                <span>✓ 0/2</span>
+              </div>
+            </div>
+            <span class="arrow">→</span>
+          </div>
+        </div>
+        <p class="note">
+          <span class="tag bad">문제</span>
+          검토할 사항이 <code>0/3</code> 숫자로만 보여서, 들어가기 전엔 “뭘 봐야 하는지”가 안 읽힘.
+          메타도 한 줄에 다 붙어 보임.
+        </p>
+      </div>
+
+      <div class="section">
+        <div class="label">After — 제안 (칩 + 요약 + 검토 미리보기)</div>
+
+        <div class="callout">
+          <div style="min-width: 0; flex: 1">
+            <div class="title">이어서 리뷰</div>
+            <div style="margin-top: 2px">제1장 · Files 탭 검색에 맞춰 파일 수와 선택 파일을 갱신한다</div>
+          </div>
+          <span class="cta">계속 →</span>
+        </div>
+
+        <div class="card">
+          <!-- Chapter 1 -->
+          <button class="after-row" type="button">
+            <span class="num">1</span>
+            <div class="after-main">
+              <div class="after-top">
+                <div style="min-width: 0; flex: 1">
+                  <h3 class="after-title">
+                    Files 탭 검색에 맞춰 파일 수와 선택 파일을 갱신한다
+                  </h3>
+                  <div class="after-chips">
+                    <span class="badge risk">중간 위험</span>
+                    <span class="chip">검토 0/3</span>
+                    <span class="chip">파일 0/4</span>
+                    <span class="chip"><span class="add">+83</span> <span class="del">-7</span></span>
+                  </div>
+                  <p class="after-summary">
+                    <code>changed-file-summary</code>의 필터/선택 해석 헬퍼를 추가하고,
+                    <code>review-files-tab</code>과 <code>review-view</code>가 빈 결과 상태와 선택
+                    보정을 사용하도록 연결합니다.
+                  </p>
+                  <div class="focus-box">
+                    <div class="focus-head">
+                      검토할 사항
+                      <span class="count">0/3</span>
+                    </div>
+                    <ul class="focus-list">
+                      <li class="focus-item">
+                        <span class="box"></span>
+                        <span>경로 검색을 toLocaleLowerCase로 처리해도 지원 대상 로케일에서 예상대로 동작하나요?</span>
+                      </li>
+                      <li class="focus-item">
+                        <span class="box"></span>
+                        <span>필터 결과가 없을 때 선택 파일을 null로 만드는 흐름이 제품 의도와 맞나요?</span>
+                      </li>
+                      <li class="focus-item">
+                        <span class="box"></span>
+                        <span>빈 파일 필터 상태가 사용자가 다음 행동을 이해하기에 충분한가요?</span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+                <div class="side">
+                  <span class="cta">리뷰 시작 →</span>
+                </div>
+              </div>
+            </div>
+          </button>
+
+          <!-- Chapter 2 -->
+          <button class="after-row" type="button">
+            <span class="num">2</span>
+            <div class="after-main">
+              <div class="after-top">
+                <div style="min-width: 0; flex: 1">
+                  <h3 class="after-title">챕터 패널 완료 CTA 강화</h3>
+                  <div class="after-chips">
+                    <span class="badge risk">중간 위험</span>
+                    <span class="chip ok">검토 2/2</span>
+                    <span class="chip">파일 1/3</span>
+                    <span class="chip"><span class="add">+69</span> <span class="del">-17</span></span>
+                  </div>
+                  <p class="after-summary">
+                    검토 항목이 모두 끝나면 ‘이 챕터 마치기’를 강조하고, 완료 상태가 상단 진행률과
+                    맞춰 보이도록 합니다.
+                  </p>
+                  <div class="focus-box">
+                    <div class="focus-head">
+                      검토할 사항
+                      <span class="count">2/2</span>
+                    </div>
+                    <ul class="focus-list">
+                      <li class="focus-item done">
+                        <span class="box"></span>
+                        <span>완료 CTA 문구가 챕터 단위 의미를 전달하나요?</span>
+                      </li>
+                      <li class="focus-item done">
+                        <span class="box"></span>
+                        <span>포커스 완료 시 primary 강조가 과하지 않나요?</span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+                <div class="side">
+                  <span class="arrow">→</span>
+                </div>
+              </div>
+            </div>
+          </button>
+
+          <!-- Chapter 3 with truncation -->
+          <button class="after-row" type="button">
+            <span class="num">3</span>
+            <div class="after-main">
+              <div class="after-top">
+                <div style="min-width: 0; flex: 1">
+                  <h3 class="after-title">Files 탭을 별도 컴포넌트로 분리</h3>
+                  <div class="after-chips">
+                    <span class="badge risk" style="color: var(--del); border-color: color-mix(in oklch, var(--del) 40%, transparent); background: color-mix(in oklch, var(--del) 12%, transparent)">
+                      높은 위험
+                    </span>
+                    <span class="chip">검토 0/5</span>
+                    <span class="chip">파일 0/2</span>
+                    <span class="chip"><span class="add">+125</span> <span class="del">-85</span></span>
+                  </div>
+                  <p class="after-summary">
+                    max-lines를 지키기 위해 파일 목록/diff 영역을 전용 컴포넌트로 옮기고, 부모는
+                    선택 상태만 조율합니다.
+                  </p>
+                  <div class="focus-box">
+                    <div class="focus-head">
+                      검토할 사항
+                      <span class="count">0/5</span>
+                    </div>
+                    <ul class="focus-list">
+                      <li class="focus-item">
+                        <span class="box"></span>
+                        <span>분리된 컴포넌트가 선택 파일·챕터 범위·댓글 컨텍스트를 과도하게 떠안지 않나요?</span>
+                      </li>
+                      <li class="focus-item">
+                        <span class="box"></span>
+                        <span>빈 필터 empty state 카피가 다음 행동을 안내하나요?</span>
+                      </li>
+                    </ul>
+                    <div class="focus-more">+ 검토 사항 3개 더 · 챕터에서 전부 보기</div>
+                  </div>
+                </div>
+                <div class="side">
+                  <span class="arrow">→</span>
+                </div>
+              </div>
+            </div>
+          </button>
+        </div>
+
+        <div class="legend">
+          <span><b>1</b> 메타는 칩으로 분리 (붙어 보이지 않음)</span>
+          <span><b>2</b> 챕터 요약 1–2줄</span>
+          <span><b>3</b> 검토할 사항 실제 문장 최대 3개 (초과는 “N개 더”)</span>
+          <span><b>4</b> 카드 전체가 클릭 → 해당 챕터 drill-in</span>
+        </div>
+        <p class="note">
+          <span class="tag good">의도</span>
+          Overview에서 “이 장을 왜 열어봐야 하지?”가 30초 안에 읽히고, drill-in 패널의 검토 목록과
+          같은 언어/체크 위계를 유지합니다. 체크는 Overview에서는 <b>미리보기(읽기 전용)</b>이고,
+          실제 체크는 챕터 패널에서만 해도 됩니다(1차 제안).
+        </p>
+      </div>
+
+      <div class="section">
+        <div class="label">패널 쪽 (비교) — spacing 개선 방향</div>
+        <div class="card" style="padding: 16px">
+          <div class="after-chips" style="margin-bottom: 14px">
+            <span class="chip">검토 0/3</span>
+            <span class="chip">파일 0/4</span>
+            <span class="chip"><span class="add">+83</span> <span class="del">-7</span></span>
+          </div>
+          <p style="margin: 0 0 16px; line-height: 1.55; color: var(--fg)">
+            changed-file-summary의 필터/선택 해석 헬퍼를 추가하고, review-files-tab과 review-view가
+            빈 결과 상태와 선택 보정을 사용하도록 연결합니다.
+          </p>
+          <div class="focus-box">
+            <div class="focus-head">검토할 사항 <span class="count">0/3</span></div>
+            <ul class="focus-list">
+              <li class="focus-item">
+                <span class="box"></span>
+                <span>경로 검색을 toLocaleLowerCase로 처리해도 지원 대상 로케일에서 예상대로 동작하나요?</span>
+              </li>
+              <li class="focus-item">
+                <span class="box"></span>
+                <span>필터 결과가 없을 때 선택 파일을 null로 만드는 흐름이 제품 의도와 맞나요?</span>
+              </li>
+              <li class="focus-item">
+                <span class="box"></span>
+                <span>빈 파일 필터 상태가 사용자가 다음 행동을 이해하기에 충분한가요?</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+        <p class="note">Overview 카드의 focus-box와 패널의 검토 목록을 <b>같은 패턴</b>으로 맞추면 “따로 노는” 느낌이 줄어듭니다.</p>
+      </div>
+    </div>
+  </body>
+</html>
