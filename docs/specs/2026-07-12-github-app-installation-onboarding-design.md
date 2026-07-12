@@ -8,9 +8,11 @@ next step directly instead of leaving users to find the installation page.
 
 ## Scope
 
-The guard applies to authenticated routes rendered inside `AppLayout`, except
-`/onboarding/install`, which is the installation callback and claim screen.
-Public pages and users without a session are unchanged.
+The guard applies to product routes rendered inside `AppLayout`, except
+`/onboarding/install`, which is the installation callback and claim screen,
+and `/admin`, which must remain available to system administrators even before
+they connect a workspace. Public pages and users without a session are
+unchanged.
 
 The guard does not replace the existing repository-selection empty state. A
 connected workspace with zero Folio-enabled repositories is ready to enter the
@@ -87,10 +89,10 @@ authority decision.
 
 Create a small client-side `InstallationOnboardingGate` composed by
 `AppLayout`. It receives the already-resolved context from the server so the
-dashboard never flashes before the guard appears. It uses the existing dark
-surfaces, hairline borders, `Dialog` primitive, `Button`, and Lucide GitHub /
-plug iconography. It does not introduce colors, typography sizes, or shadow
-tiers outside the design system.
+dashboard never flashes before the guard appears. It uses an accessible,
+full-viewport dialog overlay with the existing dark surfaces, hairline borders,
+`Button`, and Lucide GitHub / plug iconography. It does not introduce colors,
+typography sizes, or shadow tiers outside the design system.
 
 The gate bypasses `/onboarding/install` so the callback page can show the
 existing claim button. It also does nothing when `AppLayout` has no signed-in
