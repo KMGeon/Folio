@@ -15,6 +15,16 @@ export const MEMBERSHIP_STATUS = {
 export type MembershipStatus = (typeof MEMBERSHIP_STATUS)[keyof typeof MEMBERSHIP_STATUS];
 export const MembershipStatusSchema = enumFromConst(MEMBERSHIP_STATUS);
 
+export const INSTALLATION_ONBOARDING_STATE = {
+  READY: "ready",
+  INSTALL_REQUIRED: "install_required",
+  REINSTALL_REQUIRED: "reinstall_required",
+  MEMBERSHIP_SUSPENDED: "membership_suspended",
+} as const;
+export type InstallationOnboardingState =
+  (typeof INSTALLATION_ONBOARDING_STATE)[keyof typeof INSTALLATION_ONBOARDING_STATE];
+export const InstallationOnboardingStateSchema = enumFromConst(INSTALLATION_ONBOARDING_STATE);
+
 export const GLOBAL_STATUS = {
   PENDING: "pending",
   ACTIVE: "active",

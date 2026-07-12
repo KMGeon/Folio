@@ -12,6 +12,7 @@ import {
   AUDIT_ACTION,
   ENTITLEMENT_FEATURE,
   GLOBAL_STATUS,
+  INSTALLATION_ONBOARDING_STATE,
   MEMBERSHIP_STATUS,
   WORKSPACE_ROLE,
   type AccountType,
@@ -79,6 +80,15 @@ export class WorkspaceClaimFacade {
         throw new CoreException(ErrorType.WorkspaceNotFound);
       }
 
+      await installationsRepo.upsertByGithubId(
+        {
+          githubInstallationId: input.installationId,
+          githubAccountId: input.githubAccountId,
+          accountLogin: input.accountLogin,
+          accountType: input.accountType,
+        },
+        transaction,
+      );
       const lockedMemberships = await workspaceMembersRepo.getMembershipsForUpdate(
         workspace.id,
         [input.userId],
@@ -155,6 +165,17 @@ export class WorkspaceClaimFacade {
     const membership = workspace
       ? await workspaceMembersRepo.getMembership(workspace.id, userId)
       : null;
+    const installations = workspace
+      ? await this.resolver.listInstallationsForWorkspace(workspace.githubAccountId)
+      : [];
+    const onboardingState =
+      membership?.status === MEMBERSHIP_STATUS.SUSPENDED
+        ? INSTALLATION_ONBOARDING_STATE.MEMBERSHIP_SUSPENDED
+        : !workspace || !membership
+          ? INSTALLATION_ONBOARDING_STATE.INSTALL_REQUIRED
+          : installations.some((installation) => installation.suspendedAt === null)
+            ? INSTALLATION_ONBOARDING_STATE.READY
+            : INSTALLATION_ONBOARDING_STATE.REINSTALL_REQUIRED;
     const entitlements: EntitlementFeature[] = [];
     for (const feature of Object.values(ENTITLEMENT_FEATURE)) {
       const decision = await this.entitlements.canUseFeature({
@@ -173,6 +194,7 @@ export class WorkspaceClaimFacade {
       globalStatus: user.globalStatus,
       isSystemAdmin: user.isSystemAdmin,
       entitlements,
+      onboardingState,
     };
   }
 

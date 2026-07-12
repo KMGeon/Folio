@@ -1,8 +1,11 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { AppRouteLabel } from "@/components/app-route-label";
 import { AppSearch } from "@/components/app-search";
 import { GlobalNavigationRail } from "@/components/global-navigation-rail";
+import { InstallationOnboardingGate } from "@/components/installation-onboarding-gate";
 import type { SessionUser } from "@/lib/auth";
+import { getWorkspaceContext } from "@/lib/workspace-permission";
 
 export interface HeaderBreadcrumb {
   org: string;
@@ -13,7 +16,7 @@ export interface HeaderBreadcrumb {
 /**
  * The authenticated app frame: permanent global rail plus route-specific chrome.
  */
-export function AppLayout({
+export async function AppLayout({
   user,
   breadcrumb,
   children,
@@ -22,6 +25,14 @@ export function AppLayout({
   breadcrumb?: HeaderBreadcrumb;
   children: React.ReactNode;
 }) {
+  const cookieHeader = user
+    ? (await cookies())
+        .getAll()
+        .map((cookie) => `${cookie.name}=${cookie.value}`)
+        .join("; ")
+    : undefined;
+  const workspaceContext = user ? await getWorkspaceContext(cookieHeader) : null;
+
   return (
     <div className="flex h-svh overflow-hidden bg-background text-foreground">
       <GlobalNavigationRail user={user} />
@@ -48,6 +59,7 @@ export function AppLayout({
 
         <main className="flex min-h-0 flex-1 flex-col">{children}</main>
       </div>
+      <InstallationOnboardingGate onboardingState={workspaceContext?.onboardingState ?? null} />
     </div>
   );
 }

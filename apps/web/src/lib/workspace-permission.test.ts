@@ -18,6 +18,7 @@ const base: WorkspaceContext = {
   globalStatus: "active",
   isSystemAdmin: false,
   entitlements: ["review_read"],
+  onboardingState: "ready",
 };
 
 afterEach(() => {

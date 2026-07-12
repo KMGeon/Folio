@@ -73,6 +73,7 @@ const context: WorkspaceContext = {
   globalStatus: "active",
   isSystemAdmin: false,
   entitlements: [],
+  onboardingState: "ready",
 };
 
 const mountedRoots: Root[] = [];

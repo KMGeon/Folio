@@ -1,6 +1,7 @@
 import type {
   EntitlementFeature,
   GlobalStatus,
+  InstallationOnboardingState,
   MembershipStatus,
   WorkspaceRole,
 } from "@folio/types";
@@ -13,6 +14,7 @@ export interface WorkspaceContext {
   globalStatus: GlobalStatus;
   isSystemAdmin: boolean;
   entitlements: EntitlementFeature[];
+  onboardingState: InstallationOnboardingState;
 }
 
 export async function getWorkspaceContext(cookie?: string): Promise<WorkspaceContext | null> {
