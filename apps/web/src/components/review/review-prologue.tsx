@@ -46,11 +46,11 @@ export function ReviewPrologue({
 
   return (
     <section className="min-w-0">
-      <div className="mb-5 flex flex-wrap items-center gap-3">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
         <span className="font-mono text-muted-foreground text-[0.7rem] uppercase tracking-[0.18em]">
           프롤로그
         </span>
-        <div className="flex rounded-lg bg-muted/60 p-1.5">
+        <div className="flex rounded-md bg-muted/60 p-0.5">
           {prologue ? (
             <PrologueTabButton
               active={tab === "summary"}
@@ -98,7 +98,7 @@ function PrologueTabButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "rounded-md px-4 py-2.5 font-medium text-sm transition-colors",
+        "rounded px-2.5 py-1 font-medium text-xs transition-colors",
         active
           ? "bg-card text-foreground shadow-xs"
           : "text-muted-foreground hover:bg-muted/40 hover:text-foreground",
