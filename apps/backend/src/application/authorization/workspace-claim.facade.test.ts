@@ -3,6 +3,8 @@ import {
   type WorkspaceMemberRow,
   type WorkspaceRow,
   auditLogsRepo,
+  installationsRepo,
+  repositoriesRepo,
   usersRepo,
   workspaceMembersRepo,
   workspacesRepo,
@@ -31,6 +33,8 @@ const dbDouble = vi.hoisted(() => ({ transaction: vi.fn() }));
 vi.mock("@folio/db", () => ({
   auditLogsRepo: { record: vi.fn() },
   getDb: () => ({ transaction: dbDouble.transaction }),
+  installationsRepo: { getByGithubIdForUpdate: vi.fn(), setGithubAccountId: vi.fn() },
+  repositoriesRepo: { assignWorkspaceToInstallation: vi.fn() },
   usersRepo: { getById: vi.fn(), getByIdForUpdate: vi.fn() },
   workspaceMembersRepo: {
     create: vi.fn(),
@@ -107,6 +111,9 @@ describe("WorkspaceClaimFacade", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     dbDouble.transaction.mockImplementation(async (callback) => callback(transaction));
+    vi.mocked(installationsRepo.getByGithubIdForUpdate).mockResolvedValue({
+      id: "installation-1",
+    } as never);
     vi.mocked(usersRepo.getByIdForUpdate).mockResolvedValue(user());
     entitlement = { canUseFeature: vi.fn() };
     membership = { ensureReviewer: vi.fn() };
@@ -226,6 +233,28 @@ describe("WorkspaceClaimFacade", () => {
           before: { role: null, status: null },
           after: { role: WORKSPACE_ROLE.OWNER, status: MEMBERSHIP_STATUS.ACTIVE },
         },
+        transaction,
+      );
+    });
+
+    it("links the verified installation and its repositories to the claimed workspace", async () => {
+      arrangeWorkspace();
+      vi.mocked(workspaceMembersRepo.getMembershipsForUpdate).mockResolvedValue([]);
+      vi.mocked(workspaceMembersRepo.listByWorkspace).mockResolvedValue([]);
+      vi.mocked(workspaceMembersRepo.create).mockResolvedValue(
+        member("user-1", WORKSPACE_ROLE.OWNER),
+      );
+
+      await facade.claimAsOwner(claimInput);
+
+      expect(installationsRepo.setGithubAccountId).toHaveBeenCalledWith(
+        "installation-1",
+        42,
+        transaction,
+      );
+      expect(repositoriesRepo.assignWorkspaceToInstallation).toHaveBeenCalledWith(
+        "installation-1",
+        "workspace-1",
         transaction,
       );
     });

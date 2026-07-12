@@ -129,11 +129,13 @@ export class GitHubWebhookService {
         event.payload.installation
       ) {
         const account = event.payload.installation.account as
-          | { login: string; type: AccountType }
+          | { id: number; login: string; type: AccountType }
           | undefined;
         await this.installationSync.sync({
           githubInstallationId: event.payload.installation.id,
-          account: account ? { login: account.login, type: account.type } : undefined,
+          account: account
+            ? { githubAccountId: account.id, login: account.login, type: account.type }
+            : undefined,
         });
         return;
       }

@@ -64,6 +64,17 @@ export const repositoriesRepo = {
     return db.select().from(repositories).where(eq(repositories.installationId, installationId));
   },
 
+  async assignWorkspaceToInstallation(
+    installationId: string,
+    workspaceId: string,
+    db: Db = getDb(),
+  ): Promise<void> {
+    await db
+      .update(repositories)
+      .set({ workspaceId, updatedAt: new Date() })
+      .where(eq(repositories.installationId, installationId));
+  },
+
   async listByWorkspaceId(workspaceId: string, db: Db = getDb()): Promise<RepositoryRow[]> {
     return db.select().from(repositories).where(eq(repositories.workspaceId, workspaceId));
   },

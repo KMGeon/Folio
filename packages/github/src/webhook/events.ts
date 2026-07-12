@@ -63,7 +63,10 @@ export interface CheckSuiteEventPayload extends BasePayload {
 
 export interface InstallationEventPayload extends BasePayload {
   action: string;
-  installation: InstallationRefPayload & { account: { login: string }; [key: string]: unknown };
+  installation: InstallationRefPayload & {
+    account: { id: number; login: string };
+    [key: string]: unknown;
+  };
 }
 
 export interface InstallationRepositoriesEventPayload extends BasePayload {

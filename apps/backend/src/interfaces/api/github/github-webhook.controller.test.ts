@@ -108,7 +108,7 @@ describe("POST /webhooks/github", () => {
     const app = await createTestServer();
     const body = JSON.stringify({
       action: "created",
-      installation: { id: 123456, account: { login: "KMGeon", type: "User" } },
+      installation: { id: 123456, account: { id: 42, login: "KMGeon", type: "User" } },
     });
 
     const res = await request(app.getHttpServer())
@@ -122,7 +122,7 @@ describe("POST /webhooks/github", () => {
     expect(res.status).toBe(202);
     expect(syncInstallation).toHaveBeenCalledWith({
       githubInstallationId: 123456,
-      account: { login: "KMGeon", type: "User" },
+      account: { githubAccountId: 42, login: "KMGeon", type: "User" },
     });
     expect(enqueueReviewPull).not.toHaveBeenCalled();
     await app.close();

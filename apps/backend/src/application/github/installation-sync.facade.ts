@@ -4,6 +4,7 @@ import type { AccountType } from "@folio/types";
 import { createInstallationOctokit } from "@folio/github";
 
 export interface InstallationAccount {
+  githubAccountId: number;
   login: string;
   type: AccountType;
 }
@@ -26,6 +27,7 @@ export class InstallationSyncFacade {
     const installation = input.account
       ? await installationsRepo.upsertByGithubId({
           githubInstallationId: input.githubInstallationId,
+          githubAccountId: input.account.githubAccountId,
           accountLogin: input.account.login,
           accountType: input.account.type,
         })
