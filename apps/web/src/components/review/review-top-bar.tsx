@@ -62,9 +62,9 @@ export function ReviewTopBar({
   const StatusIcon = status.icon;
 
   return (
-    <div className="shrink-0 px-4 pt-2.5 md:px-6">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 flex-col gap-1.5">
+    <div className="shrink-0 px-6 pt-3 md:px-10">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex min-w-0 flex-col gap-2">
           <div className="flex flex-wrap items-center gap-2">
             <span
               className={cn(
@@ -121,8 +121,9 @@ export function ReviewTopBar({
         </Button>
       </div>
 
-      <div className="mt-2.5 flex items-center justify-between gap-2 border-b">
-        <nav className="flex items-center gap-1 overflow-x-auto">
+      {/* Pill tabs (reference: Chapters / Activity / Files) — larger padding, clear chip edges. */}
+      <div className="mt-4 flex items-center justify-between gap-4 border-b border-border/80 pb-3">
+        <nav className="flex items-center gap-2 overflow-x-auto">
           <TabButton
             active={activeTab === "chapters"}
             onClick={() => onTabChange("chapters")}
@@ -174,17 +175,17 @@ function TabButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "-mb-px flex items-center gap-1.5 whitespace-nowrap border-b-2 px-2.5 py-1.5 text-xs transition-colors",
+        "flex items-center gap-2 whitespace-nowrap rounded-lg border px-4 py-2.5 text-sm transition-colors",
         active
-          ? "border-primary font-medium text-foreground"
-          : "border-transparent text-muted-foreground hover:text-foreground",
+          ? "border-border bg-muted font-medium text-foreground"
+          : "border-transparent text-muted-foreground hover:bg-muted/40 hover:text-foreground",
       )}
     >
-      <Icon className="size-3.5" />
+      <Icon className="size-4 shrink-0" />
       {label}
       <span
         className={cn(
-          "rounded-full px-1.5 py-px text-[11px] tabular-nums",
+          "rounded-full px-2 py-0.5 font-mono text-xs tabular-nums",
           active ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground",
         )}
       >
@@ -208,8 +209,10 @@ export function PanelTabButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "rounded px-2.5 py-1 font-medium text-xs transition-colors",
-        active ? "bg-card text-foreground" : "text-muted-foreground hover:text-foreground",
+        "rounded-md px-4 py-2.5 font-medium text-sm transition-colors",
+        active
+          ? "bg-card text-foreground shadow-xs"
+          : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
       )}
     >
       {label}

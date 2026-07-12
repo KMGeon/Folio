@@ -22,8 +22,8 @@ describe("ReviewView source", () => {
     expect(chapterCardsSource).toContain("검토할 사항");
     expect(chapterCardsSource).toContain("FOCUS_PREVIEW_LIMIT");
     expect(topBarSource).toContain("font-sans text-xl");
-    expect(topBarSource).toContain("px-4 pt-2.5 md:px-6");
-    expect(source).toContain("overflow-y-auto px-4 py-3 md:px-6");
+    expect(topBarSource).toContain("px-6 pt-3 md:px-10");
+    expect(source).toContain("overflow-y-auto px-6 py-6 md:px-10 md:py-8");
   });
 
   it("can collapse and expand every file from the chapter toolbar", () => {
@@ -68,9 +68,10 @@ describe("ReviewView source", () => {
   });
 
   it("allows both overview grid columns to shrink on narrow screens", () => {
-    expect(source).toContain("lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.35fr)]");
+    expect(source).toContain("lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]");
+    expect(source).toContain("lg:gap-10");
     expect(source).toContain('<section className="min-w-0">\n                <ReviewPrologue');
-    expect(source).toContain('<section className="min-w-0">\n                <div className="mb-3');
+    expect(source).toContain('<section className="min-w-0">\n                <div className="mb-5');
   });
 
   it("keeps the chapter panel dense so the diff stays primary", () => {

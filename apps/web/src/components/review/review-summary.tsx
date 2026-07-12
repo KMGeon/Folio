@@ -22,57 +22,64 @@ const severityClasses: Record<FocusAreaSeverity, string> = {
 
 export function ReviewSummary({ prologue }: { prologue: Prologue }) {
   return (
-    <article className="space-y-4 rounded-lg border bg-card p-4">
+    <article className="space-y-7 rounded-lg border bg-card p-6 md:p-8">
       <SummarySection icon={GitPullRequestArrow} title="왜 이 PR인가?">
-        <p className={cn("text-sm leading-6", !prologue.motivation && "text-muted-foreground")}>
+        <p className={cn("text-sm leading-7", !prologue.motivation && "text-muted-foreground")}>
           {prologue.motivation ?? "변경 내용에서 명확히 확인되지 않았습니다."}
         </p>
       </SummarySection>
       <SummarySection icon={Braces} title="무엇을 하는가">
-        <p className={cn("text-sm leading-6", !prologue.outcome && "text-muted-foreground")}>
+        <p className={cn("text-sm leading-7", !prologue.outcome && "text-muted-foreground")}>
           {prologue.outcome ?? "변경 내용에서 명확히 확인되지 않았습니다."}
         </p>
         {prologue.diagram ? (
-          <MermaidDiagram source={prologue.diagram} label="PR 변경 흐름도" />
+          <div className="mt-4">
+            <MermaidDiagram source={prologue.diagram} label="PR 변경 흐름도" />
+          </div>
         ) : null}
       </SummarySection>
       <SummarySection icon={ListChecks} title="핵심 변경">
         {prologue.keyChanges.length ? (
-          <div className="space-y-3">
+          <div className="space-y-5">
             {prologue.keyChanges.map((change) => (
               <div
                 key={`${change.summary}-${change.description}`}
-                className="border-l-2 border-primary/50 pl-3"
+                className="border-l-2 border-primary/50 py-1 pl-5"
               >
-                <p className="font-medium text-sm">{change.summary}</p>
-                <p className="mt-1 text-muted-foreground text-sm leading-6">{change.description}</p>
+                <p className="font-medium text-sm leading-6">{change.summary}</p>
+                <p className="mt-2 text-muted-foreground text-sm leading-7">{change.description}</p>
               </div>
             ))}
           </div>
         ) : (
-          <p className="text-muted-foreground text-sm">핵심 변경이 제공되지 않았습니다.</p>
+          <p className="text-muted-foreground text-sm leading-7">
+            핵심 변경이 제공되지 않았습니다.
+          </p>
         )}
       </SummarySection>
       <SummarySection icon={ScanSearch} title="리뷰 포커스">
-        <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div className="mb-5 flex flex-wrap items-center gap-2.5">
           <span
             className={cn(
-              "rounded-full border px-2 py-0.5 font-medium text-xs",
+              "rounded-full border px-2.5 py-1 font-medium text-xs",
               complexityClasses[prologue.complexity.level],
             )}
           >
             {prologue.complexity.level}
           </span>
-          <p className="text-muted-foreground text-sm leading-6">{prologue.complexity.reasoning}</p>
+          <p className="text-muted-foreground text-sm leading-7">{prologue.complexity.reasoning}</p>
         </div>
         {prologue.focusAreas.length ? (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {prologue.focusAreas.map((area) => (
-              <div key={`${area.type}-${area.title}`} className="rounded-md border bg-muted/20 p-3">
+              <div
+                key={`${area.type}-${area.title}`}
+                className="rounded-md border bg-muted/20 px-4 py-4"
+              >
                 <div className="flex flex-wrap items-center gap-2">
                   <span
                     className={cn(
-                      "rounded-full border px-2 py-0.5 font-medium text-xs",
+                      "rounded-full border px-2.5 py-1 font-medium text-xs",
                       severityClasses[area.severity],
                     )}
                   >
@@ -80,13 +87,13 @@ export function ReviewSummary({ prologue }: { prologue: Prologue }) {
                   </span>
                   <span className="font-medium text-sm">{area.title}</span>
                 </div>
-                <p className="mt-2.5 text-muted-foreground text-sm leading-6">{area.description}</p>
+                <p className="mt-3 text-muted-foreground text-sm leading-7">{area.description}</p>
                 {area.locations.length ? (
-                  <div className="mt-2.5 flex flex-wrap gap-1.5">
+                  <div className="mt-3 flex flex-wrap gap-2">
                     {area.locations.map((location) => (
                       <span
                         key={location}
-                        className="rounded bg-muted px-1.5 py-0.5 font-mono text-muted-foreground text-xs"
+                        className="rounded-md bg-muted px-2.5 py-1 font-mono text-muted-foreground text-xs"
                       >
                         {location}
                       </span>
@@ -97,7 +104,9 @@ export function ReviewSummary({ prologue }: { prologue: Prologue }) {
             ))}
           </div>
         ) : (
-          <p className="text-muted-foreground text-sm">별도 검토 지점이 제공되지 않았습니다.</p>
+          <p className="text-muted-foreground text-sm leading-7">
+            별도 검토 지점이 제공되지 않았습니다.
+          </p>
         )}
       </SummarySection>
     </article>
@@ -115,8 +124,8 @@ function SummarySection({
 }) {
   return (
     <section>
-      <h3 className="mb-2.5 flex items-center gap-2 font-medium text-foreground text-sm">
-        <Icon className="size-4 text-muted-foreground" />
+      <h3 className="mb-3.5 flex items-center gap-2.5 font-medium text-foreground text-sm">
+        <Icon className="size-4 shrink-0 text-muted-foreground" />
         {title}
       </h3>
       {children}
