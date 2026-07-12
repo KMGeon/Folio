@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { SettingsCard, SettingsPageHeader } from "@/components/settings/settings-card";
 import { WorkspaceMembersAdmin } from "@/components/settings/workspace-members-admin";
 import { Button } from "@/components/ui/button";
-import { getMe, listWorkspaceMembers } from "@/lib/auth";
+import { getMe, installationUrl, listWorkspaceMembers } from "@/lib/auth";
 import { canManageMembers, getWorkspaceContext } from "@/lib/workspace-permission";
 
 export default async function WorkspacesPage() {
@@ -31,8 +31,8 @@ export default async function WorkspacesPage() {
       />
       <div className="space-y-4">
         <SettingsCard
-          title="Your workspace"
-          description="현재 로그인한 GitHub 워크스페이스"
+          title="Current workspace"
+          description="현재 선택한 GitHub 워크스페이스"
           icon={<Settings2 className="size-4" />}
         >
           <div className="flex h-12 items-center gap-3 rounded-md border bg-background/35 px-3">
@@ -43,7 +43,9 @@ export default async function WorkspacesPage() {
               height={24}
               className="size-6 rounded-full"
             />
-            <span className="font-medium">{user.login}</span>
+            <span className="font-medium">
+              {workspaceContext?.workspace?.accountLogin ?? user.login}
+            </span>
           </div>
         </SettingsCard>
         {members && workspaceContext ? (
@@ -61,7 +63,7 @@ export default async function WorkspacesPage() {
           icon={<Github className="size-4" />}
         >
           <Button asChild>
-            <a href="https://github.com/apps/stage-folio">GitHub App 설치</a>
+            <a href={installationUrl()}>GitHub App 설치</a>
           </Button>
         </SettingsCard>
       </div>

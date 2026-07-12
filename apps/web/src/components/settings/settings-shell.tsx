@@ -1,11 +1,12 @@
 "use client";
 
-import { BookOpen, ChevronDown, CreditCard, Palette, Settings2 } from "lucide-react";
+import { BookOpen, CreditCard, Palette, Settings2 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import type { SessionUser } from "@/lib/auth";
 import { cn } from "@/lib/utils";
+import type { WorkspaceContext, WorkspaceOption } from "@/lib/workspace-permission";
+import { WorkspaceSwitcher } from "./workspace-switcher";
 
 const userItems = [
   { href: "/settings/preferences", label: "Preferences", icon: Palette },
@@ -18,10 +19,12 @@ const workspaceItems = [
 ];
 
 export function SettingsShell({
-  user,
+  workspaceContext,
+  workspaces,
   children,
 }: {
-  user: SessionUser;
+  workspaceContext: WorkspaceContext | null;
+  workspaces: WorkspaceOption[];
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -33,17 +36,11 @@ export function SettingsShell({
           <p className="px-2 font-mono text-[0.65rem] font-medium uppercase tracking-[0.14em] text-muted-foreground">
             Workspace settings
           </p>
-          <div className="mt-2 flex h-9 items-center gap-2 rounded-md border bg-card px-3">
-            <img
-              src={user.avatarUrl}
-              alt=""
-              width={18}
-              height={18}
-              className="size-4.5 rounded-full"
-              referrerPolicy="no-referrer"
+          <div className="mt-2">
+            <WorkspaceSwitcher
+              workspaces={workspaces}
+              selectedWorkspaceId={workspaceContext?.workspace?.id ?? null}
             />
-            <span className="min-w-0 flex-1 truncate text-sm">{user.login}</span>
-            <ChevronDown className="size-3.5 text-muted-foreground" />
           </div>
           <nav className="mt-2 grid gap-0.5">
             {workspaceItems.map((item) => (

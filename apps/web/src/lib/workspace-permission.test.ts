@@ -6,7 +6,9 @@ import {
   canSeeSystemUsers,
   getWorkspaceContext,
   hasEntitlement,
+  listAvailableWorkspaces,
   repositoryActivationReason,
+  selectWorkspace,
 } from "./workspace-permission";
 
 const fetchMock = vi.fn<typeof fetch>();
@@ -61,6 +63,61 @@ describe("current workspace context client", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(getWorkspaceContext()).resolves.toBeNull();
+  });
+});
+
+describe("workspace selection client", () => {
+  it("lists workspaces with the forwarded server cookie", async () => {
+    const workspaces = [
+      {
+        id: "ws1",
+        accountLogin: "acme",
+        accountType: "Organization",
+        role: "owner",
+        memberStatus: "active",
+      },
+    ];
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ success: true, data: workspaces }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(listAvailableWorkspaces("folio_session=abc")).resolves.toEqual(workspaces);
+    expect(fetchMock).toHaveBeenCalledWith(
+      new URL("http://localhost:8080/api/v1/workspaces"),
+      expect.objectContaining({
+        headers: { accept: "application/json", cookie: "folio_session=abc" },
+      }),
+    );
+  });
+
+  it("posts only the selected workspace id", async () => {
+    const workspace = {
+      id: "ws1",
+      accountLogin: "acme",
+      accountType: "Organization",
+      role: "owner",
+      memberStatus: "active",
+    } as const;
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ success: true, data: workspace }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(selectWorkspace(workspace.id)).resolves.toEqual(workspace);
+    expect(fetchMock).toHaveBeenCalledWith(
+      new URL("http://localhost:8080/api/v1/workspaces/select"),
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ workspaceId: workspace.id }),
+      }),
+    );
   });
 });
 

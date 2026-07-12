@@ -46,12 +46,11 @@ describe("settings routes", () => {
     expect(source).not.toContain("PendingUsersAdmin");
   });
 
-  it("opens the Stage Folio GitHub App installation page", () => {
+  it("starts the verified Folio GitHub App installation flow", () => {
     const workspacesPage = readFileSync(resolve(settingsRoot, "workspaces/page.tsx"), "utf8");
 
-    expect(workspacesPage).toContain(
-      '<a href="https://github.com/apps/stage-folio">GitHub App 설치</a>',
-    );
+    expect(workspacesPage).toContain("installationUrl");
+    expect(workspacesPage).toContain("<a href={installationUrl()}>GitHub App 설치</a>");
   });
 
   it("loads the user and workspace context with the forwarded session cookie", () => {
