@@ -76,7 +76,8 @@ export const adminHealthRepo = {
 };
 
 async function loadCodexPath(db: Db, now: Date) {
-  const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  // postgres.js rejects raw Date params in drizzle sql fragments; bind ISO strings.
+  const dayAgoIso = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
   const [lastSuccess] = await db
     .select({ value: max(jobs.updatedAt) })
     .from(jobs)
@@ -85,10 +86,10 @@ async function loadCodexPath(db: Db, now: Date) {
   const [counts] = await db
     .select({
       reviewPullSucceededLast24h: sql<number>`count(*) filter (
-        where ${jobs.status} = 'succeeded' and ${jobs.updatedAt} >= ${dayAgo}
+        where ${jobs.status} = 'succeeded' and ${jobs.updatedAt} >= ${dayAgoIso}
       )::int`,
       reviewPullFailedLast24h: sql<number>`count(*) filter (
-        where ${jobs.status} in ('failed', 'dead') and ${jobs.updatedAt} >= ${dayAgo}
+        where ${jobs.status} in ('failed', 'dead') and ${jobs.updatedAt} >= ${dayAgoIso}
       )::int`,
     })
     .from(jobs)
