@@ -17,6 +17,13 @@ export {
   type AdminUserListInput,
   type AdminUserPageRow,
 } from "./admin-users.js";
+export {
+  adminWorkspacesRepo,
+  type AdminWorkspaceCursor,
+  type AdminWorkspaceDetailRow,
+  type AdminWorkspaceListInput,
+  type AdminWorkspaceSummary,
+} from "./admin-workspaces.js";
 export { sessionsRepo } from "./sessions.js";
 export { pullRequestsRepo } from "./pull-requests.js";
 export { pullRequestIndexRepo } from "./pull-request-index.js";
