@@ -17,7 +17,7 @@ describe("getDashboardSummaryForUser", () => {
     const payload = await getDashboardSummaryForUser(
       { id: "u1", login: "KMGeon" },
       {
-        workspace: { id: "ws-1", githubAccountId: 1 } as never,
+        workspaces: [{ id: "ws-1", githubAccountId: 1 } as never],
         installations: [],
         repositories: [
           {

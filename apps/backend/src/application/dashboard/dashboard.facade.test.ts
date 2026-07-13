@@ -18,7 +18,7 @@ const listByInstallation = vi.fn(async () => [
   },
 ]);
 const loadDashboardWorkspaceScope = vi.fn(async () => ({
-  workspace: { id: "workspace-1", githubAccountId: 42 },
+  workspaces: [{ id: "workspace-1", githubAccountId: 42 }],
   installations: await listByAccountLogin(),
   repositories: (await listByInstallation()).map((repository) => ({
     ...repository,
@@ -69,7 +69,7 @@ describe("DashboardFacade", () => {
       },
     ]);
     loadDashboardWorkspaceScope.mockImplementation(async () => ({
-      workspace: { id: "workspace-1", githubAccountId: 42 },
+      workspaces: [{ id: "workspace-1", githubAccountId: 42 }],
       installations: await listByAccountLogin(),
       repositories: (await listByInstallation()).map((repository) => ({
         ...repository,

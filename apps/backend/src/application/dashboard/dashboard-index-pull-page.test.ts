@@ -131,7 +131,7 @@ describe("dashboard index pull pages", () => {
 
 function workspaceScope() {
   return {
-    workspace: { id: "workspace-1", githubAccountId: 1 },
+    workspaces: [{ id: "workspace-1", githubAccountId: 1 }],
     installations: [],
     repositories: [repositoryRow("ready-repo", "ready"), repositoryRow("idle-repo", "idle")],
   } as never;

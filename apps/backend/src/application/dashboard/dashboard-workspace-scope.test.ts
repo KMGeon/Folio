@@ -115,6 +115,77 @@ describe("dashboard workspace scope", () => {
     ).rejects.toBeInstanceOf(CoreException);
   });
 
+  it("combines enabled repositories from personal and organization workspaces", async () => {
+    vi.mocked(workspaceMembersRepo.listByUser).mockResolvedValue([
+      {
+        workspaceId: "workspace-personal",
+        status: MEMBERSHIP_STATUS.ACTIVE,
+        role: WORKSPACE_ROLE.OWNER,
+      } as never,
+      {
+        workspaceId: "workspace-organization",
+        status: MEMBERSHIP_STATUS.ACTIVE,
+        role: WORKSPACE_ROLE.REVIEWER,
+      } as never,
+    ]);
+    vi.mocked(workspacesRepo.getById).mockImplementation(async (workspaceId) =>
+      workspaceId === "workspace-personal"
+        ? ({ id: workspaceId, githubAccountId: 11 } as never)
+        : ({ id: workspaceId, githubAccountId: 22 } as never),
+    );
+    vi.mocked(installationsRepo.listByWorkspaceAccountId).mockImplementation(async (accountId) => [
+      {
+        id: accountId === 11 ? "installation-personal" : "installation-organization",
+        githubInstallationId: accountId === 11 ? 111 : 222,
+      } as never,
+    ]);
+    vi.mocked(repositoriesRepo.listByWorkspaceId).mockImplementation(async (workspaceId) => {
+      const personal = workspaceId === "workspace-personal";
+      return [
+        {
+          id: personal ? "repository-personal" : "repository-organization",
+          installationId: personal ? "installation-personal" : "installation-organization",
+          owner: personal ? "octocat" : "acme",
+          name: personal ? "folio-personal" : "folio-organization",
+          fullName: personal ? "octocat/folio-personal" : "acme/folio-organization",
+          folioEnabled: true,
+          prIndexStatus: "ready",
+        } as never,
+      ];
+    });
+
+    const scope = await loadDashboardWorkspaceScope(
+      "user-1",
+      "octocat",
+      filterReadableResolvedRepositories,
+      { boardRead: true },
+    );
+
+    expect(scope?.workspaces.map((workspace) => workspace.id)).toEqual([
+      "workspace-personal",
+      "workspace-organization",
+    ]);
+    expect(scope?.installations.map((installation) => installation.id)).toEqual([
+      "installation-personal",
+      "installation-organization",
+    ]);
+    expect(scope?.repositories.map((repository) => repository.id)).toEqual([
+      "repository-personal",
+      "repository-organization",
+    ]);
+    expect(filterReadableResolvedRepositories).toHaveBeenCalledWith({
+      installations: [
+        { id: "installation-personal", githubInstallationId: 111 },
+        { id: "installation-organization", githubInstallationId: 222 },
+      ],
+      repositories: [
+        expect.objectContaining({ id: "repository-personal" }),
+        expect.objectContaining({ id: "repository-organization" }),
+      ],
+      username: "octocat",
+    });
+  });
+
   it("checks only enabled repositories that can appear on a live dashboard board", async () => {
     vi.mocked(repositoriesRepo.listByWorkspaceId).mockResolvedValue([
       {
