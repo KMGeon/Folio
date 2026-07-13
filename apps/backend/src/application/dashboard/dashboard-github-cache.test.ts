@@ -53,7 +53,7 @@ describe("dashboard GitHub cache", () => {
     const facade = new DashboardFacade({
       octokitFactory: async () => octokit as never,
       workspaceScopeLoader: async () => ({
-        workspace: { id: "workspace-1", githubAccountId: 42 } as never,
+        workspaces: [{ id: "workspace-1", githubAccountId: 42 } as never],
         installations: [{ id: "i1", githubInstallationId: 111 } as never],
         repositories: (await listByInstallation()).map((repository) => ({
           installationId: "i1",

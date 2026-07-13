@@ -13,7 +13,7 @@ import { CoreException } from "../../support/error/core-exception.js";
 import { ErrorType } from "../../support/error/error-type.js";
 
 export interface DashboardWorkspaceScope {
-  workspace: WorkspaceRow;
+  workspaces: WorkspaceRow[];
   installations: InstallationRow[];
   repositories: RepositoryRow[];
 }
@@ -35,22 +35,40 @@ export async function loadDashboardWorkspaceScope(
   filterReadableRepositories: DashboardResolvedRepositoryBatchAuthorizer,
   options: DashboardWorkspaceScopeOptions = {},
 ): Promise<DashboardWorkspaceScope | null> {
-  const [membership] = await workspaceMembersRepo.listByUser(userId);
-  if (!membership) {
+  const memberships = await workspaceMembersRepo.listByUser(userId);
+  if (memberships.length === 0) {
     return null;
   }
-  const reviewerOrHigher = Object.values(WORKSPACE_ROLE).includes(membership.role);
-  if (membership.status !== MEMBERSHIP_STATUS.ACTIVE || !reviewerOrHigher) {
+  const readableMemberships = memberships.filter(
+    (membership) =>
+      membership.status === MEMBERSHIP_STATUS.ACTIVE &&
+      Object.values(WORKSPACE_ROLE).includes(membership.role),
+  );
+  if (readableMemberships.length === 0) {
     throw new CoreException(ErrorType.Forbidden);
   }
-  const workspace = await workspacesRepo.getById(membership.workspaceId);
-  if (!workspace) {
+  const workspaceIds = [
+    ...new Set(readableMemberships.map((membership) => membership.workspaceId)),
+  ];
+  const workspaces = (
+    await Promise.all(workspaceIds.map((workspaceId) => workspacesRepo.getById(workspaceId)))
+  ).filter((workspace): workspace is WorkspaceRow => workspace !== null);
+  if (workspaces.length === 0) {
     return null;
   }
-  const [installations, repositories] = await Promise.all([
-    installationsRepo.listByWorkspaceAccountId(workspace.githubAccountId),
-    repositoriesRepo.listByWorkspaceId(workspace.id),
-  ]);
+
+  // The review desk is a user-wide inbox, so combine personal and organization workspaces.
+  const workspaceScopes = await Promise.all(
+    workspaces.map(async (workspace) => {
+      const [installations, repositories] = await Promise.all([
+        installationsRepo.listByWorkspaceAccountId(workspace.githubAccountId),
+        repositoriesRepo.listByWorkspaceId(workspace.id),
+      ]);
+      return { installations, repositories };
+    }),
+  );
+  const installations = workspaceScopes.flatMap((scope) => scope.installations);
+  const repositories = workspaceScopes.flatMap((scope) => scope.repositories);
   const boardCandidates = options.boardRead
     ? repositories.filter(
         (repository) =>
@@ -64,5 +82,5 @@ export async function loadDashboardWorkspaceScope(
     repositories: boardCandidates,
     username: userLogin,
   });
-  return { workspace, installations, repositories: authorizedRepositories };
+  return { workspaces, installations, repositories: authorizedRepositories };
 }

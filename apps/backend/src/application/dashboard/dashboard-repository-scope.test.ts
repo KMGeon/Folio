@@ -4,7 +4,7 @@ import { dashboardScopeForRepository } from "./dashboard-repository-scope.js";
 
 describe("dashboardScopeForRepository", () => {
   const scope = {
-    workspace: { id: "workspace-1", githubAccountId: 1 },
+    workspaces: [{ id: "workspace-1", githubAccountId: 1 }],
     installations: [],
     repositories: [
       { id: "folio", fullName: "KMGeon/Folio" },
@@ -18,7 +18,7 @@ describe("dashboardScopeForRepository", () => {
     expect(selected?.repositories.map((repo) => repo.id)).toEqual(["folio"]);
   });
 
-  it("preserves the authorized workspace when no project is selected", () => {
+  it("preserves the authorized workspaces when no project is selected", () => {
     expect(dashboardScopeForRepository(scope, undefined)).toBe(scope);
     expect(dashboardScopeForRepository(null, "KMGeon/Folio")).toBeNull();
   });

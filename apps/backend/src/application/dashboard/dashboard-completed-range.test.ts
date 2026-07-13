@@ -104,7 +104,7 @@ describe("dashboard completed range", () => {
 
 function workspaceScope(repositories: Awaited<ReturnType<typeof listByInstallation>>) {
   return {
-    workspace: { id: "workspace-1", githubAccountId: 42 },
+    workspaces: [{ id: "workspace-1", githubAccountId: 42 }],
     installations: [{ id: "i1", githubInstallationId: 111 }],
     repositories: repositories.map((repository) => ({ installationId: "i1", ...repository })),
   } as never;
